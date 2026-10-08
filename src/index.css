@@ -1650,3 +1650,459 @@ input {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =========================================================
+   REGISTRATION MODAL & RECEIPT STYLING
+   ========================================================= */
+
+.registration-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  overflow-y: auto;
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.registration-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(244, 201, 122, 0.05);
+  padding: clamp(24px, 4vw, 36px);
+  color: #f4f1e8;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f4f1e8;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+.modal-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal-header h2 {
+  font-family: "Cinzel Decorative", serif;
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 700;
+  margin: 6px 0;
+  color: #f4f1e8;
+}
+
+.modal-event-meta {
+  color: #999;
+  font-size: 13px;
+  font-family: "DM Mono", monospace;
+}
+
+.modal-error-banner {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.form-section-title {
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f4c97a;
+  margin: 22px 0 12px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1.2fr 1.4fr 1.1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .form-grid-2,
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field label {
+  font-size: 12px;
+  color: #bbb;
+  font-weight: 500;
+}
+
+.form-field input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #fff;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: #f4c97a;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 12px rgba(244, 201, 122, 0.15);
+}
+
+.team-size-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.size-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.size-tab strong {
+  font-size: 15px;
+  color: #fff;
+}
+
+.size-tab span {
+  font-size: 12px;
+  font-family: "DM Mono", monospace;
+  color: #888;
+}
+
+.size-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(244, 201, 122, 0.4);
+}
+
+.size-tab--active {
+  background: rgba(244, 201, 122, 0.1) !important;
+  border-color: #f4c97a !important;
+  color: #f4c97a !important;
+  box-shadow: 0 0 18px rgba(244, 201, 122, 0.15);
+}
+
+.size-tab--active strong {
+  color: #f4c97a !important;
+}
+
+.size-tab--active span {
+  color: #e5be70 !important;
+}
+
+/* Combo Card Banner */
+.combo-card-banner {
+  margin: 22px 0 16px;
+  background: linear-gradient(135deg, rgba(244, 201, 122, 0.08) 0%, rgba(255, 92, 53, 0.08) 100%);
+  border: 1px solid rgba(244, 201, 122, 0.35);
+  border-radius: 14px;
+  padding: 16px 18px;
+  transition: all 0.2s ease;
+}
+
+.combo-card-banner:hover {
+  border-color: #f4c97a;
+  background: linear-gradient(135deg, rgba(244, 201, 122, 0.12) 0%, rgba(255, 92, 53, 0.12) 100%);
+}
+
+.combo-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  cursor: pointer;
+}
+
+.combo-checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 3px;
+  accent-color: #f4c97a;
+  cursor: pointer;
+}
+
+.combo-text {
+  flex: 1;
+}
+
+.combo-headline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.combo-tag {
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  background: #f4c97a;
+  color: #000;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.combo-headline strong {
+  font-size: 15px;
+  color: #fff;
+}
+
+.combo-strike {
+  text-decoration: line-through;
+  color: #777;
+  font-size: 13px;
+}
+
+.combo-text p {
+  margin: 0;
+  font-size: 12px;
+  color: #bbb;
+  line-height: 1.5;
+}
+
+/* Order Summary Box */
+.order-summary-box {
+  margin: 24px 0 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.order-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #ccc;
+  margin-bottom: 8px;
+}
+
+.combo-discount-row {
+  color: #10b981;
+}
+
+.receipt-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 12px 0;
+}
+
+.order-total {
+  font-size: 17px;
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 0;
+}
+
+.total-highlight {
+  font-size: 22px;
+  color: #f4c97a;
+  font-family: "DM Mono", monospace;
+}
+
+.pill-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 100px;
+  padding: 14px 28px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 15px;
+}
+
+.pill-button--full {
+  width: 100%;
+}
+
+.pill-button--gold {
+  background: linear-gradient(135deg, #f4c97a 0%, #e2b058 100%);
+  color: #0a0a0a;
+  box-shadow: 0 4px 20px rgba(244, 201, 122, 0.3);
+}
+
+.pill-button--gold:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffd98f 0%, #f4c97a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 26px rgba(244, 201, 122, 0.45);
+}
+
+.pill-button--gold:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pill-button--outline {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.pill-button--outline:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.payment-security-note {
+  text-align: center;
+  font-size: 12px;
+  color: #777;
+  margin-top: 10px;
+}
+
+/* Success View */
+.registration-success-view {
+  text-align: center;
+  padding: 16px 8px;
+  animation: fadeIn 0.3s ease;
+}
+
+.success-badge-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  font-size: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
+}
+
+.registration-success-view h2 {
+  font-family: "Cinzel Decorative", serif;
+  font-size: 28px;
+  margin: 8px 0;
+  color: #fff;
+}
+
+.success-subtitle {
+  color: #aaa;
+  font-size: 14px;
+  max-width: 480px;
+  margin: 0 auto 24px;
+}
+
+.success-receipt-box {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(244, 201, 122, 0.4);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: left;
+  max-width: 520px;
+  margin: 0 auto 20px;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #aaa;
+  margin-bottom: 8px;
+}
+
+.receipt-row strong {
+  color: #fff;
+  font-weight: 500;
+}
+
+.receipt-pid {
+  font-family: "DM Mono", monospace;
+  color: #f4c97a !important;
+}
+
+.receipt-amount {
+  font-family: "DM Mono", monospace;
+  font-size: 20px;
+  color: #f4c97a;
+  font-weight: 700;
+}
+
+.success-sync-notice {
+  font-size: 12px;
+  color: #10b981;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.modal-action-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+

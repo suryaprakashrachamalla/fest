@@ -73,9 +73,26 @@ function EventCard({
           </p>
           <h3>{event.name}</h3>
         </div>
-        <Link className="event-link" to={`/events/${event.slug}`}>
-          Explore event <span>↗</span>
-        </Link>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <Link className="event-link" to={`/events/${event.slug}`}>
+            Explore <span>↗</span>
+          </Link>
+          <Link
+            to={`/events/${event.slug}`}
+            style={{
+              fontSize: "12px",
+              fontFamily: "DM Mono, monospace",
+              background: "rgba(244, 201, 122, 0.12)",
+              color: "#f4c97a",
+              padding: "4px 10px",
+              borderRadius: "100px",
+              border: "1px solid rgba(244, 201, 122, 0.3)",
+              fontWeight: 600,
+            }}
+          >
+            Register
+          </Link>
+        </div>
       </div>
       <p className="event-tagline">
         {event.time} · {event.tagline}
@@ -152,7 +169,15 @@ export default function HomePage() {
               A campus festival for people who build,
               <br /> perform, question, and create.
             </p>
-            <a href="#events">
+            <div style={{ display: "flex", gap: "12px", alignItems: "center", marginTop: "14px", flexWrap: "wrap" }}>
+              <Link to="/events/hackathon" className="pill-button pill-button--gold" style={{ padding: "10px 22px", fontSize: "14px" }}>
+                Register for Hackathon ↗
+              </Link>
+              <Link to="/events/no-code-vibathon" className="pill-button pill-button--outline" style={{ padding: "10px 22px", fontSize: "14px" }}>
+                No Code Vibathon ↗
+              </Link>
+            </div>
+            <a href="#events" style={{ marginTop: "10px" }}>
               Scroll to discover
               <span className="scroll-line" />
             </a>

@@ -1,11 +1,14 @@
+import { useState } from "react"
 import { Link, useParams } from "react-router"
 import Footer from "../components/Footer"
 import Header from "../components/Header"
+import RegistrationModal from "../components/RegistrationModal"
 import { events } from "../events"
 
 export default function EventPage() {
   const { slug } = useParams()
   const event = events.find((item) => item.slug === slug)
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false)
 
   if (!event) {
     return (
@@ -15,6 +18,11 @@ export default function EventPage() {
       </main>
     )
   }
+
+  const isHackathon = event.slug === "hackathon"
+  const pricingTag = isHackathon
+    ? "₹300 / person · 2–3 members"
+    : "Registration opens soon"
 
   return (
     <div
@@ -40,9 +48,22 @@ export default function EventPage() {
           <div className="event-description">
             <p className="eyebrow">About this event</p>
             <h2>{event.description}</h2>
+            <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
+              <button
+                type="button"
+                className="pill-button pill-button--gold"
+                onClick={() => setIsRegisterOpen(true)}
+              >
+                Register Team Now <span>↗</span>
+              </button>
+              <span style={{ fontSize: "13px", color: "#f4c97a", fontFamily: "DM Mono, monospace" }}>
+                ⚡ {pricingTag}
+              </span>
+            </div>
           </div>
           <div className="event-facts">
             {[
+              ["Fee", isHackathon ? "₹300 / head (2–3 members)" : "Announced soon"],
               ["Format", event.format],
               ["Team", event.team],
               ["Date", event.date],
@@ -76,17 +97,29 @@ export default function EventPage() {
         </section>
 
         <section className="detail-cta">
-          <p>Registration opens soon</p>
+          <p style={{ color: "#f4c97a" }}>{isHackathon ? "Registration is Live" : "Registration opens soon"}</p>
           <h2>
             Ready to make
             <br />
             some noise?
           </h2>
-          <Link to="/signup">
-            Notify me <span>↗</span>
-          </Link>
+          <button
+            type="button"
+            className="pill-button pill-button--gold"
+            onClick={() => setIsRegisterOpen(true)}
+            style={{ fontSize: "16px", padding: "16px 36px" }}
+          >
+            Register for {event.name} <span>↗</span>
+          </button>
         </section>
       </main>
+
+      <RegistrationModal
+        event={event}
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+      />
+
       <Footer />
     </div>
   )
