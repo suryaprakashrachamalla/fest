@@ -1,0 +1,10 @@
+{
+  "description": "Delivers dynamic, motion-driven web experiences that engage users with smooth animations and interactive design for enhanced digital storytelling.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
