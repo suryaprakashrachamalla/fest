@@ -772,8 +772,8 @@ input {
 .events-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: clamp(40px, 5vw, 60px) 24px;
-  padding-top: 24px;
+  gap: clamp(24px, 3.5vw, 40px) 24px;
+  padding-top: 20px;
 }
 
 .event-card {
@@ -782,13 +782,13 @@ input {
 }
 
 .events-grid .event-card:nth-child(2n) {
-  transform: translateY(70px);
+  transform: translateY(28px);
 }
 
 .event-visual {
   position: relative;
   display: block;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 16 / 11;
   overflow: hidden;
   background: #151515;
   clip-path: polygon(0 0, 100% 0, 100% 92%, 92% 100%, 0 100%);
@@ -818,22 +818,22 @@ input {
 .event-arrow {
   position: absolute;
   z-index: 3;
-  top: 18px;
+  top: 14px;
   font-family: "DM Mono", monospace;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .event-index {
-  left: 18px;
+  left: 14px;
   color: #C96F4A;
 }
 
 .event-arrow {
-  right: 18px;
+  right: 14px;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   border: 1px solid rgb(255 255 255 / 45%);
   border-radius: 50%;
   transition: transform 400ms ease, color 300ms ease, background 300ms ease;
@@ -865,12 +865,12 @@ input {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 20px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .event-copy .eyebrow {
-  margin: 0 0 7px;
+  margin: 0 0 5px;
   color: #C96F4A;
   font-size: 9px;
   font-weight: 600;
@@ -883,16 +883,16 @@ input {
 
 .event-copy h3 {
   margin: 0;
-  font-size: clamp(1.5rem, 2.2vw, 2.4rem);
-  line-height: 1;
-  letter-spacing: -0.045em;
+  font-size: clamp(1.15rem, 1.5vw, 1.65rem);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
   text-transform: uppercase;
   color: #171717;
 }
 
 .event-link {
   flex: 0 0 auto;
-  padding-bottom: 4px;
+  padding-bottom: 3px;
   border-bottom: 1px solid rgba(23, 23, 23, 0.35);
   font-family: "DM Mono", monospace;
   font-size: 9px;
@@ -907,11 +907,11 @@ input {
 }
 
 .event-tagline {
-  max-width: 75%;
-  margin: 18px 0 0;
+  max-width: 85%;
+  margin: 10px 0 0;
   color: rgba(23, 23, 23, 0.65);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 11.5px;
+  line-height: 1.5;
 }
 
 .card-order {
