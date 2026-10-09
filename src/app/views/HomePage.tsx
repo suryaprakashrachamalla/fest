@@ -202,12 +202,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div className="marquee" aria-hidden="true">
-          <div className="marquee-track">
-            <span>BUILD / BREAK / REMIX / PERFORM / CREATE /</span>
-            <span>BUILD / BREAK / REMIX / PERFORM / CREATE /</span>
-          </div>
-        </div>
+
 
         <section id="events" className="events-section">
 
