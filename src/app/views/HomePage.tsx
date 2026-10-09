@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router"
 import Footer from "../components/Footer"
 import Header from "../components/Header"
+import GallerySection from "../components/GallerySection"
 import { categories, events } from "../events"
 
 const registrationDate = new Date("2026-10-10T00:00:00+05:30").getTime()
@@ -236,15 +237,7 @@ export default function HomePage() {
           })}
         </section>
 
-        <section className="cta-section">
-          <div className="cta-ring">
-            <span>REGISTRATION OPENS SOON · STAY IN THE LOOP · </span>
-          </div>
-          <p className="eyebrow">Don&apos;t miss the drop</p>
-          <Link className="big-cta" to="/signup">
-            Get first access <span>↗</span>
-          </Link>
-        </section>
+        <GallerySection />
       </main>
 
       <Footer />

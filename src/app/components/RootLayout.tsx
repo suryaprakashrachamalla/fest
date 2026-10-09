@@ -226,16 +226,21 @@ export default function RootLayout() {
       window.history.scrollRestoration = "manual"
     }
 
-    // Strip any lingering hash from previous session
-    if (window.location.hash) {
-      window.history.replaceState(null, "", window.location.pathname)
-    }
+    const initialHash = window.location.hash
 
-    // Force top scroll immediately
+    // Force top scroll immediately for clean intro
     window.scrollTo(0, 0)
 
     const timer = setTimeout(() => {
       setShowPreloader(false)
+      if (initialHash) {
+        const id = initialHash.replace("#", "")
+        const el = document.getElementById(id)
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" })
+          return
+        }
+      }
       window.scrollTo(0, 0)
       requestAnimationFrame(() => {
         window.scrollTo(0, 0)

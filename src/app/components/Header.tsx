@@ -14,6 +14,7 @@ export default function Header({ light = false }: { light?: boolean }) {
         <a href="/#technical">TECHNICAL</a>
         <a href="/#semi-technical">SEMI-TECHNICAL</a>
         <a href="/#cultural">CULTURAL</a>
+        <a href="/#gallery">GALLERY</a>
         <a href="/#faq">FAQ</a>
         <a href="/#info">INFO</a>
         <a href="/#contact">CONTACT</a>
