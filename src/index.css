@@ -681,8 +681,8 @@ input {
 
 .events-section {
   padding: clamp(8px, 1.2vw, 18px) clamp(22px, 4vw, 64px) clamp(60px, 8vw, 90px);
-  background-color: #496995;
-  color: #ffffff;
+  background-color: #F2EFE8;
+  color: #171717;
 }
 
 .section-heading {
@@ -739,13 +739,22 @@ input {
   gap: 20px;
   align-items: end;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgb(255 255 255 / 25%);
+  border-bottom: 1px solid rgba(23, 23, 23, 0.15);
 }
 
-.category-heading span,
+.category-heading span {
+  margin: 0;
+  color: #C96F4A;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .category-heading p {
   margin: 0;
-  color: rgb(255 255 255 / 75%);
+  color: rgba(23, 23, 23, 0.55);
   font-family: "DM Mono", monospace;
   font-size: 10px;
   text-transform: uppercase;
@@ -757,7 +766,7 @@ input {
   font-weight: 500;
   letter-spacing: -0.045em;
   text-transform: uppercase;
-  color: #ffffff;
+  color: #171717;
 }
 
 .events-grid {
@@ -816,7 +825,7 @@ input {
 
 .event-index {
   left: 18px;
-  color: var(--accent);
+  color: #C96F4A;
 }
 
 .event-arrow {
@@ -831,9 +840,9 @@ input {
 }
 
 .event-card:hover .event-arrow {
-  color: #0a0a0a;
-  background: var(--accent);
-  border-color: var(--accent);
+  color: #ffffff;
+  background: #C96F4A;
+  border-color: #C96F4A;
   transform: rotate(45deg);
 }
 
@@ -842,8 +851,8 @@ input {
   z-index: 2;
   inset: -10% 0 auto;
   height: 1px;
-  background: var(--accent);
-  box-shadow: 0 0 20px var(--accent);
+  background: #C96F4A;
+  box-shadow: 0 0 20px #C96F4A;
   opacity: 0;
 }
 
@@ -862,12 +871,14 @@ input {
 
 .event-copy .eyebrow {
   margin: 0 0 7px;
-  color: var(--accent);
+  color: #C96F4A;
   font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
 }
 
 .event-copy .eyebrow span {
-  color: rgb(255 255 255 / 30%);
+  color: rgba(23, 23, 23, 0.4);
 }
 
 .event-copy h3 {
@@ -876,21 +887,29 @@ input {
   line-height: 1;
   letter-spacing: -0.045em;
   text-transform: uppercase;
+  color: #171717;
 }
 
 .event-link {
   flex: 0 0 auto;
   padding-bottom: 4px;
-  border-bottom: 1px solid rgb(255 255 255 / 35%);
+  border-bottom: 1px solid rgba(23, 23, 23, 0.35);
   font-family: "DM Mono", monospace;
   font-size: 9px;
   text-transform: uppercase;
+  color: #171717;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+
+.event-link:hover {
+  color: #C96F4A;
+  border-color: #C96F4A;
 }
 
 .event-tagline {
   max-width: 75%;
   margin: 18px 0 0;
-  color: rgb(244 241 232 / 48%);
+  color: rgba(23, 23, 23, 0.65);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -899,7 +918,7 @@ input {
   position: absolute;
   right: 2px;
   bottom: 0;
-  color: rgb(255 255 255 / 20%);
+  color: rgba(23, 23, 23, 0.1);
   font-family: "DM Mono", monospace;
   font-size: 10px;
 }
@@ -914,10 +933,8 @@ input {
   padding: 80px 20px;
   overflow: hidden;
   text-align: center;
-  color: #ffffff;
-  background: #3f5d87;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  color: #0a0a0a;
+  background: #e8ddc4;
 }
 
 .cta-section h2 {
@@ -926,7 +943,7 @@ input {
   font-size: clamp(4rem, 10vw, 10rem);
   line-height: 0.82;
   letter-spacing: -0.075em;
-  color: #ffffff;
+  color: #0a0a0a;
 }
 
 .big-cta {
@@ -935,20 +952,19 @@ input {
   gap: 60px;
   margin-top: 28px;
   padding: 20px 24px 20px 30px;
-  border: 1px solid #ffffff;
+  border: 1px solid #0a0a0a;
   border-radius: 999px;
   font-family: "DM Mono", monospace;
   font-size: 12px;
   text-transform: uppercase;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  color: #0a0a0a;
+  background: transparent;
   transition: color 250ms ease, background 250ms ease, transform 250ms ease;
 }
 
 .big-cta:hover {
-  color: #0a0a0a;
-  background: #f4c97a;
-  border-color: #f4c97a;
+  color: #e8ddc4;
+  background: #0a0a0a;
   transform: scale(1.04);
 }
 
@@ -960,10 +976,10 @@ input {
   width: 160px;
   height: 160px;
   place-items: center;
-  border: 1px solid rgb(255 255 255 / 35%);
+  border: 1px solid rgb(0 0 0 / 35%);
   border-radius: 50%;
   animation: spin 14s linear infinite;
-  color: #ffffff;
+  color: #0a0a0a;
 }
 
 .cta-ring span {
@@ -976,7 +992,7 @@ input {
 .footer {
   padding: 70px clamp(22px, 4vw, 64px) 20px;
   color: #f4f1e8;
-  background: #496995;
+  background: #0a0a0a;
 }
 
 .contact-banner {
@@ -985,8 +1001,8 @@ input {
   padding-bottom: 74px;
   color: #ffffff;
   background:
-    radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / 15%), transparent 60%),
-    #3c577d;
+    radial-gradient(ellipse at 50% 0%, rgb(45 35 60 / 25%), transparent 60%),
+    #08070b;
   overflow: hidden;
   scroll-margin-top: 70px;
 }

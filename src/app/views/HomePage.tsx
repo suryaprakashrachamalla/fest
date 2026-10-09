@@ -82,11 +82,11 @@ function EventCard({
             style={{
               fontSize: "12px",
               fontFamily: "DM Mono, monospace",
-              background: "rgba(244, 201, 122, 0.12)",
-              color: "#f4c97a",
+              background: "rgba(201, 111, 74, 0.12)",
+              color: "#C96F4A",
               padding: "4px 10px",
               borderRadius: "100px",
-              border: "1px solid rgba(244, 201, 122, 0.3)",
+              border: "1px solid rgba(201, 111, 74, 0.35)",
               fontWeight: 600,
             }}
           >
