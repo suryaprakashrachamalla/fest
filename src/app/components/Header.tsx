@@ -20,7 +20,6 @@ export default function Header({ light = false }: { light?: boolean }) {
       </nav>
 
       <div className="auth-actions">
-<<<<<<< Updated upstream
         <Link
           className="pill-link"
           to="/events/hackathon"
@@ -32,13 +31,12 @@ export default function Header({ light = false }: { light?: boolean }) {
           }}
         >
           Register Now <span>↗</span>
-=======
+        </Link>
         <Link className="pill-link pill-link--login" to="/login">
           LOG IN
         </Link>
         <Link className="pill-link" to="/signup">
           SIGN UP <span>↗</span>
->>>>>>> Stashed changes
         </Link>
       </div>
     </header>
