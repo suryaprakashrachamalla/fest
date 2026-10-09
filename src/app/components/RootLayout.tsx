@@ -293,7 +293,9 @@ export default function RootLayout() {
           <div className="abatable-preloader-backdrop" />
           <div className="abatable-preloader-content">
             <div className="preloader-brand-block">
-              <span className="preloader-title">SHOURYA &apos;26</span>
+              <span className="preloader-title">
+                SHOURYA<strong>&apos;26</strong>
+              </span>
               <span className="preloader-sub">TECH FEST @MVSR</span>
             </div>
             <AlgorithmicGraph />

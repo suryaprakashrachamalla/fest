@@ -547,22 +547,24 @@ input {
 .hero-register {
   position: relative;
   overflow: hidden;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 36px;
-  min-width: min(220px, 60vw);
-  margin-top: clamp(10px, 1.5vh, 16px);
-  padding: 9px 18px 9px 22px;
+  justify-content: center;
+  gap: 10px;
+  width: auto;
+  min-width: 0;
+  margin-top: clamp(14px, 2vh, 22px);
+  margin-bottom: clamp(6px, 1.2vh, 12px);
+  padding: 10px 24px;
   border-radius: 999px;
   color: #111;
   background: #fff;
-  font-family: "Bodoni Moda", serif;
-  font-size: clamp(10.5px, 0.75vw, 12px);
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-family: "DM Mono", monospace;
+  font-size: clamp(11px, 0.8vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  box-shadow: 0 8px 28px rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 28px rgba(255, 255, 255, 0.16);
   animation: lockup-reveal 0.8s 1.05s both;
   transition:
     color 250ms ease,
@@ -578,7 +580,7 @@ input {
   top: -80%;
   bottom: -80%;
   left: -35%;
-  width: 22%;
+  width: 24%;
   pointer-events: none;
   background: linear-gradient(
     90deg,
@@ -593,19 +595,20 @@ input {
 .hero-register:hover {
   color: #111;
   background: #ffffff;
-  transform: translateY(-3px);
-  box-shadow: 0 16px 45px rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 45px rgba(255, 255, 255, 0.35);
 }
 
 .hero-register span {
-  position: relative;
+  display: inline-block;
+  font-size: 14px;
   transition: transform 250ms ease;
   animation: register-arrow 1.6s ease-in-out infinite;
 }
 
 .hero-register:hover span {
   animation: none;
-  transform: translateX(5px);
+  transform: translateX(4px);
 }
 
 .hero-meta {
@@ -2463,23 +2466,35 @@ html {
 }
 
 .preloader-title {
-  display: block;
-  font-family: "Cinzel Decorative", "Manrope", serif;
-  font-size: clamp(2.2rem, 5vw, 3.8rem);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(2.8rem, 6vw, 4.6rem);
+  font-weight: 600;
+  line-height: 0.85;
+  letter-spacing: -0.08em;
   color: #ffffff;
-  text-shadow: 0 0 25px rgba(255, 255, 255, 0.6);
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+}
+
+.preloader-title > strong {
+  margin-left: 0.12em;
+  font-family: "Bodoni Moda", serif;
+  font-size: 0.52em;
+  font-weight: 600;
+  letter-spacing: -0.07em;
+  color: #ffffff;
 }
 
 .preloader-sub {
   display: block;
-  margin-top: 4px;
-  font-family: "DM Mono", monospace;
-  font-size: clamp(12px, 1.2vw, 15px);
+  margin-top: 8px;
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(10.5px, 0.95vw, 13px);
   font-weight: 600;
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.7);
   text-transform: uppercase;
 }
 

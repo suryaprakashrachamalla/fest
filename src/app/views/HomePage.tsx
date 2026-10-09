@@ -175,7 +175,7 @@ export default function HomePage() {
             <p className="festival-label">Tech Fest @MVSR</p>
             <p className="festival-date">16–17 OCT &apos;2026</p>
 
-            <Link className="hero-register" to="/login">
+            <Link className="hero-register" to="/signup">
               Register now <span>→</span>
             </Link>
           </div>
