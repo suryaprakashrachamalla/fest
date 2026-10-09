@@ -788,11 +788,11 @@ input {
 .event-visual {
   position: relative;
   display: block;
-  aspect-ratio: 16 / 9;
-  max-height: 250px;
+  aspect-ratio: 16 / 8.5;
+  max-height: clamp(140px, 13vw, 185px);
   overflow: hidden;
   background: #151515;
-  clip-path: polygon(0 0, 100% 0, 100% 92%, 92% 100%, 0 100%);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
 }
 
 .event-visual::after {
@@ -819,22 +819,22 @@ input {
 .event-arrow {
   position: absolute;
   z-index: 3;
-  top: 14px;
+  top: 12px;
   font-family: "DM Mono", monospace;
   font-size: 10px;
 }
 
 .event-index {
-  left: 14px;
+  left: 12px;
   color: #C96F4A;
 }
 
 .event-arrow {
-  right: 14px;
+  right: 12px;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 1px solid rgb(255 255 255 / 45%);
   border-radius: 50%;
   transition: transform 400ms ease, color 300ms ease, background 300ms ease;
