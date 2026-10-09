@@ -11,14 +11,16 @@ export default function Header({ light = false }: { light?: boolean }) {
       </Link>
 
       <nav className="main-nav" aria-label="Main navigation">
-        <a href="/#technical">Technical</a>
-        <a href="/#semi-technical">Semi-Technical</a>
-        <a href="/#cultural">Cultural</a>
+        <a href="/#technical">TECHNICAL</a>
+        <a href="/#semi-technical">SEMI-TECHNICAL</a>
+        <a href="/#cultural">CULTURAL</a>
         <a href="/#faq">FAQ</a>
-        <a href="/#info">Info</a>
+        <a href="/#info">INFO</a>
+        <a href="/#contact">CONTACT</a>
       </nav>
 
       <div className="auth-actions">
+<<<<<<< Updated upstream
         <Link
           className="pill-link"
           to="/events/hackathon"
@@ -30,6 +32,13 @@ export default function Header({ light = false }: { light?: boolean }) {
           }}
         >
           Register Now <span>↗</span>
+=======
+        <Link className="pill-link pill-link--login" to="/login">
+          LOG IN
+        </Link>
+        <Link className="pill-link" to="/signup">
+          SIGN UP <span>↗</span>
+>>>>>>> Stashed changes
         </Link>
       </div>
     </header>

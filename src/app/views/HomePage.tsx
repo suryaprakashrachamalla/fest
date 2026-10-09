@@ -150,16 +150,34 @@ export default function HomePage() {
           </div>
 
           <div
-            className="hero-type hero-type--registration"
-            aria-label="Registrations open soon"
+            className="hero-type hero-type--registration festival-lockup"
+            aria-label="Shourya 2026 Tech Fest at MVSR, October 16 and 17"
           >
-            <div className="hero-line hero-line--top">
-              <span>REGISTRATIONS</span>
+            <div className="shourya-title" aria-hidden="true">
+              <span className="shourya-word">
+                {"SHOURYA".split("").map((letter, index) => (
+                  <i
+                    key={`${letter}-${index}`}
+                    style={
+                      {
+                        "--reveal-delay": `${0.18 + index * 0.055}s`,
+                        "--tone-delay": `${1.4 + index * 0.16}s`,
+                      } as React.CSSProperties
+                    }
+                  >
+                    {letter}
+                  </i>
+                ))}
+              </span>
+              <strong>&apos;26</strong>
             </div>
-            <div className="hero-line hero-line--bottom">
-              <span className="outline-word">OPENS</span>
-              <span>SOON</span>
-            </div>
+
+            <p className="festival-label">Tech Fest @MVSR</p>
+            <p className="festival-date">16–17 OCT &apos;2026</p>
+
+            <Link className="hero-register" to="/login">
+              Register now <span>→</span>
+            </Link>
           </div>
 
           <RegistrationCountdown />
@@ -192,18 +210,6 @@ export default function HomePage() {
         </div>
 
         <section id="events" className="events-section">
-          <div className="section-heading">
-            <p className="eyebrow">The 2026 line-up</p>
-            <h2>
-              Seven events.
-              <br />
-              <em>Zero spectators.</em>
-            </h2>
-            <p className="section-intro">
-              Choose your arena. Build something bold, own the stage, or show up
-              for the beautiful chaos in between.
-            </p>
-          </div>
 
           {categories.map((category) => {
             const categoryEvents = events.filter(

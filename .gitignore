@@ -20,3 +20,4 @@ logs/
 /.plugins/
 /.opencode-skills/
 .DS_Store
+cloudflared.exe
