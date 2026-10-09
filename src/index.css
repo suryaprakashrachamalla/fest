@@ -680,7 +680,7 @@ input {
 }
 
 .events-section {
-  padding: clamp(24px, 3.5vw, 44px) clamp(22px, 4vw, 64px) clamp(80px, 10vw, 120px);
+  padding: clamp(8px, 1.2vw, 18px) clamp(22px, 4vw, 64px) clamp(60px, 8vw, 90px);
 }
 
 .section-heading {
@@ -724,7 +724,7 @@ input {
 }
 
 .category-block {
-  margin-top: clamp(80px, 10vw, 120px);
+  margin-top: clamp(48px, 6vw, 80px);
 }
 
 .category-block:first-of-type {
@@ -733,9 +733,10 @@ input {
 
 .category-heading {
   display: grid;
-  grid-template-columns: 80px 1fr auto;
+  grid-template-columns: auto 1fr auto;
+  gap: 20px;
   align-items: end;
-  padding-bottom: 18px;
+  padding-bottom: 10px;
   border-bottom: 1px solid rgb(255 255 255 / 18%);
 }
 
@@ -753,13 +754,14 @@ input {
   font-size: clamp(2rem, 4vw, 4rem);
   font-weight: 500;
   letter-spacing: -0.045em;
+  text-transform: uppercase;
 }
 
 .events-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 70px 24px;
-  padding-top: 45px;
+  gap: clamp(40px, 5vw, 60px) 24px;
+  padding-top: 24px;
 }
 
 .event-card {
@@ -870,6 +872,7 @@ input {
   font-size: clamp(1.5rem, 2.2vw, 2.4rem);
   line-height: 1;
   letter-spacing: -0.045em;
+  text-transform: uppercase;
 }
 
 .event-link {
@@ -1447,6 +1450,7 @@ input {
   font-weight: 700;
   line-height: 0.76;
   letter-spacing: -0.08em;
+  text-transform: uppercase;
   animation: reveal-up 0.9s 0.2s both;
 }
 

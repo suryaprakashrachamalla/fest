@@ -31,7 +31,7 @@ const recreationImage =
 export const events: FestivalEvent[] = [
   {
     slug: "hackathon",
-    name: "Hackathon",
+    name: "HACKATHON",
     category: "Technical",
     number: "01",
     tagline: "Build the impossible before the clock runs out.",
@@ -52,7 +52,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "no-code-vibathon",
-    name: "No Code Vibathon",
+    name: "NO CODE VIBATHON",
     category: "Technical",
     number: "02",
     tagline: "Ship a real idea without writing a line of code.",
@@ -73,7 +73,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "github-workshop",
-    name: "GitHub Workshop",
+    name: "GITHUB WORKSHOP",
     category: "Technical",
     number: "03",
     tagline: "From first commit to confident collaboration.",
@@ -94,7 +94,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "build-lab",
-    name: "Build Lab — Product Design Challenge",
+    name: "BUILD LAB — PRODUCT DESIGN CHALLENGE",
     category: "Semi-Technical",
     number: "04",
     tagline: "Turn a messy problem into a product people want.",
@@ -111,7 +111,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "music-mob",
-    name: "Music Mob",
+    name: "MUSIC MOB",
     category: "Cultural",
     number: "05",
     tagline: "One campus. One beat. Every voice turned up.",
@@ -128,7 +128,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "standup-comedy",
-    name: "Standup Comedy",
+    name: "STANDUP COMEDY",
     category: "Fun",
     number: "06",
     tagline: "Five minutes. One mic. Make the room lose it.",
@@ -145,7 +145,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "recreation-creative",
-    name: "Recreation & Creative Events",
+    name: "RECREATION & CREATIVE EVENTS",
     category: "Fun",
     number: "07",
     tagline: "Play, make, remix, repeat.",
