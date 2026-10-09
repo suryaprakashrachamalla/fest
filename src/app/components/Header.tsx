@@ -20,18 +20,7 @@ export default function Header({ light = false }: { light?: boolean }) {
       </nav>
 
       <div className="auth-actions">
-        <Link
-          className="pill-link"
-          to="/events/hackathon"
-          style={{
-            background: "linear-gradient(135deg, #f4c97a 0%, #e2b058 100%)",
-            color: "#0a0a0a",
-            fontWeight: "700",
-            border: "none",
-          }}
-        >
-          Register Now <span>↗</span>
-        </Link>
+
         <Link className="pill-link pill-link--login" to="/login">
           LOG IN
         </Link>
