@@ -762,8 +762,8 @@ input {
 
 .category-heading h3 {
   margin: 0;
-  font-size: clamp(2rem, 4vw, 4rem);
-  font-weight: 500;
+  font-size: clamp(2.4rem, 4.5vw, 4.2rem);
+  font-weight: 600;
   letter-spacing: -0.045em;
   text-transform: uppercase;
   color: #171717;
@@ -772,7 +772,7 @@ input {
 .events-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: clamp(24px, 3.5vw, 40px) 24px;
+  gap: clamp(28px, 3.5vw, 44px) 24px;
   padding-top: 20px;
 }
 
@@ -782,13 +782,14 @@ input {
 }
 
 .events-grid .event-card:nth-child(2n) {
-  transform: translateY(28px);
+  transform: none;
 }
 
 .event-visual {
   position: relative;
   display: block;
-  aspect-ratio: 16 / 11;
+  aspect-ratio: 16 / 9;
+  max-height: 250px;
   overflow: hidden;
   background: #151515;
   clip-path: polygon(0 0, 100% 0, 100% 92%, 92% 100%, 0 100%);
@@ -866,14 +867,14 @@ input {
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .event-copy .eyebrow {
-  margin: 0 0 5px;
+  margin: 0 0 6px;
   color: #C96F4A;
-  font-size: 9px;
-  font-weight: 600;
+  font-size: clamp(10px, 0.78vw, 11.5px);
+  font-weight: 700;
   letter-spacing: 0.12em;
 }
 
@@ -883,8 +884,9 @@ input {
 
 .event-copy h3 {
   margin: 0;
-  font-size: clamp(1.15rem, 1.5vw, 1.65rem);
-  line-height: 1.1;
+  font-size: clamp(1.45rem, 1.9vw, 2.2rem);
+  font-weight: 700;
+  line-height: 1.05;
   letter-spacing: -0.04em;
   text-transform: uppercase;
   color: #171717;
@@ -893,9 +895,10 @@ input {
 .event-link {
   flex: 0 0 auto;
   padding-bottom: 3px;
-  border-bottom: 1px solid rgba(23, 23, 23, 0.35);
+  border-bottom: 1px solid rgba(23, 23, 23, 0.4);
   font-family: "DM Mono", monospace;
-  font-size: 9px;
+  font-size: clamp(10px, 0.75vw, 11.5px);
+  font-weight: 600;
   text-transform: uppercase;
   color: #171717;
   transition: color 180ms ease, border-color 180ms ease;
@@ -907,10 +910,10 @@ input {
 }
 
 .event-tagline {
-  max-width: 85%;
+  max-width: 90%;
   margin: 10px 0 0;
-  color: rgba(23, 23, 23, 0.65);
-  font-size: 11.5px;
+  color: rgba(23, 23, 23, 0.68);
+  font-size: clamp(12px, 0.88vw, 13px);
   line-height: 1.5;
 }
 
