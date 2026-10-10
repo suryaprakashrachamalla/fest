@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PaymentProofStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum SpreadsheetSyncStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SpreadsheetEntityType {
+  USER
+  EVENT
+  REGISTRATION
+  PARTICIPANT
+  PAYMENT_PROOF
+}
+
+enum SpreadsheetOperation {
+  UPSERT
+}
+
+model User {
+  id                      String         @id @default(uuid())
+  name                    String
+  email                   String         @unique
+  passwordHash            String
+  role                    Role           @default(USER)
+  registrations           Registration[]
+  reviewedProofs          PaymentProof[] @relation("ProofReviewer")
+  verifiedRegistrations   Registration[] @relation("RegistrationVerifier")
+  authorizedRegistrations Registration[] @relation("AdmissionAuthorizer")
+  checkedInRegistrations  Registration[] @relation("CheckInAdmin")
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+}
+
+model Event {
+  id            String         @id @default(uuid())
+  name          String
+  slug          String         @unique
+  description   String?
+  feePaise      Int
+  minTeamSize   Int            @default(1)
+  maxTeamSize   Int            @default(4)
+  isPublished   Boolean        @default(false)
+  registrations Registration[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Registration {
+  id                  String         @id @default(uuid())
+  userId              String
+  eventId             String
+  teamName            String
+  teamSize            Int
+  amountPaise         Int
+  verified            Boolean        @default(false)
+  verifiedAt          DateTime?
+  verifiedById        String?
+  entryAllowed        Boolean        @default(false)
+  entryAuthorizedAt   DateTime?
+  entryAuthorizedById String?
+  entered             Boolean        @default(false)
+  enteredAt           DateTime?
+  enteredById         String?
+  user                User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  event               Event          @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  verifiedBy          User?          @relation("RegistrationVerifier", fields: [verifiedById], references: [id], onDelete: Restrict)
+  entryAuthorizedBy   User?          @relation("AdmissionAuthorizer", fields: [entryAuthorizedById], references: [id], onDelete: Restrict)
+  enteredBy           User?          @relation("CheckInAdmin", fields: [enteredById], references: [id], onDelete: Restrict)
+  participants        Participant[]
+  paymentProofs       PaymentProof[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@unique([userId, eventId])
+  @@index([eventId, verified])
+  @@index([eventId, entered])
+  @@index([userId])
+}
+
+model Participant {
+  id             String       @id @default(uuid())
+  registrationId String
+  name           String
+  college        String
+  rollNumber     String?
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([registrationId])
+}
+
+model PaymentProof {
+  id                 String             @id @default(uuid())
+  registrationId     String
+  utr                String             @unique
+  screenshotBytes    Bytes
+  screenshotMimeType String
+  screenshotFileName String?
+  status             PaymentProofStatus @default(PENDING)
+  reviewedById       String?
+  reviewedAt         DateTime?
+  rejectionReason    String?
+  registration       Registration       @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+  reviewedBy         User?              @relation("ProofReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  submittedAt        DateTime           @default(now())
+
+  @@index([registrationId, submittedAt])
+  @@index([status, submittedAt])
+}
+
+model PaymentQrCode {
+  id        String   @id @default(uuid())
+  label     String
+  imageBytes Bytes
+  mimeType  String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model SpreadsheetSyncOutbox {
+  id          String                @id @default(uuid())
+  entityType  SpreadsheetEntityType
+  entityId    String
+  operation   SpreadsheetOperation  @default(UPSERT)
+  payload     Json
+  status      SpreadsheetSyncStatus @default(PENDING)
+  attempts    Int                   @default(0)
+  lastError   String?
+  createdAt   DateTime              @default(now())
+  nextAttemptAt DateTime?           @default(now())
+  processedAt DateTime?
+
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([entityType, entityId])
+}
