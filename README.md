@@ -28,3 +28,48 @@ bun run dev
 ```
 
 The local API listens on port 3000 by default. `HOST` and `PORT` can be changed in `.env`.
+
+## Registration flow (MVSR Sangamam 2026)
+
+Registrations move through these statuses. Payment review and organizer approval are separate steps; a submitted UTR alone never verifies a payment.
+
+```
+PENDING_PAYMENT → PAYMENT_REVIEW → PAYMENT_VERIFIED → APPROVED → TICKET_ISSUED
+                         ↓
+                  PAYMENT_REJECTED (participant can resubmit)      REJECTED (organizer, with a reason)
+```
+
+- `POST /events/:eventId/registrations` (signed in): `{ teamName, college, phone, participants: [{ name, email, rollNumber? }] }`. Roll numbers are required for MVSR students (`2451-2X-XXX-XXX`). The fee is computed on the server (`feeMode: PER_HEAD` multiplies `feePaise` by the team size). Each student email can join an event once.
+- `POST /registrations/:id/payment-proofs` (signed in, multipart): `utr`, `paymentMethod` (`UPI`), `screenshot` (PNG/JPEG ≤ 5 MB). Moves the registration to `PAYMENT_REVIEW`.
+- `PATCH /admin/payment-proofs/:proofId/verify` and `/reject` (`{ reason }`).
+- `PATCH /admin/registrations/:id/approve`: requires `PAYMENT_VERIFIED`; repeated calls return `alreadyApproved: true` without side effects.
+- `PATCH /admin/registrations/:id/reject` (`{ reason }`), `GET /admin/registrations/:id/audit`, `GET /admin/registrations?status=PAYMENT_REVIEW`.
+- Check-in (`POST /admin/check-in`) requires an approved registration.
+
+Create the events that accept online registration (slugs must match the website). Safe to re-run:
+
+```sh
+bun run seed:events          # or: docker compose exec backend bun run seed:events
+```
+
+To show the real UPI QR instead of the website's demo QR, an administrator uploads it with `POST /admin/payment-qrs` (multipart `label`, `image`) and activates it with `PATCH /admin/payment-qrs/:qrId/active` (`{ "isActive": true }`).
+
+### Connecting the website
+
+- Build the website with `VITE_API_URL` set to this API's public HTTPS origin (see the website's `.env.example`).
+- Add the website's origin to `CORS_ORIGIN`, e.g. `CORS_ORIGIN=https://suryaprakashrachamalla.github.io` (the origin has no path).
+- Participants register at the event pages and track their registrations at `/fest/dashboard`; organizers sign in at `/fest/admin` with an administrator account from `bun run seed`.
+
+### Google Sheets
+
+1. Create a Google Cloud project, enable the Google Sheets API, and create a service account with a JSON key.
+2. Create a spreadsheet named **MVSR Sangamam 2026 Registrations** and share it with the service account email as an Editor. Share it with organizers only.
+3. Set `GOOGLE_SPREADSHEET_ID` (from the spreadsheet URL), `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` in `.env`.
+
+The worker creates the Registrations, Participants, PaymentProofs, Events and Users tabs. The Registrations tab has one row per registration keyed by its `SG26-…` code, with participants, emails, phone, college, event, team, fee, payment method, UTR, payment and approval status, timestamps and placeholders for Luma guest ID, ticket and email status. Rows are updated in place; failed writes stay in PostgreSQL and are retried with backoff. If you created the spreadsheet before this change, delete its old tabs so the new headers can be written.
+
+### Tests
+
+```sh
+RUN_DB_INTEGRATION_TESTS=true DATABASE_URL=postgresql://… bun test
+```
