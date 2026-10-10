@@ -18,6 +18,22 @@ enum PaymentProofStatus {
   REJECTED
 }
 
+// Lifecycle of a registration; payment review and organizer approval are separate steps.
+enum RegistrationStatus {
+  PENDING_PAYMENT
+  PAYMENT_REVIEW
+  PAYMENT_VERIFIED
+  APPROVED
+  TICKET_ISSUED
+  PAYMENT_REJECTED
+  REJECTED
+}
+
+enum FeeMode {
+  FLAT
+  PER_HEAD
+}
+
 enum SpreadsheetSyncStatus {
   PENDING
   PROCESSING
@@ -48,6 +64,8 @@ model User {
   verifiedRegistrations   Registration[] @relation("RegistrationVerifier")
   authorizedRegistrations Registration[] @relation("AdmissionAuthorizer")
   checkedInRegistrations  Registration[] @relation("CheckInAdmin")
+  approvedRegistrations   Registration[] @relation("RegistrationApprover")
+  auditEntries            AuditLog[]
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
 }
@@ -58,6 +76,8 @@ model Event {
   slug          String         @unique
   description   String?
   feePaise      Int
+  // PER_HEAD multiplies feePaise by the team size.
+  feeMode       FeeMode        @default(FLAT)
   minTeamSize   Int            @default(1)
   maxTeamSize   Int            @default(4)
   isPublished   Boolean        @default(false)
@@ -67,12 +87,20 @@ model Event {
 }
 
 model Registration {
-  id                  String         @id @default(uuid())
+  id                  String             @id @default(uuid())
+  // Short, human-friendly ID shown to participants and used as the Sheets row key.
+  code                String             @unique
   userId              String
   eventId             String
   teamName            String
   teamSize            Int
+  college             String
+  phone               String
   amountPaise         Int
+  status              RegistrationStatus @default(PENDING_PAYMENT)
+  approvedAt          DateTime?
+  approvedById        String?
+  rejectionReason     String?
   verified            Boolean        @default(false)
   verifiedAt          DateTime?
   verifiedById        String?
@@ -87,8 +115,10 @@ model Registration {
   verifiedBy          User?          @relation("RegistrationVerifier", fields: [verifiedById], references: [id], onDelete: Restrict)
   entryAuthorizedBy   User?          @relation("AdmissionAuthorizer", fields: [entryAuthorizedById], references: [id], onDelete: Restrict)
   enteredBy           User?          @relation("CheckInAdmin", fields: [enteredById], references: [id], onDelete: Restrict)
+  approvedBy          User?          @relation("RegistrationApprover", fields: [approvedById], references: [id], onDelete: Restrict)
   participants        Participant[]
   paymentProofs       PaymentProof[]
+  auditEntries        AuditLog[]
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
@@ -96,17 +126,22 @@ model Registration {
   @@index([eventId, verified])
   @@index([eventId, entered])
   @@index([userId])
+  @@index([status, createdAt])
 }
 
 model Participant {
   id             String       @id @default(uuid())
   registrationId String
+  // Copied from the registration so one email can join an event only once.
+  eventId        String
   name           String
+  email          String
   college        String
   rollNumber     String?
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
 
+  @@unique([eventId, email])
   @@index([registrationId])
 }
 
@@ -114,6 +149,7 @@ model PaymentProof {
   id                 String             @id @default(uuid())
   registrationId     String
   utr                String             @unique
+  paymentMethod      String             @default("UPI")
   screenshotBytes    Bytes
   screenshotMimeType String
   screenshotFileName String?
@@ -127,6 +163,22 @@ model PaymentProof {
 
   @@index([registrationId, submittedAt])
   @@index([status, submittedAt])
+}
+
+// Append-only history of registration status changes and organizer actions.
+model AuditLog {
+  id             String              @id @default(uuid())
+  registrationId String
+  actorId        String?
+  action         String
+  fromStatus     RegistrationStatus?
+  toStatus       RegistrationStatus?
+  detail         String?
+  registration   Registration        @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  actor          User?               @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt      DateTime            @default(now())
+
+  @@index([registrationId, createdAt])
 }
 
 model PaymentQrCode {

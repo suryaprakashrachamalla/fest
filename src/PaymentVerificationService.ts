@@ -1,11 +1,16 @@
 import { prisma } from "./lib/prisma.ts";
 import { addOutbox } from "./lib/outbox.ts";
 import type { Express } from "express";
+import { addAudit, queueRegistrationSync } from "./lib/registrationSync.ts";
+import { uniqueViolation } from "./lib/prismaErrors.ts";
+
+const PAYMENT_METHODS = ["UPI"];
 
 const proofSelection = {
     id: true,
     registrationId: true,
     utr: true,
+    paymentMethod: true,
     screenshotMimeType: true,
     screenshotFileName: true,
     status: true,
@@ -18,6 +23,7 @@ function proofRow(p: {
     id: string;
     registrationId: string;
     utr: string;
+    paymentMethod: string;
     screenshotMimeType: string;
     status: string;
     reviewedById: string | null;
@@ -29,6 +35,7 @@ function proofRow(p: {
         proofId: p.id,
         registrationId: p.registrationId,
         utr: p.utr,
+        paymentMethod: p.paymentMethod,
         screenshotMimeType: p.screenshotMimeType,
         status: p.status,
         reviewedById: p.reviewedById ?? "",
@@ -59,6 +66,7 @@ export async function submitProof(
     userId: string,
     utrValue: unknown,
     file?: Express.Multer.File,
+    paymentMethodValue: unknown = "UPI",
 ) {
     const registration = await prisma.registration.findUnique({
         where: { id: registrationId },
@@ -73,6 +81,20 @@ export async function submitProof(
         throw Object.assign(new Error("Payment has already been verified"), {
             status: 409,
         });
+    if (registration.status === "PAYMENT_REVIEW")
+        throw Object.assign(new Error("A payment proof is already pending for this registration"), {
+            status: 409,
+        });
+    if (registration.status !== "PENDING_PAYMENT" && registration.status !== "PAYMENT_REJECTED")
+        throw Object.assign(new Error("Payment proofs can no longer be submitted for this registration"), {
+            status: 409,
+        });
+    const paymentMethod =
+        typeof paymentMethodValue === "string" && paymentMethodValue.trim()
+            ? paymentMethodValue.trim().toUpperCase()
+            : "UPI";
+    if (!PAYMENT_METHODS.includes(paymentMethod))
+        throw Object.assign(new Error("Unsupported payment method"), { status: 400 });
     if (typeof utrValue !== "string" || !/^[A-Za-z0-9-]{6,32}$/.test(utrValue.trim()))
         throw Object.assign(
             new Error("UTR must contain 6 to 32 letters, numbers, or hyphens"),
@@ -94,17 +116,37 @@ export async function submitProof(
                 data: {
                     registrationId,
                     utr: utrValue.trim(),
+                    paymentMethod,
                     screenshotBytes: new Uint8Array(file.buffer),
                     screenshotMimeType: file.mimetype,
                     screenshotFileName: file.originalname.slice(0, 255),
                 },
             });
+            // The UTR is only a claim; the registration moves to review, never straight to verified.
+            const moved = await tx.registration.updateMany({
+                where: { id: registrationId, status: registration.status },
+                data: { status: "PAYMENT_REVIEW" },
+            });
+            if (moved.count !== 1)
+                throw Object.assign(new Error("This registration changed; refresh and try again"), {
+                    status: 409,
+                });
+            await addAudit(tx, {
+                registrationId,
+                actorId: userId,
+                action: "PAYMENT_SUBMITTED",
+                fromStatus: registration.status,
+                toStatus: "PAYMENT_REVIEW",
+                detail: `${paymentMethod} UTR ${utrValue.trim()}`,
+            });
             await addOutbox(tx, "PAYMENT_PROOF", proof.id, proofRow(proof));
+            await queueRegistrationSync(tx, registrationId);
             return { ...proofRow(proof) };
         });
     } catch (error) {
-        if ((error as { code?: string }).code === "P2002") {
-            if ((error as { meta?: { target?: string[] } }).meta?.target?.includes("utr"))
+        const violated = uniqueViolation(error);
+        if (violated !== null) {
+            if (violated.includes("utr"))
                 throw Object.assign(new Error("This UTR has already been submitted"), {
                     status: 409,
                 });
@@ -219,35 +261,37 @@ export async function reviewProof(
         const updated = await tx.paymentProof.findUniqueOrThrow({
             where: { id: proofId },
         });
-        const registration =
-            action === "verify"
-                ? await tx.registration.update({
-                      where: { id: proof.registrationId },
-                      data: {
-                          verified: true,
-                          verifiedAt: new Date(),
-                          verifiedById: adminId,
-                      },
-                      include: { event: true },
-                  })
-                : await tx.registration.findUniqueOrThrow({
-                      where: { id: proof.registrationId },
-                      include: { event: true },
-                  });
+        const before = await tx.registration.findUniqueOrThrow({
+            where: { id: proof.registrationId },
+            select: { status: true },
+        });
+        if (before.status !== "PAYMENT_REVIEW")
+            throw Object.assign(new Error("This registration is not awaiting payment review"), {
+                status: 409,
+            });
+        const toStatus = action === "verify" ? "PAYMENT_VERIFIED" : "PAYMENT_REJECTED";
+        await tx.registration.update({
+            where: { id: proof.registrationId },
+            data:
+                action === "verify"
+                    ? { status: toStatus, verified: true, verifiedAt: new Date(), verifiedById: adminId }
+                    : { status: toStatus },
+        });
+        await addAudit(tx, {
+            registrationId: proof.registrationId,
+            actorId: adminId,
+            action: action === "verify" ? "PAYMENT_VERIFIED" : "PAYMENT_REJECTED",
+            fromStatus: "PAYMENT_REVIEW",
+            toStatus,
+            detail: action === "reject" ? String(reason).trim() : `UTR ${proof.utr}`,
+        });
         await addOutbox(tx, "PAYMENT_PROOF", updated.id, proofRow(updated));
-        if (action === "verify") {
-            const { registrationRow } = await import("./RegistrationsService.ts");
-            await addOutbox(
-                tx,
-                "REGISTRATION",
-                registration.id,
-                registrationRow(registration),
-            );
-        }
+        const registration = await queueRegistrationSync(tx, proof.registrationId);
         return {
             proof: proofRow(updated),
             registration: {
                 id: registration.id,
+                status: registration.status,
                 verified: registration.verified,
                 verifiedAt: registration.verifiedAt,
                 verifiedById: registration.verifiedById,

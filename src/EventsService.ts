@@ -51,6 +51,8 @@ function validateEvent(data: Record<string, unknown>, partial = false) {
         throw Object.assign(new Error("minTeamSize cannot exceed maxTeamSize"), {
             status: 400,
         });
+    if (data.feeMode !== undefined && data.feeMode !== "FLAT" && data.feeMode !== "PER_HEAD")
+        throw Object.assign(new Error("feeMode must be FLAT or PER_HEAD"), { status: 400 });
     for (const key of ["isPublished"])
         if (data[key] !== undefined && typeof data[key] !== "boolean")
             throw Object.assign(new Error(`${key} must be a boolean`), { status: 400 });
@@ -70,6 +72,7 @@ function row(event: {
     slug: string;
     description: string | null;
     feePaise: number;
+    feeMode: string;
     minTeamSize: number;
     maxTeamSize: number;
     isPublished: boolean;
@@ -82,6 +85,7 @@ function row(event: {
         slug: event.slug,
         description: event.description,
         feePaise: event.feePaise,
+        feeMode: event.feeMode,
         minTeamSize: event.minTeamSize,
         maxTeamSize: event.maxTeamSize,
         isPublished: event.isPublished,
@@ -112,6 +116,7 @@ export async function createEvent(body: Record<string, unknown>) {
                     slug: String(body.slug),
                     description: body.description as string | null | undefined,
                     feePaise: Number(body.feePaise ?? 0),
+                    feeMode: body.feeMode === "PER_HEAD" ? "PER_HEAD" : "FLAT",
                     minTeamSize: Number(body.minTeamSize ?? 1),
                     maxTeamSize: Number(body.maxTeamSize ?? 4),
                     isPublished: Boolean(body.isPublished ?? false),
@@ -136,6 +141,7 @@ export async function updateEvent(id: string, body: Record<string, unknown>) {
                     "slug",
                     "description",
                     "feePaise",
+                    "feeMode",
                     "minTeamSize",
                     "maxTeamSize",
                     "isPublished",

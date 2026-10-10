@@ -8,6 +8,11 @@ import {
     type SpreadsheetEntityType,
 } from "./generated/prisma/client.ts";
 import { prisma } from "./lib/prisma.ts";
+import {
+    participantRow,
+    registrationSheetRow,
+    registrationSyncInclude,
+} from "./lib/registrationSync.ts";
 import { coalesceUpdates, isTransientSheetsFailure, planSheetRows } from "./lib/sheetsSyncLogic.ts";
 
 type SheetDefinition = {
@@ -45,6 +50,7 @@ const definitions: SheetDefinition[] = [
             "slug",
             "description",
             "feePaise",
+            "feeMode",
             "minTeamSize",
             "maxTeamSize",
             "isPublished",
@@ -56,24 +62,29 @@ const definitions: SheetDefinition[] = [
         title: "Registrations",
         entityType: "REGISTRATION",
         idColumn: "registrationId",
+        // Keyed by the human-friendly registration code; see registrationSheetRow.
         headers: [
             "registrationId",
-            "userId",
-            "eventId",
-            "eventName",
+            "internalId",
+            "participantNames",
+            "emails",
+            "phone",
+            "college",
+            "event",
             "teamName",
             "teamSize",
-            "amountPaise",
-            "verified",
-            "verifiedAt",
-            "verifiedById",
-            "entryAllowed",
-            "entryAuthorizedAt",
-            "entryAuthorizedById",
-            "entered",
-            "enteredAt",
-            "enteredById",
-            "createdAt",
+            "registrationFee",
+            "paymentMethod",
+            "utr",
+            "paymentStatus",
+            "approvalStatus",
+            "status",
+            "rejectionReason",
+            "registeredAt",
+            "lumaGuestId",
+            "ticketStatus",
+            "emailStatus",
+            "checkedIn",
             "updatedAt",
         ],
     },
@@ -85,6 +96,7 @@ const definitions: SheetDefinition[] = [
             "participantId",
             "registrationId",
             "participantName",
+            "email",
             "college",
             "rollNumber",
             "createdAt",
@@ -98,6 +110,7 @@ const definitions: SheetDefinition[] = [
             "proofId",
             "registrationId",
             "utr",
+            "paymentMethod",
             "screenshotMimeType",
             "status",
             "reviewedById",
@@ -445,7 +458,7 @@ function buildDatabaseRows(
         updatedAt: Date;
     }>,
     events: Event[],
-    registrations: Array<Registration & { event: Event }>,
+    registrations: Array<Prisma.RegistrationGetPayload<{ include: typeof registrationSyncInclude }>>,
     participants: Participant[],
     proofs: Array<
         Pick<
@@ -453,6 +466,7 @@ function buildDatabaseRows(
             | "id"
             | "registrationId"
             | "utr"
+            | "paymentMethod"
             | "screenshotMimeType"
             | "status"
             | "reviewedById"
@@ -477,44 +491,20 @@ function buildDatabaseRows(
         slug: event.slug,
         description: event.description ?? "",
         feePaise: event.feePaise,
+        feeMode: event.feeMode,
         minTeamSize: event.minTeamSize,
         maxTeamSize: event.maxTeamSize,
         isPublished: event.isPublished,
         createdAt: event.createdAt.toISOString(),
         updatedAt: event.updatedAt.toISOString(),
     })));
-    rows.set("REGISTRATION", registrations.map((registration) => ({
-        registrationId: registration.id,
-        userId: registration.userId,
-        eventId: registration.eventId,
-        eventName: registration.event.name,
-        teamName: registration.teamName,
-        teamSize: registration.teamSize,
-        amountPaise: registration.amountPaise,
-        verified: registration.verified,
-        verifiedAt: registration.verifiedAt?.toISOString() ?? "",
-        verifiedById: registration.verifiedById ?? "",
-        entryAllowed: registration.entryAllowed,
-        entryAuthorizedAt: registration.entryAuthorizedAt?.toISOString() ?? "",
-        entryAuthorizedById: registration.entryAuthorizedById ?? "",
-        entered: registration.entered,
-        enteredAt: registration.enteredAt?.toISOString() ?? "",
-        enteredById: registration.enteredById ?? "",
-        createdAt: registration.createdAt.toISOString(),
-        updatedAt: registration.updatedAt.toISOString(),
-    })));
-    rows.set("PARTICIPANT", participants.map((participant) => ({
-        participantId: participant.id,
-        registrationId: participant.registrationId,
-        participantName: participant.name,
-        college: participant.college,
-        rollNumber: participant.rollNumber ?? "",
-        createdAt: participant.createdAt.toISOString(),
-    })));
+    rows.set("REGISTRATION", registrations.map(registrationSheetRow));
+    rows.set("PARTICIPANT", participants.map(participantRow));
     rows.set("PAYMENT_PROOF", proofs.map((proof) => ({
         proofId: proof.id,
         registrationId: proof.registrationId,
         utr: proof.utr,
+        paymentMethod: proof.paymentMethod,
         screenshotMimeType: proof.screenshotMimeType,
         status: proof.status,
         reviewedById: proof.reviewedById ?? "",
@@ -540,13 +530,14 @@ export async function reconcileSpreadsheet(retryFailed = false) {
             select: { id: true, name: true, email: true, role: true, createdAt: true, updatedAt: true },
         }),
         prisma.event.findMany(),
-        prisma.registration.findMany({ include: { event: true } }),
+        prisma.registration.findMany({ include: registrationSyncInclude }),
         prisma.participant.findMany(),
         prisma.paymentProof.findMany({
             select: {
                 id: true,
                 registrationId: true,
                 utr: true,
+                paymentMethod: true,
                 screenshotMimeType: true,
                 status: true,
                 reviewedById: true,

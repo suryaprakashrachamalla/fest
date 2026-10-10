@@ -136,8 +136,7 @@ app.post("/events/:eventId/registrations", authenticate, async (req, res) =>
         await registrations.createRegistration(
             req.user!.id,
             String(String(req.params.eventId)),
-            req.body?.teamName,
-            req.body?.participants,
+            req.body ?? {},
         ),
         "Registration created",
         201,
@@ -169,6 +168,7 @@ app.post(
                 req.user!.id,
                 req.body?.utr,
                 req.file,
+                req.body?.paymentMethod,
             ),
             "Payment proof submitted",
             201,
@@ -224,8 +224,8 @@ app.patch(
 app.get(
     "/admin/registrations",
     admin,
-    async (_req: express.Request, res: express.Response) =>
-        ok(res, await registrations.listAdminRegistrations()),
+    async (req: express.Request, res: express.Response) =>
+        ok(res, await registrations.listAdminRegistrations(req.query.status)),
 );
 app.get(
     "/admin/registrations/pending",
@@ -244,6 +244,37 @@ app.get(
                 req.user!.id,
                 true,
             ),
+        ),
+);
+app.get(
+    "/admin/registrations/:registrationId/audit",
+    admin,
+    async (req: express.Request, res: express.Response) =>
+        ok(res, await registrations.getAuditHistory(String(req.params.registrationId))),
+);
+app.patch(
+    "/admin/registrations/:registrationId/approve",
+    admin,
+    async (req: express.Request, res: express.Response) => {
+        const result = await registrations.approveRegistration(
+            String(req.params.registrationId),
+            req.user!.id,
+        );
+        ok(res, result, result.alreadyApproved ? "Registration was already approved" : "Registration approved");
+    },
+);
+app.patch(
+    "/admin/registrations/:registrationId/reject",
+    admin,
+    async (req: express.Request, res: express.Response) =>
+        ok(
+            res,
+            await registrations.rejectRegistration(
+                String(req.params.registrationId),
+                req.user!.id,
+                req.body?.reason,
+            ),
+            "Registration rejected",
         ),
 );
 app.get(
