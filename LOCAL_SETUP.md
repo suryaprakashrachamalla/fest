@@ -1,18 +1,26 @@
-# Run the backend locally from the published Docker image
+# Run the backend locally from GitHub source
 
-This guide runs the backend and PostgreSQL on your computer. The frontend is a separate app and is not included in the image. The API is available to the frontend at `http://localhost:3001` by default.
+This guide builds a backend image on your own computer from the source code in GitHub. It does not pull or use the image published under someone else's Docker Hub account. The frontend is separate and is not included in this backend image. By default, the API is available at `http://localhost:3001`.
 
 ## Requirements
 
+- Git.
 - Docker Desktop (or Docker Engine with the Compose plugin) installed and running.
-- Access to the Docker Hub image `syedahmedzeshaan/fest-backend:latest`.
+- Access to the backend repository: <https://github.com/syedahmedzeshaan/fest-backend>.
 - The separate frontend app, if you want to use the website.
 
-If the Docker Hub repository is private, sign in first with `docker login`.
+You do not need a Docker Hub account or `docker login` to build and run this locally. Docker will download the public base images (Bun and PostgreSQL) as needed, then build the backend image on your machine.
 
-## 1. Get the backend files
+## 1. Get the backend source
 
-Clone the backend repository, or open the existing `backend` folder in your checkout. Run all commands below from that folder, where `compose.yaml` is located.
+Clone the backend repository and enter its folder:
+
+```sh
+git clone https://github.com/syedahmedzeshaan/fest-backend.git
+cd fest-backend
+```
+
+If you already have the repository, open its folder and update it with `git pull` only if you do not have local changes you need to keep. Run the remaining commands from the folder containing `compose.yaml`.
 
 ## 2. Create local settings
 
@@ -32,24 +40,19 @@ POSTGRES_PASSWORD=replace-with-a-long-url-safe-password
 
 Also replace the `JWT_SECRET` and the three administrator passwords with unique values. Set `CORS_ORIGIN` to the frontend's exact origin, including scheme and port (for local Vite development this is usually `http://localhost:5173`). Google Sheets settings are optional; leave them blank to disable Sheets sync.
 
-Keep `.env` private. It is ignored by Git and must not be committed or shared. The Docker image intentionally does not contain `.env`; Compose reads it on your computer and passes settings to the containers when they start.
+Keep `.env` private. It is ignored by Git and must not be committed or shared. The Docker image does not contain `.env`; Compose reads it on your computer and passes settings to containers when they start.
 
-## 3. Download and run the image
+## 3. Build your own image and start the backend
 
-Pull the published image and give it the local name expected by `compose.yaml`:
-
-```sh
-docker pull syedahmedzeshaan/fest-backend:latest
-docker tag syedahmedzeshaan/fest-backend:latest fest-registration-backend:local
-```
-
-Start PostgreSQL, apply migrations, and start the backend:
+Run Compose with the build option. Docker builds a local image from this repository's `Dockerfile`, starts PostgreSQL, applies migrations, and starts the API:
 
 ```sh
-docker compose up --no-build -d
+docker compose up --build -d
 ```
 
-Migrations run automatically before the backend starts. Create or update the administrator accounts configured in `.env`:
+This uses the Compose image name `fest-registration-backend:local` on your computer. It does not pull `syedahmedzeshaan/fest-backend` from Docker Hub or publish anything to Docker Hub.
+
+Create or update the administrator accounts configured in `.env`:
 
 ```sh
 docker compose exec backend bun run seed
@@ -80,24 +83,14 @@ Stop containers while preserving the PostgreSQL data:
 docker compose down
 ```
 
-Start them again with `docker compose up --no-build -d`. The database is stored in the `postgres_data` volume. Removing that volume deletes its database contents; do not run `docker compose down -v` unless you intend to erase that local data.
+Start them again with `docker compose up -d`. The database is stored in the `postgres_data` volume. Removing that volume deletes its database contents; do not run `docker compose down -v` unless you intend to erase that local data.
 
-## Update to a newer published image
+## Rebuild after getting newer backend code
 
-Pull the latest image, update the local Compose tag, and recreate the backend:
-
-```sh
-docker pull syedahmedzeshaan/fest-backend:latest
-docker tag syedahmedzeshaan/fest-backend:latest fest-registration-backend:local
-docker compose up --no-build -d
-```
-
-## Use local backend source instead
-
-For backend development, build the current source instead of using the published image:
+After safely updating the local GitHub checkout, rebuild and restart the backend image:
 
 ```sh
 docker compose up --build -d
 ```
 
-This builds the image from the local `Dockerfile`. It does not build or serve the separate frontend.
+The local PostgreSQL volume is preserved during this update. To publish an image to your own Docker Hub account, separately tag it with your own username and repository, then sign in and push it; that is not needed to develop the frontend locally.
