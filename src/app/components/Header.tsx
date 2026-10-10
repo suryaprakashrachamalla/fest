@@ -5,7 +5,7 @@ export default function Header({ light = false }: { light?: boolean }) {
     <header className={`site-header ${light ? "site-header--light" : ""}`}>
       <Link className="brand" to="/" aria-label="Shourya Fest home">
         <span className="brand-logo-frame">
-          <img src="/shourya-logo.jpg" alt="Shourya" />
+          <img src="/shourya-logo-gold.png" alt="Shourya" />
         </span>
         <span className="brand-year">&apos;26</span>
       </Link>

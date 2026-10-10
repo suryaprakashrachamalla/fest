@@ -15,6 +15,8 @@ export type FestivalEvent = {
   accent: string
   image: string
   challenges: string[]
+  // Walk-in events show their details only, with no register buttons.
+  noRegistration?: boolean
 }
 
 const techImage =
@@ -25,6 +27,7 @@ const musicImage =
   "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=85&w=1600"
 const comedyImage =
   "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=85&w=1600"
+const dandiyaImage = "/gallery/fest-night-lanterns.jpg"
 const recreationImage =
   "https://images.unsplash.com/photo-1560831340-b9679dc9e9f0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=85&w=1600"
 
@@ -127,10 +130,28 @@ export const events: FestivalEvent[] = [
     challenges: ["Stage presence", "Musicality", "Audience connection"],
   },
   {
+    slug: "dandiya-night",
+    name: "DANDIYA NIGHT",
+    category: "Cultural",
+    number: "06",
+    tagline: "Grab your sticks. The campus becomes one big garba circle.",
+    description:
+      "An open evening of dandiya and garba under the festival lights. Come dressed in colour, join the circle, and dance with your friends till the last beat. No registration needed, just walk in.",
+    format: "Open dance night",
+    team: "Open to all",
+    duration: "3 hours",
+    date: "17 · Day 2",
+    time: "6 PM – 9 PM",
+    accent: "#ff9f1c",
+    image: dandiyaImage,
+    challenges: ["Traditional wear", "Bring your dandiya sticks", "Dance till the last beat"],
+    noRegistration: true,
+  },
+  {
     slug: "standup-comedy",
     name: "STANDUP COMEDY",
     category: "Fun",
-    number: "06",
+    number: "07",
     tagline: "Five minutes. One mic. Make the room lose it.",
     description:
       "Original sets, sharp observations, and fearless delivery. The stage is open to first-timers and seasoned campus comics alike.",
@@ -147,7 +168,7 @@ export const events: FestivalEvent[] = [
     slug: "recreation-creative",
     name: "RECREATION & CREATIVE EVENTS",
     category: "Fun",
-    number: "07",
+    number: "08",
     tagline: "Play, make, remix, repeat.",
     description:
       "A rotating playground of quick games, visual challenges, collaborative art, and surprise activities designed to reset your brain between main-stage moments.",

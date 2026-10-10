@@ -1,216 +1,276 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 export interface GalleryPhoto {
-  id: string
   src: string
-  title: string
-  category: "all" | "stage" | "performances" | "crowd" | "campus"
-  categoryLabel: string
-  spanClass?: string
-  tiltClass?: string
+  alt: string
 }
 
-export const defaultGalleryPhotos: GalleryPhoto[] = [
-  {
-    id: "g-1",
-    src: "/gallery/gallery-1.jpg",
-    title: "Concert Headliner & Live Crowd",
-    category: "stage",
-    categoryLabel: "Stage",
-    spanClass: "gallery-card--tall",
-    tiltClass: "gallery-tilt-left",
-  },
-  {
-    id: "g-2",
-    src: "/gallery/gallery-2.jpg",
-    title: "DJ Arena & Electronic Beats",
-    category: "stage",
-    categoryLabel: "Music",
-    spanClass: "gallery-card--standard",
-    tiltClass: "gallery-tilt-right",
-  },
-  {
-    id: "g-3",
-    src: "/gallery/gallery-3.jpg",
-    title: "Stage Lighting & Visual Beam Spectacle",
-    category: "stage",
-    categoryLabel: "Lighting",
-    spanClass: "gallery-card--wide",
-    tiltClass: "gallery-tilt-none",
-  },
-  {
-    id: "g-4",
-    src: "/gallery/gallery-4.jpg",
-    title: "Auditorium Presentations & Finals",
-    category: "performances",
-    categoryLabel: "Arena",
-    spanClass: "gallery-card--standard",
-    tiltClass: "gallery-tilt-left",
-  },
-  {
-    id: "g-5",
-    src: "/gallery/gallery-5.jpg",
-    title: "Dance Crew Battle & Choreography",
-    category: "performances",
-    categoryLabel: "Dance",
-    spanClass: "gallery-card--standard",
-    tiltClass: "gallery-tilt-right",
-  },
-  {
-    id: "g-6",
-    src: "/gallery/gallery-6.jpg",
-    title: "Crowd Cheers & Festival Moments",
-    category: "crowd",
-    categoryLabel: "Vibes",
-    spanClass: "gallery-card--tall",
-    tiltClass: "gallery-tilt-none",
-  },
-  {
-    id: "g-7",
-    src: "/gallery/gallery-7.jpg",
-    title: "Campus Heart & Festival Green",
-    category: "campus",
-    categoryLabel: "Campus",
-    spanClass: "gallery-card--standard",
-    tiltClass: "gallery-tilt-left",
-  },
-  {
-    id: "g-8",
-    src: "/gallery/gallery-8.jpg",
-    title: "Lead Guitarist Solo Performance",
-    category: "performances",
-    categoryLabel: "Live Solo",
-    spanClass: "gallery-card--wide",
-    tiltClass: "gallery-tilt-right",
-  },
-  {
-    id: "g-9",
-    src: "/gallery/gallery-9.jpg",
-    title: "MVSR Heritage Gate Entryway",
-    category: "campus",
-    categoryLabel: "Heritage",
-    spanClass: "gallery-card--standard",
-    tiltClass: "gallery-tilt-none",
-  },
-  {
-    id: "g-10",
-    src: "/gallery/gallery-10.jpg",
-    title: "Festival Hours & Nightfall Energy",
-    category: "crowd",
-    categoryLabel: "Nightfall",
-    spanClass: "gallery-card--standard",
-    tiltClass: "gallery-tilt-left",
-  },
+// Tiles fill column by column (left column top to bottom, then the next column).
+// Add more photos to extend the collage: every 9 photos adds another mirrored block.
+export const galleryPhotos: GalleryPhoto[] = [
+  { src: "/gallery/Unknown-2.jpeg", alt: "Pink and white streamers over the main road at night" },
+  { src: "/gallery/fest-night-lanterns.jpg", alt: "Paper lanterns strung past a block lit in red, blue and purple" },
+  { src: "/gallery/Unknown-1.jpeg", alt: "Bunting strung across the corridor between campus blocks" },
+  { src: "/gallery/WhatsApp Image 2026-10-10 at 12.00.19 PM.jpeg", alt: "Campus building lit up in pink and green" },
+  { src: "/gallery/fest-night-green-block.jpg", alt: "Main building lit green with students gathered on the road" },
+  { src: "/gallery/IMG_5073.PNG", alt: "Fairy lights under the trees at dusk" },
+  { src: "/gallery/Unknown.jpeg", alt: "Crowd walking under the lit-up trees" },
+  { src: "/mvsr-campus.jpg", alt: "MVSR main building at sunset" },
+  { src: "/gallery/IMG_5074.PNG", alt: "Lanterns hanging over the crowd at night" },
 ]
 
-export default function GallerySection() {
-  const [activeFilter, setActiveFilter] = useState<string>("all")
-  const [activePhoto, setActivePhoto] = useState<GalleryPhoto | null>(null)
+type Seam = [number, number]
 
-  const filteredPhotos =
-    activeFilter === "all"
-      ? defaultGalleryPhotos
-      : defaultGalleryPhotos.filter((p) => p.category === activeFilter)
+interface ShatterLayout {
+  w: number
+  h: number
+  // Vertical seams as [x at top, x at bottom], including both outer edges.
+  columns: Seam[]
+  // Per column, the slanted cuts between stacked tiles as [y at left, y at right].
+  cuts: Seam[][]
+}
+
+const DESKTOP_LAYOUT: ShatterLayout = {
+  w: 1600,
+  h: 1150,
+  columns: [
+    [0, 0],
+    [405, 420],
+    [830, 795],
+    [1220, 1265],
+    [1600, 1600],
+  ],
+  cuts: [[[640, 605]], [[330, 365], [760, 715]], [[520, 585]], [[375, 330]]],
+}
+
+const MOBILE_LAYOUT: ShatterLayout = {
+  w: 800,
+  h: 1500,
+  columns: [
+    [0, 0],
+    [415, 385],
+    [800, 800],
+  ],
+  cuts: [
+    [[380, 350], [790, 830], [1160, 1130]],
+    [[270, 310], [600, 565], [930, 975], [1240, 1210]],
+  ],
+}
+
+type Point = [number, number]
+
+interface Tile {
+  points: Point[]
+  box: { x: number; y: number; w: number; h: number }
+}
+
+function buildTiles({ w, h, columns, cuts }: ShatterLayout, mirror: boolean): Tile[] {
+  const xAt = ([top, bottom]: Seam, y: number) => top + ((bottom - top) * y) / h
+  const tiles: Tile[] = []
+
+  cuts.forEach((colCuts, col) => {
+    const left = columns[col]
+    const right = columns[col + 1]
+    const rows: Seam[] = [[0, 0], ...colCuts, [h, h]]
+
+    for (let r = 0; r < rows.length - 1; r++) {
+      const [topL, topR] = rows[r]
+      const [botL, botR] = rows[r + 1]
+      let points: Point[] = [
+        [xAt(left, topL), topL],
+        [xAt(right, topR), topR],
+        [xAt(right, botR), botR],
+        [xAt(left, botL), botL],
+      ]
+      if (mirror) points = points.map(([x, y]) => [w - x, y])
+
+      const xs = points.map((p) => p[0])
+      const ys = points.map((p) => p[1])
+      const x = Math.min(...xs)
+      const y = Math.min(...ys)
+      tiles.push({
+        points,
+        box: { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y },
+      })
+    }
+  })
+
+  return tiles
+}
+
+// Deterministic rough edge so the torn paper looks the same on every render.
+function tornEdge(seed: number, width: number, base: number, amp: number, fillAbove: boolean, height: number) {
+  let s = seed
+  const rand = () => {
+    s = (s * 16807) % 2147483647
+    return s / 2147483647
+  }
+  const phase = rand() * 10
+  const pts: string[] = []
+  for (let x = 0; x <= width; x += 5 + rand() * 7) {
+    const wave =
+      Math.sin(x / 210 + phase) * amp * 0.6 + Math.sin(x / 67 + phase * 2) * amp * 0.25
+    const fibre = (rand() - 0.5) * amp * 0.55
+    pts.push(`${x.toFixed(1)},${(base + wave + fibre).toFixed(1)}`)
+  }
+  pts.push(`${width},${base}`)
+  const edgeY = fillAbove ? 0 : height
+  return `M0,${edgeY} L${pts.join(" L")} L${width},${edgeY} Z`
+}
+
+const TOP_EDGE = {
+  cream: tornEdge(7, 1600, 18, 10, true, 140),
+  gold: tornEdge(19, 1600, 74, 26, true, 140),
+  fringe: tornEdge(31, 1600, 112, 30, true, 140),
+  white: tornEdge(43, 1600, 104, 30, true, 140),
+}
+
+const BOTTOM_EDGE = {
+  fringe: tornEdge(59, 1600, 40, 26, false, 100),
+  white: tornEdge(71, 1600, 50, 26, false, 100),
+  footer: tornEdge(83, 1600, 82, 14, false, 100),
+}
+
+function ShatterCollage({
+  layout,
+  idPrefix,
+  className,
+  onOpen,
+}: {
+  layout: ShatterLayout
+  idPrefix: string
+  className: string
+  onOpen: (photo: GalleryPhoto) => void
+}) {
+  const block = buildTiles(layout, false)
+  const mirrored = buildTiles(layout, true)
+  const blockCount = Math.max(1, Math.ceil(galleryPhotos.length / block.length))
+
+  const tiles = Array.from({ length: blockCount }, (_, b) =>
+    (b % 2 ? mirrored : block).map((tile) => ({
+      ...tile,
+      points: tile.points.map(([x, y]) => [x, y + b * layout.h] as Point),
+      box: { ...tile.box, y: tile.box.y + b * layout.h },
+    })),
+  ).flat()
 
   return (
-    <section id="gallery" className="gallery-section">
-      {/* Torn Paper Rip Divider on top */}
-      <div className="torn-paper-edge" aria-hidden="true">
-        <svg
-          viewBox="0 0 1200 48"
-          preserveAspectRatio="none"
-          className="torn-svg"
-        >
-          {/* Layer 1: Warm Golden Kraft Paper */}
-          <path
-            d="M0,0 L1200,0 L1200,24 L1180,34 L1155,18 L1130,30 L1105,20 L1080,34 L1050,16 L1020,32 L995,22 L970,36 L940,18 L915,32 L885,16 L860,34 L830,20 L800,38 L770,18 L745,33 L715,20 L685,36 L655,21 L625,37 L595,18 L565,34 L535,20 L505,36 L475,19 L445,35 L415,21 L385,37 L355,18 L325,33 L295,20 L265,36 L235,19 L205,35 L175,21 L145,37 L115,18 L85,34 L55,20 L25,36 L0,22 Z"
-            fill="#d4a34b"
-          />
-          {/* Layer 2: Matching Events Section Cream Background (#F2EFE8) */}
-          <path
-            d="M0,0 L1200,0 L1200,14 L1175,26 L1150,12 L1125,24 L1095,14 L1070,28 L1040,12 L1010,26 L985,15 L960,30 L930,12 L905,26 L875,11 L850,28 L820,14 L790,32 L760,12 L735,27 L705,14 L675,30 L645,15 L615,31 L585,12 L555,28 L525,14 L495,30 L465,13 L435,29 L405,15 L375,31 L345,12 L315,27 L285,14 L255,30 L225,13 L195,29 L165,15 L135,31 L105,12 L75,28 L45,14 L15,30 L0,16 Z"
-            fill="#F2EFE8"
-          />
-        </svg>
+    <svg
+      className={`shatter-svg ${className}`}
+      viewBox={`0 0 ${layout.w} ${layout.h * blockCount}`}
+      role="list"
+      aria-label="Fest photo gallery"
+    >
+      <defs>
+        {tiles.map((tile, i) => (
+          <clipPath key={i} id={`${idPrefix}-${i}`}>
+            <polygon points={tile.points.join(" ")} />
+          </clipPath>
+        ))}
+      </defs>
+
+      {tiles.map((tile, i) => {
+        const photo = galleryPhotos[i % galleryPhotos.length]
+        const points = tile.points.join(" ")
+        return (
+          <g
+            key={i}
+            className="shatter-tile"
+            role="listitem"
+            tabIndex={0}
+            aria-label={`Open photo: ${photo.alt}`}
+            onClick={() => onOpen(photo)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onOpen(photo)
+              }
+            }}
+          >
+            <g clipPath={`url(#${idPrefix}-${i})`}>
+              <image
+                className="shatter-img"
+                href={encodeURI(photo.src)}
+                x={tile.box.x}
+                y={tile.box.y}
+                width={tile.box.w}
+                height={tile.box.h}
+                preserveAspectRatio="xMidYMid slice"
+              />
+            </g>
+            <polygon className="shatter-seam" points={points} />
+            <polygon className="shatter-focus" points={points} />
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+export default function GallerySection() {
+  const [activePhoto, setActivePhoto] = useState<GalleryPhoto | null>(null)
+
+  useEffect(() => {
+    if (!activePhoto) return
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setActivePhoto(null)
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [activePhoto])
+
+  return (
+    <section id="gallery" className="shatter-section">
+      <svg
+        className="shatter-tear shatter-tear--top"
+        viewBox="0 0 1600 140"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d={TOP_EDGE.fringe} fill="#d9d6cf" />
+        <path d={TOP_EDGE.white} fill="#f7f5f0" />
+        <path d={TOP_EDGE.gold} fill="#d4a34b" />
+        <path d={TOP_EDGE.cream} fill="#F2EFE8" />
+      </svg>
+
+      <div className="shatter-heading">
+        <div>
+          <span className="shatter-eyebrow">ARCHIVES OF SANGAMAM</span>
+          <h2 className="shatter-title">GALLERY</h2>
+        </div>
+        <p className="shatter-subtitle">
+          Lanterns, lights and late nights from the moments that lit up our campus.
+        </p>
       </div>
 
-      <div className="gallery-container">
-        {/* Gallery Header */}
-        <div className="gallery-header">
-          <div>
-            <span className="gallery-eyebrow">ARCHIVE & VIBES</span>
-            <h2 className="gallery-title">GALLERY</h2>
-          </div>
-          <p className="gallery-subtitle">
-            Unfiltered energy, historic sets, and the people who brought the noise.
-          </p>
-        </div>
+      <ShatterCollage
+        layout={DESKTOP_LAYOUT}
+        idPrefix="shatter-d"
+        className="shatter-svg--desktop"
+        onOpen={setActivePhoto}
+      />
+      <ShatterCollage
+        layout={MOBILE_LAYOUT}
+        idPrefix="shatter-m"
+        className="shatter-svg--mobile"
+        onOpen={setActivePhoto}
+      />
 
-        {/* Filter Pills */}
-        <div className="gallery-filters" role="tablist">
-          {[
-            { id: "all", label: "ALL MOMENTS" },
-            { id: "stage", label: "STAGE & MUSIC" },
-            { id: "performances", label: "PERFORMANCES" },
-            { id: "crowd", label: "CROWD & VIBES" },
-            { id: "campus", label: "CAMPUS" },
-          ].map((tab) => (
-            <button
-              type="button"
-              key={tab.id}
-              role="tab"
-              aria-selected={activeFilter === tab.id}
-              className={`gallery-filter-pill ${activeFilter === tab.id ? "active" : ""}`}
-              onClick={() => setActiveFilter(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <svg
+        className="shatter-tear shatter-tear--bottom"
+        viewBox="0 0 1600 100"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d={BOTTOM_EDGE.fringe} fill="#d9d6cf" />
+        <path d={BOTTOM_EDGE.white} fill="#ffffff" />
+        <path d={BOTTOM_EDGE.footer} fill="#08070b" />
+      </svg>
 
-        {/* Collage Photo Grid */}
-        <div className="gallery-collage-grid">
-          {filteredPhotos.map((photo, index) => (
-            <figure
-              key={photo.id}
-              className={`gallery-card ${photo.spanClass || ""} ${photo.tiltClass || ""}`}
-              onClick={() => setActivePhoto(photo)}
-              style={{ "--card-index": index } as React.CSSProperties}
-            >
-              <div className="gallery-img-wrapper">
-                <img
-                  src={photo.src}
-                  alt={photo.title}
-                  loading="lazy"
-                  onError={(e) => {
-                    // Fallback to unsplash if local file not yet uploaded
-                    const target = e.currentTarget
-                    target.src =
-                      "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&q=80"
-                  }}
-                />
-                <div className="gallery-card-overlay">
-                  <span className="gallery-card-tag">{photo.categoryLabel}</span>
-                  <p className="gallery-card-caption">{photo.title}</p>
-                  <span className="gallery-zoom-badge">↗</span>
-                </div>
-              </div>
-            </figure>
-          ))}
-        </div>
-
-        {/* Folder notice for user */}
-        <div className="gallery-folder-hint">
-          <span>📁 Photos folder active: <code>public/gallery/</code> (Add or replace photos anytime)</span>
-        </div>
-      </div>
-
-      {/* Lightbox Modal */}
       {activePhoto && (
         <div
           className="gallery-lightbox"
           role="dialog"
           aria-modal="true"
+          aria-label={activePhoto.alt}
           onClick={() => setActivePhoto(null)}
         >
           <div
@@ -225,10 +285,9 @@ export default function GallerySection() {
             >
               ✕
             </button>
-            <img src={activePhoto.src} alt={activePhoto.title} />
+            <img src={encodeURI(activePhoto.src)} alt={activePhoto.alt} />
             <div className="gallery-lightbox-info">
-              <span className="gallery-card-tag">{activePhoto.categoryLabel}</span>
-              <h3>{activePhoto.title}</h3>
+              <h3>{activePhoto.alt}</h3>
             </div>
           </div>
         </div>

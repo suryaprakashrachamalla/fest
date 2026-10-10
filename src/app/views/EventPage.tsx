@@ -20,6 +20,7 @@ export default function EventPage() {
   }
 
   const isHackathon = event.slug === "hackathon"
+  const isWalkIn = event.noRegistration === true
   const pricingTag = isHackathon
     ? "₹300 / person · 2–3 members"
     : "Registration opens soon"
@@ -48,6 +49,7 @@ export default function EventPage() {
           <div className="event-description">
             <p className="eyebrow">About this event</p>
             <h2>{event.description}</h2>
+            {!isWalkIn && (
             <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
               <button
                 type="button"
@@ -60,10 +62,13 @@ export default function EventPage() {
                 ⚡ {pricingTag}
               </span>
             </div>
+            )}
           </div>
           <div className="event-facts">
             {[
-              ["Fee", isHackathon ? "₹300 / head (2–3 members)" : "Announced soon"],
+              isWalkIn
+                ? ["Entry", "Walk in · No registration"]
+                : ["Fee", isHackathon ? "₹300 / head (2–3 members)" : "Announced soon"],
               ["Format", event.format],
               ["Team", event.team],
               ["Date", event.date],
@@ -96,29 +101,42 @@ export default function EventPage() {
           </ol>
         </section>
 
-        <section className="detail-cta">
-          <p style={{ color: "#f4c97a" }}>{isHackathon ? "Registration is Live" : "Registration opens soon"}</p>
-          <h2>
-            Ready to make
-            <br />
-            some noise?
-          </h2>
-          <button
-            type="button"
-            className="pill-button pill-button--gold"
-            onClick={() => setIsRegisterOpen(true)}
-            style={{ fontSize: "16px", padding: "16px 36px" }}
-          >
-            Register for {event.name} <span>↗</span>
-          </button>
-        </section>
+        {isWalkIn ? (
+          <section className="detail-cta">
+            <p style={{ color: "#f4c97a" }}>No registration needed</p>
+            <h2>
+              See you on
+              <br />
+              the dance floor.
+            </h2>
+          </section>
+        ) : (
+          <section className="detail-cta">
+            <p style={{ color: "#f4c97a" }}>{isHackathon ? "Registration is Live" : "Registration opens soon"}</p>
+            <h2>
+              Ready to make
+              <br />
+              some noise?
+            </h2>
+            <button
+              type="button"
+              className="pill-button pill-button--gold"
+              onClick={() => setIsRegisterOpen(true)}
+              style={{ fontSize: "16px", padding: "16px 36px" }}
+            >
+              Register for {event.name} <span>↗</span>
+            </button>
+          </section>
+        )}
       </main>
 
-      <RegistrationModal
-        event={event}
-        isOpen={isRegisterOpen}
-        onClose={() => setIsRegisterOpen(false)}
-      />
+      {!isWalkIn && (
+        <RegistrationModal
+          event={event}
+          isOpen={isRegisterOpen}
+          onClose={() => setIsRegisterOpen(false)}
+        />
+      )}
 
       <Footer />
     </div>

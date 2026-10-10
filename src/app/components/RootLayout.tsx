@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useLocation, useOutlet } from "react-router"
+import { markIntroDone } from "../introState"
+import ScriptReveal from "./ScriptReveal"
 
 interface OutletRecord {
   key: string
@@ -183,6 +185,10 @@ export default function RootLayout() {
   const [prevOutlet, setPrevOutlet] = useState<OutletRecord | null>(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [showPreloader, setShowPreloader] = useState(true)
+
+  useEffect(() => {
+    if (!showPreloader) markIntroDone()
+  }, [showPreloader])
   const [transitionCounter, setTransitionCounter] = useState(0)
 
   const prevPathRef = useRef(location.pathname)
@@ -299,7 +305,8 @@ export default function RootLayout() {
           <div className="abatable-preloader-content">
             <div className="preloader-brand-block">
               <span className="preloader-title">
-                SHOURYA<strong>&apos;26</strong>
+                <ScriptReveal text="SHOURYA" />
+                <strong>&apos;26</strong>
               </span>
               <span className="preloader-sub">TECH FEST @MVSR</span>
             </div>

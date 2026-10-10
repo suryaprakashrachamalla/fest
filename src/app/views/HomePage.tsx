@@ -3,6 +3,7 @@ import { Link } from "react-router"
 import Footer from "../components/Footer"
 import Header from "../components/Header"
 import GallerySection from "../components/GallerySection"
+import ScriptReveal from "../components/ScriptReveal"
 import { categories, events } from "../events"
 
 const registrationDate = new Date("2026-10-10T00:00:00+05:30").getTime()
@@ -74,31 +75,10 @@ function EventCard({
           </p>
           <h3>{event.name}</h3>
         </div>
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <Link className="event-link" to={`/events/${event.slug}`}>
-            Explore <span>↗</span>
-          </Link>
-          <Link
-            to={`/events/${event.slug}`}
-            style={{
-              fontSize: "12px",
-              fontFamily: "DM Mono, monospace",
-              background: "rgba(201, 111, 74, 0.12)",
-              color: "#C96F4A",
-              padding: "4px 10px",
-              borderRadius: "100px",
-              border: "1px solid rgba(201, 111, 74, 0.35)",
-              fontWeight: 600,
-            }}
-          >
-            Register
-          </Link>
-        </div>
+        <Link className="event-link" to={`/events/${event.slug}`}>
+          Explore <span>↗</span>
+        </Link>
       </div>
-      <p className="event-tagline">
-        {event.time} · {event.tagline}
-      </p>
-      <span className="card-order">0{index + 1}</span>
     </article>
   )
 }
@@ -154,22 +134,10 @@ export default function HomePage() {
             className="hero-type hero-type--registration festival-lockup"
             aria-label="Shourya 2026 Tech Fest at MVSR, October 16 and 17"
           >
+            <p className="festival-dept">Department of Computer Science and Engineering</p>
+            <p className="festival-presents">presents</p>
             <div className="shourya-title" aria-hidden="true">
-              <span className="shourya-word">
-                {"SHOURYA".split("").map((letter, index) => (
-                  <i
-                    key={`${letter}-${index}`}
-                    style={
-                      {
-                        "--reveal-delay": `${0.18 + index * 0.055}s`,
-                        "--tone-delay": `${1.4 + index * 0.16}s`,
-                      } as React.CSSProperties
-                    }
-                  >
-                    {letter}
-                  </i>
-                ))}
-              </span>
+              <ScriptReveal text="SHOURYA" className="shourya-word" waitForIntro />
               <strong>&apos;26</strong>
             </div>
 
