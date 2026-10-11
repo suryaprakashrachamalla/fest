@@ -285,6 +285,15 @@ export default function TicketScanner({
     }
   }
 
+  // Clears the last result and gets ready for the next attendee (starting the camera if it's off).
+  // The QR just shown stays "seen" while it's still in front of the camera, so it isn't read again.
+  function scanNext() {
+    awaiting.current = false
+    setOutcome(null)
+    setManual("")
+    if (camera === "off") void startCamera()
+  }
+
   function closeTeam() {
     awaiting.current = false
     setSelected([])
@@ -488,7 +497,11 @@ export default function TicketScanner({
               </button>
             </div>
           ) : (
-            camera === "on" && <p className="ticket-next">Ready for the next attendee: point the camera at their QR.</p>
+            <div className="ticket-authorize">
+              <button type="button" className="pill-button pill-button--gold ticket-admit" onClick={scanNext} disabled={busy}>
+                Scan next QR
+              </button>
+            </div>
           )}
         </div>
       )}
