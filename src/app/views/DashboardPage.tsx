@@ -219,6 +219,11 @@ export default function DashboardPage() {
           <>
             <h1 className="account-title">Hi, {user.name.split(" ")[0]}</h1>
             <p className="account-muted">Your registrations for MVSR Sangamam 2026.</p>
+            {user.role === "ADMIN" && (
+              <Link to="/admin" className="pill-button pill-button--gold" style={{ marginTop: 14 }}>
+                Open organizer dashboard
+              </Link>
+            )}
             {error && <div className="modal-error-banner">{error}</div>}
             {registrations === null && !error && <p className="account-muted">Loading…</p>}
             {registrations?.length === 0 && (

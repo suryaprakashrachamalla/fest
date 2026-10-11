@@ -27,7 +27,9 @@ export default function Header({ light = false }: { light?: boolean }) {
       </nav>
 
       <nav className="account-nav" aria-label="Account">
-        {user ? (
+        {user?.role === "ADMIN" ? (
+          <Link to="/admin">ADMIN</Link>
+        ) : user ? (
           <Link to="/dashboard">DASHBOARD</Link>
         ) : (
           <>

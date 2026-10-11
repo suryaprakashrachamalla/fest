@@ -78,6 +78,16 @@ export interface Registration {
   participants: Participant[]
   paymentProofs: PaymentProof[]
   user?: { id: string; name: string; email: string }
+  verifiedAt?: string | null
+  verifiedBy?: { name: string; email: string } | null
+  approvedBy?: { name: string; email: string } | null
+}
+
+export interface PaymentQr {
+  id: string
+  label: string
+  isActive: boolean
+  createdAt: string
 }
 
 export interface AuditEntry {
@@ -257,6 +267,22 @@ export const admin = {
     request<{ event: string; membersScanned: number; teamsEntered: number; error?: string }[]>("/admin/luma-checkins", { method: "POST" }),
   // Re-checks every row against the sheet and retries failed sync jobs.
   retrySync: () => request("/admin/sync-reconcile", { method: "POST" }),
+  paymentQrs: () => request<PaymentQr[]>("/admin/payment-qrs"),
+  addPaymentQr: (label: string, image: File) => {
+    const form = new FormData()
+    form.append("label", label)
+    form.append("image", image)
+    return request<PaymentQr>("/admin/payment-qrs", { form })
+  },
+  setPaymentQrActive: (id: string, isActive: boolean) =>
+    request<PaymentQr>(`/admin/payment-qrs/${id}/active`, { method: "PATCH", json: { isActive } }),
+  async paymentQrImageUrl(id: string) {
+    const response = await fetch(`${API_BASE}/admin/payment-qrs/${id}/image`, {
+      headers: memoryToken ? { Authorization: `Bearer ${memoryToken}` } : {},
+    })
+    if (!response.ok) throw new ApiError(response.status, "Couldn't load the QR image")
+    return URL.createObjectURL(await response.blob())
+  },
   // Screenshots need the admin token, so they are fetched and shown as a temporary object URL.
   async screenshotUrl(proofId: string) {
     const response = await fetch(`${API_BASE}/admin/payment-proofs/${proofId}/screenshot`, {

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react"
+import { FormEvent, useCallback, useEffect, useState } from "react"
 import { Link } from "react-router"
 import {
   type AuditEntry,
+  type PaymentQr,
   type Registration,
   type RegistrationStatus,
   type User,
@@ -18,6 +19,7 @@ const FILTERS: { label: string; status?: RegistrationStatus }[] = [
   { label: "Payment review", status: "PAYMENT_REVIEW" },
   { label: "Payment verified", status: "PAYMENT_VERIFIED" },
   { label: "Approved", status: "APPROVED" },
+  { label: "Ticket issued", status: "TICKET_ISSUED" },
   { label: "Awaiting payment", status: "PENDING_PAYMENT" },
   { label: "Payment rejected", status: "PAYMENT_REJECTED" },
   { label: "Rejected", status: "REJECTED" },
@@ -26,6 +28,114 @@ const FILTERS: { label: string; status?: RegistrationStatus }[] = [
 
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : ""
+}
+
+// Organizers upload the real UPI QR here; the active one is shown to everyone who registers.
+function PaymentQrManager() {
+  const [qrs, setQrs] = useState<PaymentQr[] | null>(null)
+  const [images, setImages] = useState<Record<string, string>>({})
+  const [label, setLabel] = useState("")
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState("")
+  const [error, setError] = useState("")
+
+  const load = useCallback(async () => {
+    try {
+      const list = await admin.paymentQrs()
+      setQrs(list)
+      for (const qr of list) {
+        admin.paymentQrImageUrl(qr.id).then((url) => setImages((m) => ({ ...m, [qr.id]: url }))).catch(() => {})
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't load QR codes")
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function upload(e: FormEvent) {
+    e.preventDefault()
+    setError("")
+    setNote("")
+    if (!label.trim()) return setError("Give the QR code a name, e.g. the UPI ID or account holder.")
+    if (!file || !["image/png", "image/jpeg"].includes(file.type) || file.size > 5 * 1024 * 1024)
+      return setError("Choose a PNG or JPG image of the QR code, up to 5 MB.")
+    setBusy(true)
+    try {
+      const created = await admin.addPaymentQr(label.trim(), file)
+      await admin.setPaymentQrActive(created.id, true)
+      setNote(`"${created.label}" uploaded and is now shown to everyone who registers.`)
+      setLabel("")
+      setFile(null)
+      ;(e.target as HTMLFormElement).reset()
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function activate(qr: PaymentQr) {
+    setError("")
+    setNote("")
+    try {
+      await admin.setPaymentQrActive(qr.id, true)
+      setNote(`"${qr.label}" is now the payment QR.`)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't switch the QR code")
+    }
+  }
+
+  const active = qrs?.find((qr) => qr.isActive)
+
+  return (
+    <section className="account-card admin-qr">
+      <h2>Payment QR code</h2>
+      <p className="account-muted">
+        {active
+          ? `Registrants see "${active.label}". Upload a new one to replace it.`
+          : "No QR uploaded yet, so registrants see the demo QR with a \"don't pay\" warning. Upload your real UPI QR to go live."}
+      </p>
+      {qrs && qrs.length > 0 && (
+        <div className="admin-qr-list">
+          {qrs.map((qr) => (
+            <div key={qr.id} className={`admin-qr-item ${qr.isActive ? "admin-qr-item--active" : ""}`}>
+              {images[qr.id] ? <img src={images[qr.id]} alt={`QR code ${qr.label}`} /> : <div className="admin-qr-placeholder" />}
+              <strong>{qr.label}</strong>
+              <span className="account-muted">Added {formatDate(qr.createdAt)}</span>
+              {qr.isActive ? (
+                <span className="status-pill status-pill--approved">Live</span>
+              ) : (
+                <button type="button" className="pill-button pill-button--outline account-signout" onClick={() => activate(qr)}>
+                  Use this QR
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <form className="admin-qr-form" onSubmit={upload} noValidate>
+        <div className="form-field">
+          <label htmlFor="qr-label">Name (e.g. UPI ID)</label>
+          <input id="qr-label" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={80} placeholder="mvsrfest@upi" />
+        </div>
+        <div className="form-field">
+          <label htmlFor="qr-file">QR image (PNG or JPG)</label>
+          <input id="qr-file" type="file" accept="image/png,image/jpeg" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        </div>
+        <button type="submit" className="pill-button pill-button--gold" disabled={busy}>
+          {busy ? "Uploading…" : "Upload & make live"}
+        </button>
+      </form>
+      {note && <p className="success-sync-notice" style={{ justifyContent: "flex-start", margin: "12px 0 0" }}>✓ {note}</p>}
+      {error && <div className="modal-error-banner" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}
+    </section>
+  )
 }
 
 function AdminRegistration({ registration, onChanged }: { registration: Registration; onChanged: () => void }) {
@@ -79,6 +189,18 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
             <div className="receipt-row"><span>College</span><strong>{registration.college}</strong></div>
             <div className="receipt-row"><span>Phone</span><strong>{registration.phone}</strong></div>
             <div className="receipt-row"><span>Registered</span><strong>{formatDate(registration.createdAt)}</strong></div>
+            {registration.verifiedBy && (
+              <div className="receipt-row">
+                <span>Payment verified by</span>
+                <strong>{registration.verifiedBy.name} · {formatDate(registration.verifiedAt ?? null)}</strong>
+              </div>
+            )}
+            {registration.approvedBy && (
+              <div className="receipt-row">
+                <span>Approved by</span>
+                <strong>{registration.approvedBy.name} · {formatDate(registration.approvedAt)}</strong>
+              </div>
+            )}
             {registration.rejectionReason && (
               <div className="receipt-row"><span>Rejection reason</span><strong>{registration.rejectionReason}</strong></div>
             )}
@@ -224,6 +346,7 @@ export default function AdminPage() {
   const [user, setUser] = useState<User | null>(getStoredUser())
   const [filter, setFilter] = useState(0)
   const [rows, setRows] = useState<Registration[] | null>(null)
+  const [counts, setCounts] = useState<Partial<Record<RegistrationStatus | "ALL", number>>>({})
   const [sync, setSync] = useState<Awaited<ReturnType<typeof admin.syncStatus>> | null>(null)
   const [syncNote, setSyncNote] = useState("")
   const [lumaNote, setLumaNote] = useState("")
@@ -233,7 +356,12 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     setError("")
     try {
-      setRows(await admin.registrations(FILTERS[filter].status))
+      const all = await admin.registrations()
+      const tally: Partial<Record<RegistrationStatus | "ALL", number>> = { ALL: all.length }
+      for (const r of all) tally[r.status] = (tally[r.status] ?? 0) + 1
+      setCounts(tally)
+      const status = FILTERS[filter].status
+      setRows(status ? all.filter((r) => r.status === status) : all)
       setSync(await admin.syncStatus().catch(() => null))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't load registrations.")
@@ -268,11 +396,17 @@ export default function AdminPage() {
           </div>
         ) : (
           <>
-            <h1 className="account-title">Registrations</h1>
+            <h1 className="account-title">Organizer dashboard</h1>
+            <PaymentQrManager />
+            <h2 className="account-subtitle">Registrations</h2>
+            <p className="account-muted">
+              Open a team to see its members, payment screenshot and UTR. Verify the payment, then approve the team.
+              Every action is recorded with your name and synced to Google Sheets.
+            </p>
             <div className="admin-filters">
               {FILTERS.map((f, i) => (
                 <button key={f.label} type="button" className={`size-tab ${filter === i ? "size-tab--active" : ""}`} onClick={() => setFilter(i)}>
-                  <strong>{f.label}</strong>
+                  <strong>{f.label} ({counts[f.status ?? "ALL"] ?? 0})</strong>
                 </button>
               ))}
             </div>

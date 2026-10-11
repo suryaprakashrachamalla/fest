@@ -29,8 +29,9 @@ function PortalForm() {
         setPassword("")
         setCreated(true)
       } else {
-        await signIn(email.trim(), password)
-        navigate("/dashboard")
+        const signedIn = await signIn(email.trim(), password)
+        // Organizers land on the organizer dashboard; everyone else on their own dashboard.
+        navigate(signedIn.role === "ADMIN" ? "/admin" : "/dashboard")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
@@ -76,8 +77,8 @@ function PortalForm() {
               <span>✓</span>
               You&apos;re logged in as {user.email}.
             </div>
-            <Link className="portal-cta" to="/dashboard">
-              Open my dashboard <span>↗</span>
+            <Link className="portal-cta" to={user.role === "ADMIN" ? "/admin" : "/dashboard"}>
+              {user.role === "ADMIN" ? "Open organizer dashboard" : "Open my dashboard"} <span>↗</span>
             </Link>
           </>
         ) : (
