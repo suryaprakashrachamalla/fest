@@ -1,6 +1,5 @@
 import { useState } from "react"
 import { Link, useParams } from "react-router"
-import Footer from "../components/Footer"
 import Header from "../components/Header"
 import RegistrationModal from "../components/RegistrationModal"
 import { events } from "../events"
@@ -19,11 +18,12 @@ export default function EventPage() {
     )
   }
 
-  const isHackathon = event.slug === "hackathon"
   const isWalkIn = event.noRegistration === true
-  const pricingTag = isHackathon
-    ? "₹300 / person · 2–3 members"
-    : "Registration opens soon"
+  // Walk-in and on-campus events have no online registration.
+  const hasOnlineRegistration = !isWalkIn && !event.registerAt
+  // Only events that need 2+ members register as a team.
+  const isTeamEvent = /^[2-9]/.test(event.team)
+  const criteria = event.criteria ?? { label: "What matters", title: ["Bring the idea.", "We'll bring the arena."] }
 
   return (
     <div
@@ -33,14 +33,27 @@ export default function EventPage() {
       <Header light />
       <main>
         <section className="event-hero">
-          <img src={event.image} alt={`${event.name} atmosphere`} />
+          <img src={event.image} alt={`${event.name} atmosphere`} style={{ objectPosition: event.imagePosition }} />
           <div className="event-hero-overlay" />
+          {/* Returns to this event's category on the home page. */}
+          <Link className="event-back" to="/" state={{ scrollTo: event.category.toLowerCase().replace(" ", "-") }}>
+            <span aria-hidden="true">←</span> Back to events
+          </Link>
           <p className="event-breadcrumb">
             <Link to="/">Shourya 2026</Link> / {event.category} / {event.number}
           </p>
-          <div className="event-hero-title">
-            <p>{event.tagline}</p>
+          <div
+            className={`event-hero-title ${event.name.length > 20 ? "event-hero-title--long" : ""}`}
+            style={{ "--longest": Math.max(...event.name.split(" ").map((word) => word.length)) } as React.CSSProperties}
+          >
+            {event.tagline && <p>{event.tagline}</p>}
             <h1>{event.name}</h1>
+            {event.prize && (
+              <div className="event-hero-prize">
+                <span>Prize pool</span>
+                <strong>{event.prize}</strong>
+              </div>
+            )}
           </div>
           <span className="event-hero-number">{event.number}</span>
         </section>
@@ -49,30 +62,71 @@ export default function EventPage() {
           <div className="event-description">
             <p className="eyebrow">About this event</p>
             <h2>{event.description}</h2>
-            {!isWalkIn && (
+            {event.performer && (
+              <p className="eyebrow event-performer-label">Featuring</p>
+            )}
+            {event.performer && (
+              <a className="event-performer" href={event.performer.instagram} target="_blank" rel="noreferrer">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                </svg>
+                <span>
+                  <strong>{event.performer.name}</strong>
+                  <em>@{event.performer.handle}</em>
+                </span>
+              </a>
+            )}
+            {event.performer?.bio && <p className="event-performer-bio">{event.performer.bio}</p>}
+            {event.activities && (
+              <>
+                <p className="eyebrow event-performer-label">Events</p>
+                <ol className="event-activities">
+                  {event.activities.map((activity, index) => (
+                    <li key={activity}>
+                      <span>0{index + 1}</span>
+                      {activity}
+                    </li>
+                  ))}
+                </ol>
+                {event.activitiesNote && <p className="event-performer-bio">{event.activitiesNote}</p>}
+              </>
+            )}
+            {hasOnlineRegistration && (
             <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
               <button
                 type="button"
                 className="pill-button pill-button--gold"
                 onClick={() => setIsRegisterOpen(true)}
               >
-                Register Team Now <span>↗</span>
+                {isTeamEvent ? "Register Team Now" : "Register Now"} <span>↗</span>
               </button>
-              <span style={{ fontSize: "13px", color: "#f4c97a", fontFamily: "DM Mono, monospace" }}>
-                ⚡ {pricingTag}
-              </span>
             </div>
             )}
           </div>
           <div className="event-facts">
             {[
+              ...(event.registerAt ? [["Registration", event.registerAt]] : []),
               isWalkIn
-                ? ["Entry", "Walk in · No registration"]
-                : ["Fee", isHackathon ? "₹300 / head (2–3 members)" : "Announced soon"],
+                ? ["Entry", event.entry ?? "Walk in · No registration"]
+                : [event.feeLabel ?? "Fee", event.fee ?? "Announced soon"],
+              ...(event.prize ? [["Prize pool", event.prize]] : []),
+              ...(event.prizes ?? []),
               ["Format", event.format],
-              ["Team", event.team],
+              [event.teamLabel ?? "Team", event.team],
               ["Date", event.date],
               ["Time", event.time],
+              ...(event.venue ? [["Venue", event.venue]] : []),
+              ...(event.food ? [["Food", event.food]] : []),
             ].map(([label, value]) => (
               <div key={label}>
                 <span>{label}</span>
@@ -82,55 +136,30 @@ export default function EventPage() {
           </div>
         </section>
 
-        <section className="event-criteria">
-          <div>
-            <p className="eyebrow">What matters</p>
-            <h2>
-              Bring the idea.
-              <br />
-              We&apos;ll bring the arena.
-            </h2>
-          </div>
-          <ol>
-            {event.challenges.map((challenge, index) => (
-              <li key={challenge}>
-                <span>0{index + 1}</span>
-                {challenge}
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        {isWalkIn ? (
-          <section className="detail-cta">
-            <p style={{ color: "#f4c97a" }}>No registration needed</p>
-            <h2>
-              See you on
-              <br />
-              the dance floor.
-            </h2>
-          </section>
-        ) : (
-          <section className="detail-cta">
-            <p style={{ color: "#f4c97a" }}>{isHackathon ? "Registration is Live" : "Registration opens soon"}</p>
-            <h2>
-              Ready to make
-              <br />
-              some noise?
-            </h2>
-            <button
-              type="button"
-              className="pill-button pill-button--gold"
-              onClick={() => setIsRegisterOpen(true)}
-              style={{ fontSize: "16px", padding: "16px 36px" }}
-            >
-              Register for {event.name} <span>↗</span>
-            </button>
+        {!event.hideCriteria && (
+          <section className="event-criteria">
+            <div>
+              <p className="eyebrow">{criteria.label}</p>
+              <h2>
+                {criteria.title[0]}
+                <br />
+                {criteria.title[1]}
+              </h2>
+            </div>
+            <ol>
+              {event.challenges.map((challenge, index) => (
+                <li key={challenge}>
+                  <span>0{index + 1}</span>
+                  {challenge}
+                </li>
+              ))}
+            </ol>
           </section>
         )}
+
       </main>
 
-      {!isWalkIn && (
+      {hasOnlineRegistration && (
         <RegistrationModal
           event={event}
           isOpen={isRegisterOpen}
@@ -138,7 +167,6 @@ export default function EventPage() {
         />
       )}
 
-      <Footer />
     </div>
   )
 }

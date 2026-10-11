@@ -100,9 +100,12 @@ input {
 .main-nav {
   display: flex;
   align-items: center;
-  gap: clamp(5px, 0.65vw, 10px);
-  margin-left: clamp(16px, 2vw, 36px);
-  margin-right: auto;
+  gap: clamp(8px, 0.9vw, 14px);
+  /* Centered across the whole header, independent of the logo width. */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .main-nav a,
@@ -114,10 +117,10 @@ input {
   border-radius: 999px;
   background: rgb(18 16 26 / 60%);
   backdrop-filter: blur(10px);
-  padding: 7px clamp(12px, 0.95vw, 16px);
+  padding: 9px clamp(14px, 1.3vw, 22px);
   color: #f4f1e8;
   font-family: inherit;
-  font-size: clamp(12px, 0.85vw, 13.5px);
+  font-size: clamp(12.5px, 0.95vw, 15px);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -596,6 +599,34 @@ input {
   text-decoration: none;
 }
 
+.hero-prize {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: clamp(4px, 0.8vh, 10px) 0 0;
+  animation: lockup-reveal 0.8s 1.05s both;
+}
+
+.hero-prize span {
+  color: rgba(255, 255, 255, 0.75);
+  font-family: "DM Mono", monospace;
+  font-size: clamp(12px, 1.05vw, 15px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.hero-prize strong {
+  background: var(--logo-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(1.5rem, 2.6vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .hero-register::before {
   content: "";
   position: absolute;
@@ -831,13 +862,12 @@ input {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: grayscale(0.85) contrast(1.15);
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1), filter 500ms ease;
+  filter: contrast(1.05);
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .event-card:hover .event-visual img {
   transform: scale(1.08);
-  filter: grayscale(0) contrast(1.05);
 }
 
 .event-index,
@@ -1602,15 +1632,23 @@ input {
 
 .event-hero {
   position: relative;
+  /* Title sits in normal flow below the back link and breadcrumb, so the hero
+     grows instead of letting the title ride up over them on short screens. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   min-height: 90svh;
+  padding: 210px 0 60px;
   overflow: hidden;
   color: #fff;
   background: #111;
 }
 
 .event-hero > img {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: 90svh;
+  height: 100%;
   object-fit: cover;
   animation: image-enter 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -1621,10 +1659,38 @@ input {
   background: linear-gradient(180deg, rgb(0 0 0 / 25%), rgb(0 0 0 / 75%));
 }
 
+.event-back {
+  position: absolute;
+  z-index: 5;
+  top: 112px;
+  left: clamp(22px, 4vw, 64px);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border: 1px solid rgb(255 255 255 / 45%);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 35%);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-family: "DM Mono", monospace;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.event-back:hover,
+.event-back:focus-visible {
+  background: rgb(0 0 0 / 60%);
+  border-color: var(--accent);
+}
+
 .event-breadcrumb {
   position: absolute;
-  z-index: 3;
-  top: 115px;
+  z-index: 5;
+  top: 172px;
   left: clamp(22px, 4vw, 64px);
   margin: 0;
   font-family: "DM Mono", monospace;
@@ -1637,11 +1703,9 @@ input {
 }
 
 .event-hero-title {
-  position: absolute;
+  position: relative;
   z-index: 3;
-  right: clamp(22px, 4vw, 64px);
-  bottom: 60px;
-  left: clamp(22px, 4vw, 64px);
+  margin-inline: clamp(22px, 4vw, 64px);
 }
 
 .event-hero-title p {
@@ -1650,15 +1714,49 @@ input {
   font-size: 14px;
 }
 
+.event-hero-prize {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: clamp(20px, 3vh, 32px);
+  animation: reveal-up 0.9s 0.35s both;
+}
+
+.event-hero-prize span {
+  color: rgba(255, 255, 255, 0.8);
+  font-family: "DM Mono", monospace;
+  font-size: clamp(12px, 1.05vw, 15px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.event-hero-prize strong {
+  background: var(--logo-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(1.8rem, 3.4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .event-hero-title h1 {
   max-width: 1200px;
   margin: 0;
-  font-size: clamp(5rem, 14vw, 13rem);
+  /* Shrinks so the longest word in the name always fits the width. */
+  font-size: clamp(3rem, min(14vw, calc(150vw / var(--longest, 8))), 13rem);
   font-weight: 700;
   line-height: 0.76;
   letter-spacing: -0.08em;
   text-transform: uppercase;
   animation: reveal-up 0.9s 0.2s both;
+}
+
+/* Long names (e.g. Build Lab) drop to a smaller size so they stay clear of the header. */
+.event-hero-title--long h1 {
+  font-size: clamp(2.6rem, min(7.5vw, calc(150vw / var(--longest, 8))), 7.5rem);
+  line-height: 0.9;
 }
 
 .event-hero-number {
@@ -1672,17 +1770,104 @@ input {
 
 .event-details {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
-  gap: 10vw;
-  padding: 140px clamp(22px, 7vw, 110px);
+  /* minmax(0, …) stops long fact values from pushing the columns off screen. */
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 6vw;
+  padding: 140px clamp(32px, 11vw, 180px);
+}
+
+.event-description .eyebrow {
+  font-size: 15px;
 }
 
 .event-description h2 {
   margin: 26px 0 0;
-  font-size: clamp(2rem, 4vw, 4.2rem);
+  font-size: clamp(1.5rem, 2.6vw, 2.6rem);
   font-weight: 500;
-  line-height: 1.12;
-  letter-spacing: -0.05em;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.event-description .event-performer-label {
+  margin: 34px 0 0;
+}
+
+.event-performer {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 12px 24px 12px 14px;
+  border: 1px solid rgb(0 0 0 / 18%);
+  border-radius: 999px;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.25s ease, background 0.25s ease;
+}
+
+.event-performer:hover,
+.event-performer:focus-visible {
+  border-color: var(--accent);
+  background: rgb(0 0 0 / 4%);
+}
+
+.event-performer svg {
+  width: 44px;
+  height: 44px;
+  padding: 9px;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(45deg, #f9ce34, #ee2a7b 50%, #6228d7);
+}
+
+.event-performer span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.event-performer strong {
+  font-size: clamp(1.25rem, 1.8vw, 1.6rem);
+  font-weight: 600;
+}
+
+.event-performer em {
+  font-family: "DM Mono", monospace;
+  font-size: 15px;
+  font-style: normal;
+  opacity: 0.7;
+}
+
+.event-performer-bio {
+  max-width: 520px;
+  margin: 14px 0 0;
+  font-size: clamp(1rem, 1.2vw, 1.15rem);
+  line-height: 1.5;
+  opacity: 0.8;
+}
+
+.event-activities {
+  max-width: 520px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid rgb(0 0 0 / 18%);
+}
+
+.event-activities li {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgb(0 0 0 / 18%);
+  font-size: clamp(1.1rem, 1.5vw, 1.4rem);
+}
+
+.event-activities span {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  opacity: 0.6;
 }
 
 .event-facts {
@@ -1693,26 +1878,31 @@ input {
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  padding: 22px 0;
+  padding: 26px 0;
   border-bottom: 1px solid #aaa;
 }
 
 .event-facts span {
+  flex-shrink: 0;
   font-family: "DM Mono", monospace;
-  font-size: 9px;
+  font-size: 19px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .event-facts strong {
+  min-width: 0;
   text-align: right;
-  font-size: 14px;
+  /* Venues list a hall and its classrooms on separate lines. */
+  white-space: pre-line;
+  font-size: 22px;
 }
 
 .event-criteria {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10vw;
-  padding: 130px clamp(22px, 7vw, 110px);
+  padding: 130px clamp(32px, 11vw, 180px);
   color: #fff;
   background: #111;
 }
@@ -2086,8 +2276,7 @@ input {
   }
 
   .main-nav {
-    gap: 5px;
-    margin-left: clamp(8px, 1.2vw, 18px);
+    gap: 6px;
   }
 
   .main-nav a {
@@ -2101,13 +2290,25 @@ input {
   }
 }
 
+@media (max-width: 1080px) {
+  /* Too narrow to center without touching the logo: sit on the right instead. */
+  .main-nav {
+    position: static;
+    transform: none;
+    margin-left: auto;
+  }
+}
+
 @media (max-width: 960px) {
   .main-nav {
     display: none;
   }
 
+  /* With the nav hidden, the logo is the only item: center it. */
   .site-header {
     grid-template-columns: 1fr 1fr;
+    justify-content: center;
+    padding-inline: 18px;
   }
 
   .hero {
@@ -2283,14 +2484,16 @@ input {
     margin-top: 28px;
   }
 
-  .event-hero,
-  .event-hero > img {
-    min-height: 760px;
-    height: 100svh;
+  .event-hero {
+    min-height: max(760px, 100svh);
   }
 
   .event-hero-title h1 {
-    font-size: 20vw;
+    font-size: min(20vw, calc(140vw / var(--longest, 8)));
+  }
+
+  .event-hero-title--long h1 {
+    font-size: min(12vw, calc(140vw / var(--longest, 8)));
   }
 
   .event-hero-number {
@@ -2581,6 +2784,31 @@ html {
   justify-content: center;
   font-size: clamp(2.4rem, 5.4vw, 4.2rem);
   line-height: 1;
+}
+
+.preloader-title--dept {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.22em;
+  font-size: clamp(1.6rem, 5vw, 3.6rem);
+}
+
+.preloader-dept-line {
+  font-family: var(--logo-font);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  background: var(--logo-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 16px var(--logo-gold-glow));
+}
+
+.preloader-dept-lead {
+  font-size: 0.5em;
+  letter-spacing: 0.2em;
 }
 
 .preloader-title > strong {
@@ -3221,3 +3449,488 @@ html {
   justify-content: center;
 }
 
+
+/* Phone layout: center every section's content. Kept last so it wins over the
+   desktop-first rules above. */
+@media (max-width: 600px) {
+  /* Home hero */
+  .hero-meta {
+    align-items: center;
+    text-align: center;
+  }
+
+  .hero-meta > div {
+    justify-content: center;
+  }
+
+  .hero-meta > a {
+    align-self: center;
+  }
+
+  .registration-countdown {
+    align-items: center;
+    text-align: center;
+  }
+
+  /* Category headings and event cards */
+  .category-heading {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .events-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .event-card,
+  .events-grid .event-card:nth-child(2n) {
+    grid-column: 1 / -1;
+  }
+
+  .event-visual {
+    width: 100%;
+    max-height: none;
+  }
+
+  .event-copy {
+    justify-content: center;
+    gap: 10px 18px;
+    text-align: center;
+  }
+
+  .event-copy h3 {
+    flex-basis: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  /* Gallery, contact, FAQ, info and footer */
+  .shatter-heading {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .contact-banner-grid {
+    align-items: center;
+    padding-left: 0;
+    text-align: center;
+  }
+
+  .contact-email-item {
+    align-items: center;
+  }
+
+  .faq-heading,
+  .footer-title {
+    text-align: center;
+  }
+
+  .faq-heading > p:last-child {
+    margin-inline: auto;
+  }
+
+  .footer-bottom,
+  .footer-bottom > div {
+    justify-items: center;
+    justify-self: center;
+    text-align: center;
+  }
+
+  /* Event pages */
+  .event-back,
+  .event-breadcrumb {
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+
+  .event-hero-title {
+    text-align: center;
+  }
+
+  .event-hero-prize {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .event-description {
+    text-align: center;
+  }
+
+  .event-description > div {
+    justify-content: center;
+  }
+
+  .event-activities li {
+    justify-content: center;
+  }
+}
+
+/* ── Registration popup additions: select, file input and payment QR ── */
+.form-field select,
+.form-field input[type="file"] {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.form-field select option {
+  background: #111;
+}
+
+.form-field input[readonly] {
+  color: #f4c97a;
+  cursor: default;
+}
+
+.payment-qr-box {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.payment-qr-box img,
+.payment-qr-placeholder {
+  flex-shrink: 0;
+  width: 150px;
+  height: 150px;
+  border-radius: 10px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.payment-qr-box p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #ccc;
+}
+
+.payment-qr-box strong {
+  color: #f4c97a;
+}
+
+.payment-qr-demo {
+  color: #fbbf24 !important;
+  font-weight: 600;
+}
+
+@media (max-width: 520px) {
+  .payment-qr-box {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+/* ── Participant dashboard and organizer pages ── */
+.account-page {
+  min-height: 100svh;
+  padding: clamp(28px, 6vw, 72px) 16px 80px;
+  background: #0b0b0b;
+  color: #f4f1e8;
+}
+
+.account-shell {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.account-shell--wide {
+  max-width: 1040px;
+}
+
+.account-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.account-topbar .back-link {
+  color: #f4c97a;
+  font-family: "DM Mono", monospace;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.account-signout {
+  padding: 8px 18px;
+  font-size: 13px;
+}
+
+.account-title {
+  margin: 0 0 6px;
+  font-family: "Cinzel Decorative", serif;
+  font-size: clamp(28px, 5vw, 42px);
+}
+
+.account-muted {
+  color: #9a9a9a;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.account-card {
+  margin-top: 20px;
+  padding: clamp(20px, 4vw, 30px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: #121212;
+}
+
+.account-card h1,
+.account-card h2 {
+  margin: 4px 0 0;
+  font-family: "Cinzel Decorative", serif;
+  font-size: clamp(20px, 3vw, 28px);
+}
+
+.account-signin {
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.account-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.account-receipt {
+  max-width: none;
+  margin: 18px 0 0;
+}
+
+.account-members {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-members li {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 2px 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 14px;
+}
+
+.account-members span {
+  grid-row: span 2;
+  color: #888;
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+}
+
+.account-members em {
+  color: #9a9a9a;
+  font-style: normal;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.account-upload {
+  margin-top: 8px;
+}
+
+.status-pill {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-pill--payment_review,
+.status-pill--pending_payment {
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
+
+.status-pill--payment_verified {
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+.status-pill--approved,
+.status-pill--ticket_issued {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.status-pill--payment_rejected,
+.status-pill--rejected {
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.status-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 20px 0 4px;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.status-steps li {
+  padding-top: 10px;
+  border-top: 3px solid rgba(255, 255, 255, 0.12);
+  color: #777;
+  font-size: 12px;
+}
+
+.status-steps li.is-done {
+  border-color: #f4c97a;
+  color: #f4c97a;
+}
+
+@media (max-width: 520px) {
+  .status-steps {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 8px;
+}
+
+.admin-filters .size-tab {
+  padding: 8px 14px;
+}
+
+.admin-filters .size-tab strong {
+  font-size: 13px;
+}
+
+.admin-sync {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-row {
+  padding: 0;
+  overflow: hidden;
+}
+
+.admin-row-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 4px 14px;
+  width: 100%;
+  padding: 16px 20px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-row-head .account-muted {
+  grid-column: 2;
+  font-size: 13px;
+}
+
+.admin-row-head .status-pill {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+}
+
+.admin-row-body {
+  padding: 0 20px 22px;
+}
+
+.admin-proof {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-proof div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-proof img {
+  max-width: 180px;
+  max-height: 220px;
+  border-radius: 8px;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.admin-actions .pill-button {
+  padding: 10px 18px;
+  font-size: 14px;
+}
+
+.audit-list {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-list li {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 2px 12px;
+  font-size: 13px;
+}
+
+.audit-list span {
+  grid-row: span 2;
+  color: #888;
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+}
+
+.audit-list strong {
+  text-transform: capitalize;
+}
+
+.audit-list em {
+  color: #9a9a9a;
+  font-style: normal;
+}

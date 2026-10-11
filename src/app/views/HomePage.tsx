@@ -5,6 +5,7 @@ import Header from "../components/Header"
 import GallerySection from "../components/GallerySection"
 import ScriptReveal from "../components/ScriptReveal"
 import { categories, events } from "../events"
+import { publicUrl } from "../publicUrl"
 
 const registrationDate = new Date("2026-10-10T00:00:00+05:30").getTime()
 
@@ -63,7 +64,7 @@ function EventCard({
         to={`/events/${event.slug}`}
         aria-label={`View ${event.name}`}
       >
-        <img src={event.image} alt="" />
+        <img src={event.cardImage ?? event.image} alt="" />
         <span className="event-index">{event.number}</span>
         <span className="event-arrow">↗</span>
         <div className="scan-line" />
@@ -144,9 +145,13 @@ export default function HomePage() {
             <p className="festival-label">Tech Fest @MVSR</p>
             <p className="festival-date">16–17 OCT &apos;2026</p>
 
-            <Link className="hero-register" to="/signup">
+            <a className="hero-register" href={publicUrl("/#technical")}>
               Register now <span>→</span>
-            </Link>
+            </a>
+            <p className="hero-prize">
+              <span>Hackathon prize pool</span>
+              <strong>₹30,000 + ₹3 Lakh vouchers</strong>
+            </p>
           </div>
 
           <RegistrationCountdown />

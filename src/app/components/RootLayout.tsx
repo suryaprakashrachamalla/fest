@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react"
-import { useLocation, useOutlet } from "react-router"
+import { useLocation, useNavigate, useOutlet } from "react-router"
 import { markIntroDone } from "../introState"
-import ScriptReveal from "./ScriptReveal"
 
 interface OutletRecord {
   key: string
@@ -184,7 +183,9 @@ export default function RootLayout() {
   }))
   const [prevOutlet, setPrevOutlet] = useState<OutletRecord | null>(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
-  const [showPreloader, setShowPreloader] = useState(true)
+  const navigate = useNavigate()
+  // The intro only plays when landing on the home page, never on event or portal pages.
+  const [showPreloader, setShowPreloader] = useState(() => location.pathname === "/")
 
   useEffect(() => {
     if (!showPreloader) markIntroDone()
@@ -219,6 +220,12 @@ export default function RootLayout() {
         setPrevOutlet(null)
         setIsTransitioning(false)
         window.scrollTo(0, 0)
+        // Header section links clicked from another page land on that home section.
+        const sectionId = (location.state as { scrollTo?: string } | null)?.scrollTo
+        // Wait a frame so the page has left its transition layout and can scroll.
+        if (sectionId) {
+          setTimeout(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" }), 50)
+        }
       }, 1100)
 
       return () => clearTimeout(timer)
@@ -232,21 +239,17 @@ export default function RootLayout() {
       window.history.scrollRestoration = "manual"
     }
 
-    const initialHash = window.location.hash
+    // Drop any leftover #section so a load or refresh never scrolls down on its own.
+    if (window.location.hash) {
+      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search)
+    }
 
     // Force top scroll immediately for clean intro
     window.scrollTo(0, 0)
+    if (!showPreloader) return
 
     const timer = setTimeout(() => {
       setShowPreloader(false)
-      if (initialHash) {
-        const id = initialHash.replace("#", "")
-        const el = document.getElementById(id)
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth" })
-          return
-        }
-      }
       window.scrollTo(0, 0)
       requestAnimationFrame(() => {
         window.scrollTo(0, 0)
@@ -262,10 +265,15 @@ export default function RootLayout() {
       const target = (e.target as HTMLElement).closest("a")
       if (!target) return
 
-      const href = target.getAttribute("href")
-      if (!href) return
+      const rawHref = target.getAttribute("href")
+      if (!rawHref) return
+      const base = import.meta.env.BASE_URL
+      const href = base !== "/" && rawHref.startsWith(`${base}#`) ? rawHref.slice(base.length - 1) : rawHref
 
-      if (href.startsWith("/#") && location.pathname === "/") {
+      if (href.startsWith("/#") && location.pathname !== "/") {
+        e.preventDefault()
+        navigate("/", { state: { scrollTo: href.replace("/#", "") } })
+      } else if (href.startsWith("/#")) {
         e.preventDefault()
         const id = href.replace("/#", "")
         const el = document.getElementById(id)
@@ -284,10 +292,10 @@ export default function RootLayout() {
 
     document.addEventListener("click", handleAnchorClick)
     return () => document.removeEventListener("click", handleAnchorClick)
-  }, [location.pathname])
+  }, [location.pathname, navigate])
 
   const getPageTheme = (path: string) => {
-    if (path === "/login" || path === "/signup") return "portal"
+    if (path === "/login" || path === "/signup" || path === "/dashboard" || path === "/admin") return "portal"
     if (path.startsWith("/events/")) return "event"
     return "home"
   }
@@ -304,9 +312,9 @@ export default function RootLayout() {
           <div className="abatable-preloader-backdrop" />
           <div className="abatable-preloader-content">
             <div className="preloader-brand-block">
-              <span className="preloader-title">
-                <ScriptReveal text="SHOURYA" />
-                <strong>&apos;26</strong>
+              <span className="preloader-title preloader-title--dept">
+                <span className="preloader-dept-line preloader-dept-lead">DEPARTMENT OF</span>
+                <span className="preloader-dept-line">COMPUTER SCIENCE</span>
               </span>
               <span className="preloader-sub">TECH FEST @MVSR</span>
             </div>
@@ -351,16 +359,6 @@ export default function RootLayout() {
           data-theme={getPageTheme(currentOutlet.key)}
           key={`enter-${currentOutlet.key}-${transitionCounter}`}
         >
-          {isTransitioning && (
-            <div className="abatable-sheet-hud" aria-hidden="true">
-              <div className="abatable-sheet-hud-inner">
-                <span className="hud-pulse-dot" />
-                <span className="hud-brand">SHOURYA &apos;26</span>
-                <span className="hud-divider">/</span>
-                <span className="hud-curve">n! ACCELERATION</span>
-              </div>
-            </div>
-          )}
           <div className="abatable-page-content">{currentOutlet.node}</div>
         </div>
       </div>

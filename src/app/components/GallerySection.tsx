@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { publicUrl } from "../publicUrl"
 
 export interface GalleryPhoto {
   src: string
@@ -8,15 +9,15 @@ export interface GalleryPhoto {
 // Tiles fill column by column (left column top to bottom, then the next column).
 // Add more photos to extend the collage: every 9 photos adds another mirrored block.
 export const galleryPhotos: GalleryPhoto[] = [
-  { src: "/gallery/Unknown-2.jpeg", alt: "Pink and white streamers over the main road at night" },
-  { src: "/gallery/fest-night-lanterns.jpg", alt: "Paper lanterns strung past a block lit in red, blue and purple" },
-  { src: "/gallery/Unknown-1.jpeg", alt: "Bunting strung across the corridor between campus blocks" },
-  { src: "/gallery/WhatsApp Image 2026-10-10 at 12.00.19 PM.jpeg", alt: "Campus building lit up in pink and green" },
-  { src: "/gallery/fest-night-green-block.jpg", alt: "Main building lit green with students gathered on the road" },
-  { src: "/gallery/IMG_5073.PNG", alt: "Fairy lights under the trees at dusk" },
-  { src: "/gallery/Unknown.jpeg", alt: "Crowd walking under the lit-up trees" },
-  { src: "/mvsr-campus.jpg", alt: "MVSR main building at sunset" },
-  { src: "/gallery/IMG_5074.PNG", alt: "Lanterns hanging over the crowd at night" },
+  { src: publicUrl("/gallery/Unknown-2.jpeg"), alt: "Pink and white streamers over the main road at night" },
+  { src: publicUrl("/gallery/fest-night-lanterns.jpg"), alt: "Paper lanterns strung past a block lit in red, blue and purple" },
+  { src: publicUrl("/gallery/Unknown-1.jpeg"), alt: "Bunting strung across the corridor between campus blocks" },
+  { src: publicUrl("/gallery/WhatsApp Image 2026-10-10 at 12.00.19 PM.jpeg"), alt: "Campus building lit up in pink and green" },
+  { src: publicUrl("/gallery/fest-night-green-block.jpg"), alt: "Main building lit green with students gathered on the road" },
+  { src: publicUrl("/gallery/IMG_5073.PNG"), alt: "Fairy lights under the trees at dusk" },
+  { src: publicUrl("/gallery/Unknown.jpeg"), alt: "Crowd walking under the lit-up trees" },
+  { src: publicUrl("/mvsr-campus.jpg"), alt: "MVSR main building at sunset" },
+  { src: publicUrl("/gallery/IMG_5074.PNG"), alt: "Lanterns hanging over the crowd at night" },
 ]
 
 type Seam = [number, number]

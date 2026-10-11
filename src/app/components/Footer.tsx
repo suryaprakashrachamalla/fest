@@ -102,7 +102,7 @@ export default function Footer() {
               </div>
 
               <div className="contact-email-item">
-                <span className="contact-email-tag">STUDENT EMAIL</span>
+                <span className="contact-email-tag">SURYA PRAKASH R</span>
                 <a href="mailto:245123733055@mvsrec.edu.in" className="contact-email-address">
                   245123733055@mvsrec.edu.in
                 </a>
