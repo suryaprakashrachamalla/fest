@@ -1,0 +1,47 @@
+# Render Blueprint: New > Blueprint, pick this repository, then fill in the values marked sync: false.
+# The database is external (for example Neon free PostgreSQL); paste its direct, non-pooled connection string.
+services:
+  - type: web
+    name: fest-backend
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    # Applies migrations and re-runs the idempotent admin and event seeds before starting.
+    dockerCommand: sh -c "bunx prisma migrate deploy && bun src/lib/seed.ts && bun src/lib/seedEvents.ts && bun src/index.ts"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: "1"
+      - key: CORS_ORIGIN
+        value: https://suryaprakashrachamalla.github.io
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_SUPER_NAME
+        sync: false
+      - key: ADMIN_SUPER_EMAIL
+        sync: false
+      - key: ADMIN_SUPER_PASSWORD
+        sync: false
+      - key: ADMIN_VOLUNTEER1_NAME
+        sync: false
+      - key: ADMIN_VOLUNTEER1_EMAIL
+        sync: false
+      - key: ADMIN_VOLUNTEER1_PASSWORD
+        sync: false
+      - key: ADMIN_VOLUNTEER2_NAME
+        sync: false
+      - key: ADMIN_VOLUNTEER2_EMAIL
+        sync: false
+      - key: ADMIN_VOLUNTEER2_PASSWORD
+        sync: false
+      - key: GOOGLE_SPREADSHEET_ID
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_EMAIL
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
+        sync: false
