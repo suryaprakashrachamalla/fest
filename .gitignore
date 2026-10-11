@@ -22,5 +22,3 @@ logs/
 /.opencode-skills/
 .DS_Store
 cloudflared.exe
-# Separate repository (registration backend); never commit it into the website repo.
-/fest-backend/

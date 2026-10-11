@@ -1,0 +1,218 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PaymentProofStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+// Lifecycle of a registration; payment review and organizer approval are separate steps.
+enum RegistrationStatus {
+  PENDING_PAYMENT
+  PAYMENT_REVIEW
+  PAYMENT_VERIFIED
+  APPROVED
+  TICKET_ISSUED
+  PAYMENT_REJECTED
+  REJECTED
+}
+
+enum FeeMode {
+  FLAT
+  PER_HEAD
+}
+
+enum SpreadsheetSyncStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SpreadsheetEntityType {
+  USER
+  EVENT
+  REGISTRATION
+  PARTICIPANT
+  PAYMENT_PROOF
+}
+
+enum SpreadsheetOperation {
+  UPSERT
+}
+
+model User {
+  id                      String         @id @default(uuid())
+  name                    String
+  email                   String         @unique
+  passwordHash            String
+  role                    Role           @default(USER)
+  registrations           Registration[]
+  reviewedProofs          PaymentProof[] @relation("ProofReviewer")
+  verifiedRegistrations   Registration[] @relation("RegistrationVerifier")
+  authorizedRegistrations Registration[] @relation("AdmissionAuthorizer")
+  checkedInRegistrations  Registration[] @relation("CheckInAdmin")
+  approvedRegistrations   Registration[] @relation("RegistrationApprover")
+  auditEntries            AuditLog[]
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+}
+
+model Event {
+  id            String         @id @default(uuid())
+  name          String
+  slug          String         @unique
+  description   String?
+  feePaise      Int
+  // PER_HEAD multiplies feePaise by the team size.
+  feeMode       FeeMode        @default(FLAT)
+  minTeamSize   Int            @default(1)
+  maxTeamSize   Int            @default(4)
+  isPublished   Boolean        @default(false)
+  registrations Registration[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Registration {
+  id                  String             @id @default(uuid())
+  // Short, human-friendly ID shown to participants and used as the Sheets row key.
+  code                String             @unique
+  userId              String
+  eventId             String
+  teamName            String
+  teamSize            Int
+  college             String
+  phone               String
+  amountPaise         Int
+  status              RegistrationStatus @default(PENDING_PAYMENT)
+  approvedAt          DateTime?
+  approvedById        String?
+  rejectionReason     String?
+  // Luma guest sync: set once every member is added to the Luma event (Luma then emails them).
+  lumaSyncedAt        DateTime?
+  lumaAttemptAt       DateTime?
+  lumaError           String?
+  verified            Boolean        @default(false)
+  verifiedAt          DateTime?
+  verifiedById        String?
+  entryAllowed        Boolean        @default(false)
+  entryAuthorizedAt   DateTime?
+  entryAuthorizedById String?
+  entered             Boolean        @default(false)
+  enteredAt           DateTime?
+  enteredById         String?
+  user                User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  event               Event          @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  verifiedBy          User?          @relation("RegistrationVerifier", fields: [verifiedById], references: [id], onDelete: Restrict)
+  entryAuthorizedBy   User?          @relation("AdmissionAuthorizer", fields: [entryAuthorizedById], references: [id], onDelete: Restrict)
+  enteredBy           User?          @relation("CheckInAdmin", fields: [enteredById], references: [id], onDelete: Restrict)
+  approvedBy          User?          @relation("RegistrationApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  participants        Participant[]
+  paymentProofs       PaymentProof[]
+  auditEntries        AuditLog[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@unique([userId, eventId])
+  @@index([eventId, verified])
+  @@index([eventId, entered])
+  @@index([userId])
+  @@index([status, createdAt])
+  @@index([status, lumaSyncedAt])
+}
+
+model Participant {
+  id             String       @id @default(uuid())
+  registrationId String
+  // Copied from the registration so one email can join an event only once.
+  eventId        String
+  name           String
+  email          String
+  college        String
+  rollNumber     String?
+  // Filled from Luma: the guest ID (gst-...) and when their ticket QR was scanned at the entrance.
+  lumaGuestId    String?
+  lumaCheckedInAt DateTime?
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([eventId, email])
+  @@index([registrationId])
+}
+
+model PaymentProof {
+  id                 String             @id @default(uuid())
+  registrationId     String
+  utr                String             @unique
+  paymentMethod      String             @default("UPI")
+  screenshotBytes    Bytes
+  screenshotMimeType String
+  screenshotFileName String?
+  status             PaymentProofStatus @default(PENDING)
+  reviewedById       String?
+  reviewedAt         DateTime?
+  rejectionReason    String?
+  registration       Registration       @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+  reviewedBy         User?              @relation("ProofReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  submittedAt        DateTime           @default(now())
+
+  @@index([registrationId, submittedAt])
+  @@index([status, submittedAt])
+}
+
+// Append-only history of registration status changes and organizer actions.
+model AuditLog {
+  id             String              @id @default(uuid())
+  registrationId String
+  actorId        String?
+  action         String
+  fromStatus     RegistrationStatus?
+  toStatus       RegistrationStatus?
+  detail         String?
+  registration   Registration        @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  actor          User?               @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt      DateTime            @default(now())
+
+  @@index([registrationId, createdAt])
+}
+
+model PaymentQrCode {
+  id        String   @id @default(uuid())
+  label     String
+  imageBytes Bytes
+  mimeType  String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model SpreadsheetSyncOutbox {
+  id          String                @id @default(uuid())
+  entityType  SpreadsheetEntityType
+  entityId    String
+  operation   SpreadsheetOperation  @default(UPSERT)
+  payload     Json
+  status      SpreadsheetSyncStatus @default(PENDING)
+  attempts    Int                   @default(0)
+  lastError   String?
+  createdAt   DateTime              @default(now())
+  nextAttemptAt DateTime?           @default(now())
+  processedAt DateTime?
+
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([entityType, entityId])
+}
