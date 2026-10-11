@@ -1,9 +1,14 @@
-# Render Blueprint: New > Blueprint, pick this repository, then fill in the values marked sync: false.
+# Render Blueprint for the registration backend in fest-backend/.
+# New > Blueprint, pick this repository, then fill in the values marked sync: false.
 # The database is external (for example Neon free PostgreSQL); paste its direct, non-pooled connection string.
 services:
   - type: web
     name: fest-backend
     runtime: docker
+    # The backend lives in fest-backend/; Docker paths are relative to the repo root.
+    rootDir: fest-backend
+    dockerfilePath: ./fest-backend/Dockerfile
+    dockerContext: ./fest-backend
     plan: free
     healthCheckPath: /health
     # Applies migrations and re-runs the idempotent admin and event seeds before starting.
