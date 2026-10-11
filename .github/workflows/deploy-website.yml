@@ -1,0 +1,57 @@
+# Builds the website and publishes it to GitHub Pages (gh-pages branch) on every push to main.
+# A failed type-check or build stops the job, so the live site keeps the last good version.
+name: Deploy website
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "fest-backend/**"
+      - "render.yaml"
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-website
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Load public build settings
+        run: grep -E '^[A-Z_]+=' site-config.env >> "$GITHUB_ENV"
+
+      - name: Type-check
+        run: npx tsc --noEmit -p .
+
+      - name: Build
+        run: FIGMA_PUBLIC_URL="$PUBLIC_URL" npx vite build
+
+      # GitHub Pages serves 404.html for unknown paths; the app's router then shows the right page,
+      # so deep links like /events/hackathon and /admin keep working.
+      - name: Add SPA fallback
+        run: cp dist/index.html dist/404.html
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true
+          cname: ${{ env.CUSTOM_DOMAIN }}
+          commit_message: "Deploy website"
