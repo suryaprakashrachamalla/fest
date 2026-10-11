@@ -145,7 +145,6 @@ export default function HomePage() {
                 <ScriptReveal text="SHOURYA" className="shourya-word" waitForIntro onSettled={() => setShowLogo(true)} />
                 <img className="shourya-mark-logo" src={publicUrl("/shourya-logo-gold.png")} alt="" />
               </span>
-              <strong>&apos;26</strong>
             </div>
 
             <p className="festival-label">Tech Fest @MVSR</p>
