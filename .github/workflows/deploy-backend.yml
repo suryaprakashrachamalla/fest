@@ -1,0 +1,112 @@
+# Tests the backend, then builds its image and rolls it out to AWS ECS Express (Sydney) on every push
+# to main that touches fest-backend/. A failed test, build or health check keeps the running version.
+# Settings and secrets are not touched here: they live in SSM Parameter Store and are changed with
+# fest-backend/deploy/aws-ecs-deploy.sh. This job only swaps the container image.
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "fest-backend/**"
+      - ".github/workflows/deploy-backend.yml"
+      - "!fest-backend/**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-2
+  ECR_REPOSITORY: mvsr-fest-backend
+  SERVICE_ARN: arn:aws:ecs:ap-southeast-2:761099338165:service/default/fest-backend
+  HEALTH_URL: https://fe-fbd41b8617f54cf39df49a12d98edfa3.ecs.ap-southeast-2.on.aws/health
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fest-backend
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: fest
+          POSTGRES_PASSWORD: fest
+          POSTGRES_DB: fest_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fest" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://fest:fest@localhost:5432/fest_test
+      JWT_SECRET: ci-only-jwt-secret-not-used-anywhere-else-0123456789
+      RUN_DB_INTEGRATION_TESTS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bunx prisma generate
+      - run: bun run typecheck
+      - run: bunx prisma migrate deploy
+      - run: bun test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        id: image
+        run: |
+          IMAGE="${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:${GITHUB_SHA::7}"
+          docker build --platform linux/amd64 -t "$IMAGE" fest-backend
+          docker push "$IMAGE"
+          echo "uri=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      # Keep every current setting (env vars, SSM secret references, command, port) and change only the image.
+      - name: Roll out the new image
+        run: |
+          echo "STARTED=$(date -u +%s)" >> "$GITHUB_ENV"
+          aws ecs describe-express-gateway-service --service-arn "$SERVICE_ARN" --output json > service.json
+          jq --arg img "${{ steps.image.outputs.uri }}" '.service.activeConfigurations[0].primaryContainer | .image = $img' service.json > container.json
+          EXEC_ROLE=$(jq -r '.service.activeConfigurations[0].executionRoleArn' service.json)
+          aws ecs update-express-gateway-service --service-arn "$SERVICE_ARN" \
+            --execution-role-arn "$EXEC_ROLE" --primary-container file://container.json > /dev/null
+          echo "Rolling out ${{ steps.image.outputs.uri }}"
+
+      - name: Wait for the rollout
+        run: |
+          # Only trust the PRIMARY deployment once it is the one this job started, not the previous one.
+          for i in $(seq 1 80); do
+            DEPLOY=$(aws ecs describe-services --cluster default --services fest-backend --output json |
+              jq -c '.services[0].deployments[] | select(.status == "PRIMARY") | {state: .rolloutState, created: (.createdAt | tostring)}')
+            CREATED=$(echo "$DEPLOY" | jq -r '.created')
+            CREATED=$(date -u -d "$CREATED" +%s 2>/dev/null || echo "${CREATED%.*}")
+            STATE=$(echo "$DEPLOY" | jq -r '.state')
+            [ "$CREATED" -lt "$((STARTED - 60))" ] && STATE="WAITING_FOR_NEW_DEPLOYMENT"
+            echo "rollout: $STATE"
+            [ "$STATE" = "COMPLETED" ] && break
+            [ "$STATE" = "FAILED" ] && { echo "Rollout failed; ECS kept the previous version."; exit 1; }
+            sleep 15
+          done
+          [ "$STATE" = "COMPLETED" ] || { echo "Timed out waiting for the rollout."; exit 1; }
+
+      - name: Health check
+        run: curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "$HEALTH_URL"
