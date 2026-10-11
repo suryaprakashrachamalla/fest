@@ -85,6 +85,9 @@ function EventCard({
 }
 
 export default function HomePage() {
+  // Once the script reveal lands, the text gives way to the gold Shourya logo.
+  const [showLogo, setShowLogo] = useState(false)
+
   return (
     <div className="festival-site">
       <Header />
@@ -138,19 +141,22 @@ export default function HomePage() {
             <p className="festival-dept">Department of Computer Science and Engineering</p>
             <p className="festival-presents">presents</p>
             <div className="shourya-title" aria-hidden="true">
-              <ScriptReveal text="SHOURYA" className="shourya-word" waitForIntro />
+              <span className={`shourya-mark ${showLogo ? "is-logo" : ""}`}>
+                <ScriptReveal text="SHOURYA" className="shourya-word" waitForIntro onSettled={() => setShowLogo(true)} />
+                <img className="shourya-mark-logo" src={publicUrl("/shourya-logo-gold.png")} alt="" />
+              </span>
               <strong>&apos;26</strong>
             </div>
 
             <p className="festival-label">Tech Fest @MVSR</p>
-            <p className="festival-date">16–17 OCT &apos;2026</p>
+            <img className="festival-date" src={publicUrl("/festival-date.webp")} alt="16th & 17th October 2026" />
 
             <a className="hero-register" href={publicUrl("/#technical")}>
               Register now <span>→</span>
             </a>
             <p className="hero-prize">
-              <span>Hackathon prize pool</span>
-              <strong>₹30,000 + ₹3 Lakh vouchers</strong>
+              <span>Total prize pool worth</span>
+              <strong>₹4L+</strong>
             </p>
           </div>
 

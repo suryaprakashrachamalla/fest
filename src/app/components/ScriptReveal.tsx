@@ -20,10 +20,13 @@ export default function ScriptReveal({
   text,
   className = "",
   waitForIntro = false,
+  onSettled,
 }: {
   text: string
   className?: string
   waitForIntro?: boolean
+  // Called once every letter has landed on its final glyph.
+  onSettled?: () => void
 }) {
   const letters = text.split("")
   // -1 = not started (blank), 0..9 = cycling through scripts, 10+ = settled on the letter.
@@ -33,6 +36,7 @@ export default function ScriptReveal({
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (reduceMotion) {
       setSteps(letters.map(() => 99))
+      onSettled?.()
       return
     }
 
@@ -45,6 +49,7 @@ export default function ScriptReveal({
       setSteps(next.map((s) => Math.max(-1, s)))
       const settled = next.every((s, i) => s >= (GLYPHS[letters[i]]?.length ?? 0))
       if (!settled) frame = requestAnimationFrame(tick)
+      else onSettled?.()
     }
 
     const begin = () => {

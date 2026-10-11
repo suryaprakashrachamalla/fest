@@ -471,8 +471,49 @@ input {
   font-size: clamp(2.6rem, 6.4vw, 5.8rem);
 }
 
+/* The revealed text and the gold logo share one cell; the logo fades in once the text settles. */
+.shourya-mark {
+  display: inline-grid;
+  place-items: center;
+}
+
+.shourya-mark > * {
+  grid-area: 1 / 1;
+}
+
+.shourya-mark .shourya-word {
+  transition: opacity 0.7s ease 0.45s;
+}
+
+.shourya-mark-logo {
+  width: clamp(240px, 46vw, 660px);
+  /* Leaves room for the '26 beside it on phones. */
+  max-width: 74vw;
+  height: auto;
+  opacity: 0;
+  transform: scale(0.94);
+  filter: drop-shadow(0 0 14px var(--logo-gold-glow));
+  transition:
+    opacity 0.9s ease 0.45s,
+    transform 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.45s;
+  pointer-events: none;
+}
+
+.shourya-mark.is-logo .shourya-word {
+  opacity: 0;
+}
+
+.shourya-mark.is-logo .shourya-mark-logo {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Hang '26 off the right edge so the SHOURYA mark itself stays centred. */
 .shourya-title > strong {
-  margin: 0 0 0.12em 0.18em;
+  position: absolute;
+  top: 18%;
+  left: 100%;
+  margin-left: 0.18em;
   font-family: var(--logo-font);
   font-size: clamp(1.4rem, 2.8vw, 2.6rem);
   font-weight: 700;
@@ -574,12 +615,10 @@ input {
 }
 
 .festival-date {
-  margin: clamp(6px, 1.1vh, 12px) 0 0;
-  color: #fff;
-  font-family: "Bodoni Moda", serif;
-  font-size: clamp(1.35rem, 2.6vw, 2.4rem);
-  font-weight: 500;
-  letter-spacing: 0.035em;
+  display: block;
+  width: clamp(200px, 22vw, 360px);
+  height: auto;
+  margin: clamp(6px, 1.1vh, 12px) auto 0;
   animation: lockup-reveal 0.8s 0.9s both;
 }
 
@@ -4268,5 +4307,11 @@ html {
 @media (max-width: 520px) {
   .ticket-manual {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .shourya-mark-logo {
+    width: 68vw;
   }
 }
