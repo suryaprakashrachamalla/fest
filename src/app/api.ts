@@ -330,6 +330,13 @@ export const STATUS_LABELS: Record<RegistrationStatus, string> = {
   REJECTED: "Registration rejected",
 }
 
+// What registrants see: payment review and verification are one "waiting for approval" stage.
+export const PARTICIPANT_STATUS_LABELS: Record<RegistrationStatus, string> = {
+  ...STATUS_LABELS,
+  PAYMENT_REVIEW: "Waiting for approval",
+  PAYMENT_VERIFIED: "Waiting for approval",
+}
+
 export function rupees(paise: number) {
   return `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
 }

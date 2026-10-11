@@ -4,7 +4,7 @@ import {
   ApiError,
   type BackendEvent,
   type Registration,
-  STATUS_LABELS,
+  PARTICIPANT_STATUS_LABELS,
   createRegistration,
   feeFor,
   findEventBySlug,
@@ -306,7 +306,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                 </div>
                 <div className="receipt-row">
                   <span>Status</span>
-                  <strong>{STATUS_LABELS[existing.status]}</strong>
+                  <strong>{PARTICIPANT_STATUS_LABELS[existing.status]}</strong>
                 </div>
               </div>
               <div className="modal-action-buttons">
@@ -457,7 +457,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
               <p className="success-subtitle">
                 {result.proofError
                   ? "Your team is registered, but the payment proof didn't upload. Upload it from your dashboard."
-                  : "We've received your payment details. The organizers will verify your payment and approve your registration."}
+                  : "We've received your payment details. Your registration is waiting for approval; once it's approved, every team member gets their entry QR by email."}
               </p>
               {result.proofError && <div className="modal-error-banner">{result.proofError}</div>}
               <div className="success-receipt-box">
@@ -471,7 +471,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                 </div>
                 <div className="receipt-row">
                   <span>Status</span>
-                  <strong>{STATUS_LABELS[result.registration.status]}</strong>
+                  <strong>{PARTICIPANT_STATUS_LABELS[result.registration.status]}</strong>
                 </div>
                 <div className="receipt-row">
                   <span>Amount</span>

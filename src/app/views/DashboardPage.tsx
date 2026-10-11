@@ -4,7 +4,7 @@ import {
   ApiError,
   type Registration,
   type User,
-  STATUS_LABELS,
+  PARTICIPANT_STATUS_LABELS,
   apiConfigured,
   getStoredUser,
   myRegistrations,
@@ -16,17 +16,12 @@ import {
 } from "../api"
 import SignInPanel from "../components/SignInPanel"
 
-const STEPS = [
-  { key: "PENDING_PAYMENT", label: "Registered" },
-  { key: "PAYMENT_REVIEW", label: "Payment under review" },
-  { key: "PAYMENT_VERIFIED", label: "Payment verified" },
-  { key: "APPROVED", label: "Approved" },
-] as const
+const STEPS = ["Registered", "Waiting for approval", "Approved"] as const
 
 function stepIndex(status: Registration["status"]) {
-  if (status === "PAYMENT_REJECTED") return 0
-  if (status === "TICKET_ISSUED") return STEPS.length - 1
-  return Math.max(0, STEPS.findIndex((s) => s.key === status))
+  if (status === "PAYMENT_REVIEW" || status === "PAYMENT_VERIFIED") return 1
+  if (status === "APPROVED" || status === "TICKET_ISSUED") return 2
+  return 0
 }
 
 function PaymentUpload({ registration, onDone }: { registration: Registration; onDone: () => void }) {
@@ -154,14 +149,14 @@ function RegistrationCard({ registration, onChanged }: { registration: Registrat
           <p className="eyebrow">{registration.event.name}</p>
           <h2>{registration.teamName}</h2>
         </div>
-        <span className={`status-pill status-pill--${registration.status.toLowerCase()}`}>{STATUS_LABELS[registration.status]}</span>
+        <span className={`status-pill status-pill--${registration.status.toLowerCase()}`}>{PARTICIPANT_STATUS_LABELS[registration.status]}</span>
       </div>
 
       {!rejected && (
         <ol className="status-steps">
-          {STEPS.map((s, i) => (
-            <li key={s.key} className={i <= current ? "is-done" : ""}>
-              {s.label}
+          {STEPS.map((label, i) => (
+            <li key={label} className={i <= current ? "is-done" : ""}>
+              {label}
             </li>
           ))}
         </ol>

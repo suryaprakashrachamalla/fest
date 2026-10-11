@@ -312,7 +312,7 @@ function AdminRegistration({
                     window.setTimeout(onChanged, 8000)
                   },
                 )}>
-                Approve
+                Approve payment
               </button>
             )}
             {pendingProof && (
