@@ -13,7 +13,6 @@ export default function Header({ light = false }: { light?: boolean }) {
         <span className="brand-logo-frame">
           <img src={publicUrl("/shourya-logo-gold.png")} alt="Shourya" />
         </span>
-        <span className="brand-year">&apos;26</span>
       </Link>
 
       <nav className="main-nav" aria-label="Main navigation">
