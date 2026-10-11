@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import {
+  ApiError,
   type AuditEntry,
   type PaymentQr,
   type Registration,
@@ -380,7 +381,16 @@ export default function AdminPage() {
   const scannedTicket = searchParams.get("ticket")
   const clearScannedTicket = useCallback(() => setSearchParams({}, { replace: true }), [setSearchParams])
   const [error, setError] = useState("")
+  const [sessionExpired, setSessionExpired] = useState(false)
   const isAdmin = user?.role === "ADMIN"
+
+  // The server rejected the sign-in (expired or revoked): show the sign-in form once, with a reason.
+  const expireSession = useCallback(() => {
+    signOut()
+    setUser(null)
+    setRows(null)
+    setSessionExpired(true)
+  }, [])
 
   const load = useCallback(async () => {
     setError("")
@@ -394,9 +404,10 @@ export default function AdminPage() {
       setSync(await admin.syncStatus().catch(() => null))
       setMail(await admin.ticketMailStatus().catch(() => null))
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) return expireSession()
       setError(err instanceof Error ? err.message : "Couldn't load registrations.")
     }
-  }, [filter])
+  }, [filter, expireSession])
 
   useEffect(() => {
     if (isAdmin) void load()
@@ -421,11 +432,16 @@ export default function AdminPage() {
           <SignInPanel
             title="Organizer dashboard"
             subtitle={
-              scannedTicket
-                ? "This is a SHOURYA'26 entry ticket. Sign in with an organizer account to check it in."
-                : "Sign in with an organizer account."
+              sessionExpired
+                ? "Your sign-in expired (sign-ins last 12 hours). Sign in again; scanning continues after that."
+                : scannedTicket
+                  ? "This is a SHOURYA'26 entry ticket. Sign in with an organizer account to check it in."
+                  : "Sign in with an organizer account."
             }
-            onSignedIn={setUser}
+            onSignedIn={(signedIn) => {
+              setSessionExpired(false)
+              setUser(signedIn)
+            }}
           />
         ) : !isAdmin ? (
           <div className="account-card">
@@ -435,7 +451,7 @@ export default function AdminPage() {
         ) : (
           <>
             <h1 className="account-title">Organizer dashboard</h1>
-            <TicketScanner initialCode={scannedTicket} onInitialCodeHandled={clearScannedTicket} />
+            <TicketScanner initialCode={scannedTicket} onInitialCodeHandled={clearScannedTicket} onSessionExpired={expireSession} />
             <PaymentQrManager />
             <h2 className="account-subtitle">Registrations</h2>
             <p className="account-muted">

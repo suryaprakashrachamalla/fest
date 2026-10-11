@@ -114,10 +114,11 @@ afterAll(async () => {
 
 test("ticket codes are read from the QR text or typed by hand, and anything else is refused", () => {
     const code = "0123456789abcdef0123456789abcdef";
-    expect(tickets.ticketQrText(code)).toMatch(new RegExp(`^https://[^/]+/admin\\?ticket=${code}$`));
+    // The QR holds only the opaque ticket ID, never a link or personal data.
+    expect(tickets.ticketQrText(code)).toBe(`SHOURYA26:${code}`);
     expect(tickets.parseTicketCode(tickets.ticketQrText(code))).toBe(code);
-    // QR codes emailed before the link format still scan.
-    expect(tickets.parseTicketCode(`SHOURYA26:${code}`)).toBe(code);
+    // QR codes emailed while the QR was briefly a link still scan.
+    expect(tickets.parseTicketCode(`https://shouryacse.site/admin?ticket=${code}`)).toBe(code);
     expect(tickets.parseTicketCode(` ${code.toUpperCase()} `)).toBe(code);
     expect(tickets.parseTicketCode("https://shouryacse.site/admin")).toBeNull();
     expect(tickets.parseTicketCode("SHOURYA26:not-a-code")).toBeNull();
@@ -354,4 +355,66 @@ integrationTest("the first scan admits the member and uses up the QR; later scan
     expect(refused.admission).toBe("NOT_APPROVED");
     expect(refused.justAdmitted).toBe(false);
     expect((await prisma.participant.findUniqueOrThrow({ where: { id: p.id } })).checkedInAt).toBeNull();
+});
+
+integrationTest("two organizers scanning the same QR at the same moment admit the member exactly once", async () => {
+    const { reg } = await verifiedTeam("race", 1);
+    const [member] = await members(reg.id);
+    const second = await prisma.user.create({
+        data: { name: "Second Gate", email: `second-gate-${runId}@example.com`, passwordHash: "x", role: "ADMIN" },
+    });
+    ids.users.push(second.id);
+    const results = await Promise.all([
+        tickets.scanTicket(member.ticketCode, ids.admin, "scan-race-aaaa"),
+        tickets.scanTicket(member.ticketCode, second.id, "scan-race-bbbb"),
+        tickets.scanTicket(member.ticketCode, ids.admin, "scan-race-cccc"),
+    ]);
+    expect(results.filter((r) => r.justAdmitted)).toHaveLength(1);
+    expect(results.every((r) => r.admission === "ALREADY_ENTERED")).toBe(true);
+    expect((await registrations.getAuditHistory(reg.id)).filter((e) => e.action === "MEMBER_CHECKED_IN")).toHaveLength(1);
+});
+
+integrationTest("a network retry of the same scan gets its original result; a new scan is reported as already scanned", async () => {
+    const { reg } = await verifiedTeam("retryscan", 1);
+    const [member] = await members(reg.id);
+    const first = await tickets.scanTicket(member.ticketCode, ids.admin, "scan-retry-1111");
+    expect(first.justAdmitted).toBe(true);
+    const retried = await tickets.scanTicket(member.ticketCode, ids.admin, "scan-retry-1111");
+    expect(retried.justAdmitted).toBe(true);
+    expect(retried.participant.checkedInAt).toEqual(first.participant.checkedInAt);
+    const newScan = await tickets.scanTicket(member.ticketCode, ids.admin, "scan-retry-2222");
+    expect(newScan.justAdmitted).toBe(false);
+    expect(newScan.admission).toBe("ALREADY_ENTERED");
+    // The original check-in time is never overwritten.
+    expect(newScan.participant.checkedInAt).toEqual(first.participant.checkedInAt);
+});
+
+integrationTest("only signed-in organizers get past the scan API's guards", async () => {
+    const { authenticate } = await import("./middleware/authenticate.ts");
+    const { requireAdmin } = await import("./middleware/requireAdmin.ts");
+    const users = await import("./UserService.ts");
+    const email = `plain-user-${runId}@example.com`;
+    await users.signup("Plain User", email, "plain-user-password-123");
+    const { token } = await users.signin(email, "plain-user-password-123");
+    const created = await prisma.user.findUniqueOrThrow({ where: { email } });
+    ids.users.push(created.id);
+
+    // Runs authenticate then requireAdmin like the route does; returns the HTTP status or "passed".
+    async function guard(authorization?: string) {
+        const req = { header: (name: string) => (name.toLowerCase() === "authorization" ? authorization : undefined) } as never;
+        let status = 0;
+        const res = { status: (code: number) => ((status = code), res), json: () => res } as never;
+        let passed = false;
+        await (authenticate as (rq: never, rs: never, next: () => void) => Promise<void>)(req, res, () => {
+            requireAdmin(req, res, () => {
+                passed = true;
+            });
+        });
+        return passed ? "passed" : status;
+    }
+    expect(await guard()).toBe(401);
+    expect(await guard("Bearer not-a-real-token")).toBe(401);
+    expect(await guard(`Bearer ${token}`)).toBe(403);
+    await prisma.user.update({ where: { id: created.id }, data: { role: "ADMIN" } });
+    expect(await guard(`Bearer ${token}`)).toBe("passed");
 });

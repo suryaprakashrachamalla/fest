@@ -5,11 +5,11 @@ import { mailConfigured, sendMail as smtpSendMail, type MailMessage, type SendMa
 import type { Prisma, RegistrationStatus } from "./generated/prisma/client.ts";
 
 // Every team member gets their own entrance ticket once an organizer approves the registration.
-// The QR is a link to the admin panel (<site>/admin?ticket=<ticketCode>), so it works with the
-// admin scanner and with any phone camera. Scanning it shows the member's name and event and
-// records their entry at once; any later scan of the same QR is reported as already scanned.
-
-// Tickets emailed before the QR became a link hold "SHOURYA26:<ticketCode>"; they still scan.
+// The QR holds only an opaque ticket ID, "SHOURYA26:<ticketCode>" (no personal data). Organizers
+// scan it with the scanner inside the signed-in admin portal, which sends it to the admin-only
+// scan API; the first valid scan records the entry and every later scan reports "already scanned".
+// The QR is deliberately not a link: a phone camera would open it in a browser without the admin
+// session and ask for credentials, and the ticket ID would end up in browser history.
 const QR_PREFIX = "SHOURYA26:";
 // A member whose email attempt hasn't finished within this window is retried.
 const CLAIM_TIMEOUT_MS = 5 * 60_000;
@@ -21,10 +21,11 @@ function httpError(status: number, message: string) {
 }
 
 export function ticketQrText(code: string) {
-    return `${SITE_URL}/admin?ticket=${code}`;
+    return `${QR_PREFIX}${code}`;
 }
 
-// Accepts the scanned link, an older "SHOURYA26:<code>" QR, or the bare 32-character code typed in.
+// Accepts the scanned "SHOURYA26:<code>", the bare 32-character code typed in, or the
+// <site>/admin?ticket=<code> link that QR codes emailed on 12 Oct 2026 briefly used.
 export function parseTicketCode(raw: unknown) {
     if (typeof raw !== "string") return null;
     let value = raw.trim();
@@ -317,16 +318,19 @@ function ticketView(p: TicketRecord) {
 
 // Looks up a scanned QR. Unknown codes are a 404 so a fake QR is obvious at the gate.
 // With `admitBy` (the scanning organizer), a valid unused ticket is checked in straight away, so
-// the first scan uses it up and every later scan shows ALREADY_ENTERED.
-export async function scanTicket(raw: unknown, admitBy?: string) {
+// the first scan uses it up and every later scan shows ALREADY_ENTERED. `scanId` identifies one
+// physical scan: a network retry of that scan returns its original "admitted" result.
+export async function scanTicket(raw: unknown, admitBy?: string, scanId?: string) {
     const code = parseTicketCode(raw);
     if (!code) throw httpError(400, "This isn't a SHOURYA'26 ticket QR");
     const member = await prisma.participant.findUnique({ where: { ticketCode: code }, include: ticketInclude });
     if (!member) throw httpError(404, "Ticket not found: this QR isn't a valid SHOURYA'26 ticket");
     const view = ticketView(member);
+    if (admitBy && scanId && member.checkedInAt && member.checkInScanId === scanId)
+        return { ...view, justAdmitted: true };
     if (!admitBy || view.admission !== "ALLOWED") return { ...view, justAdmitted: false };
     try {
-        return { ...(await admitParticipant(member.id, admitBy)), justAdmitted: true };
+        return { ...(await admitParticipant(member.id, admitBy, scanId)), justAdmitted: true };
     } catch (error) {
         // Two volunteers scanned the same QR at once: the other scan won, so show it as used.
         if ((error as { status?: number }).status !== 409) throw error;
@@ -336,7 +340,8 @@ export async function scanTicket(raw: unknown, admitBy?: string) {
 }
 
 // Marks one member as entered. Works once per member; the team counts as entered with its first member.
-export async function admitParticipant(participantId: string, adminId: string) {
+// The conditional update (checkedInAt still null) makes simultaneous attempts admit exactly once.
+export async function admitParticipant(participantId: string, adminId: string, scanId?: string) {
     await prisma.$transaction(async (tx) => {
         const member = await tx.participant.findUnique({ where: { id: participantId }, include: { registration: true } });
         if (!member) throw httpError(404, "Ticket not found");
@@ -346,7 +351,7 @@ export async function admitParticipant(participantId: string, adminId: string) {
         const now = new Date();
         const changed = await tx.participant.updateMany({
             where: { id: participantId, checkedInAt: null },
-            data: { checkedInAt: now, checkedInById: adminId },
+            data: { checkedInAt: now, checkedInById: adminId, checkInScanId: scanId ?? null },
         });
         if (changed.count !== 1) throw httpError(409, `${member.name} has already entered`);
         await tx.registration.updateMany({

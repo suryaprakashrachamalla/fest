@@ -156,6 +156,9 @@ model Participant {
   // Set when an organizer scans this member's QR at the entrance (one band per member).
   checkedInAt          DateTime?
   checkedInById        String?
+  // ID the scanner sent with the scan that checked this member in, so a retried request (lost
+  // response) gets the same "entry authorized" answer instead of "already scanned".
+  checkInScanId        String?
   checkedInBy          User?        @relation("ParticipantCheckIn", fields: [checkedInById], references: [id], onDelete: Restrict)
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())

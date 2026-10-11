@@ -386,8 +386,12 @@ app.post(
     async (req: express.Request, res: express.Response) =>
         ok(
             res,
-            // admit=true records the entry on a valid ticket's first scan.
-            await tickets.scanTicket(req.body?.code, req.body?.admit === true ? req.user!.id : undefined),
+            // admit=true records the entry on a valid ticket's first scan; scanId makes retries safe.
+            await tickets.scanTicket(
+                req.body?.code,
+                req.body?.admit === true ? req.user!.id : undefined,
+                typeof req.body?.scanId === "string" && /^[A-Za-z0-9-]{8,64}$/.test(req.body.scanId) ? req.body.scanId : undefined,
+            ),
             "Ticket found",
         ),
 );

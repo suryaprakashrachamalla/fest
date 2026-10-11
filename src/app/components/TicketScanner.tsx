@@ -1,29 +1,70 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react"
-import { type TicketScan, STATUS_LABELS, admin } from "../api"
+import { ApiError, type TicketScan, STATUS_LABELS, admin } from "../api"
 
 // Chrome on Android has a built-in QR reader; other browsers (iPhone Safari) fall back to jsQR.
 type QrDetector = { detect(source: CanvasImageSource): Promise<{ rawValue: string }[]> }
 type QrDetectorClass = new (options: { formats: string[] }) => QrDetector
 
+// What the backend said about one scan. Camera problems are shown separately (cameraError).
+type Outcome =
+  | { kind: "authorized" | "used" | "ineligible"; scan: TicketScan }
+  | { kind: "invalid" | "network" | "session"; message: string }
+
+// The same QR held in front of the camera isn't sent again until it has been out of view this long.
+const SAME_CODE_COOLDOWN_MS = 4000
+// Short pause after each result so the next attendee can step up.
+const PAUSE_AFTER_RESULT_MS = 1200
+
 function time(value: string | null) {
-  return value ? new Date(value).toLocaleString("en-IN", { timeStyle: "short", dateStyle: "medium" }) : ""
+  return value ? new Date(value).toLocaleString("en-IN", { timeStyle: "medium", dateStyle: "medium" }) : ""
 }
 
-// Entrance check-in: scanning a member's entry QR shows their name and event and records their entry,
-// so the QR is used up; scanning it again shows it as already scanned. `initialCode` is a ticket
-// opened from a phone camera (the QR link lands on /admin?ticket=...).
-export default function TicketScanner({ initialCode, onInitialCodeHandled }: { initialCode?: string | null; onInitialCodeHandled?: () => void }) {
+function newScanId() {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+}
+
+function cameraProblem(err: unknown) {
+  const name = err instanceof DOMException ? err.name : ""
+  if (name === "NotAllowedError" || name === "SecurityError")
+    return "Camera access was blocked. Allow the camera for this site in the browser settings, then tap Start scanning again. You can also type the ticket code below."
+  if (name === "NotFoundError" || name === "OverconstrainedError") return "No camera was found on this device. Type the ticket code below instead."
+  if (name === "NotReadableError") return "The camera is being used by another app. Close it and tap Start scanning again."
+  return "Couldn't open the camera. Type the ticket code below instead."
+}
+
+// Entrance check-in inside the signed-in admin portal. Each decoded QR is sent to the admin-only scan
+// API, which checks the ticket on the server: the first valid scan authorizes entry, later scans are
+// reported as already scanned. The camera keeps running so attendees can be scanned one after another.
+// `initialCode` handles QR links from tickets emailed while the QR was briefly a link (/admin?ticket=...).
+export default function TicketScanner({
+  initialCode,
+  onInitialCodeHandled,
+  onSessionExpired,
+}: {
+  initialCode?: string | null
+  onInitialCodeHandled?: () => void
+  onSessionExpired?: () => void
+}) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const timerRef = useRef<number | null>(null)
-  const lastCode = useRef("")
+  const inFlight = useRef(false)
+  const pauseUntil = useRef(0)
+  const lastSeen = useRef({ text: "", at: 0 })
   const [camera, setCamera] = useState<"off" | "starting" | "on">("off")
-  const [result, setResult] = useState<TicketScan | null>(null)
-  const [justAdmitted, setJustAdmitted] = useState(false)
-  const [error, setError] = useState("")
-  const [manual, setManual] = useState("")
+  const [cameraError, setCameraError] = useState("")
+  const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [busy, setBusy] = useState(false)
+  const [manual, setManual] = useState("")
+  const resultRef = useRef<HTMLDivElement>(null)
+
+  // Each new result is brought into view, so volunteers on phones never have to scroll.
+  useEffect(() => {
+    if (outcome) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+  }, [outcome])
 
   const stopCamera = useCallback(() => {
     if (timerRef.current) window.clearTimeout(timerRef.current)
@@ -36,30 +77,57 @@ export default function TicketScanner({ initialCode, onInitialCodeHandled }: { i
 
   useEffect(() => stopCamera, [stopCamera])
 
-  const lookUp = useCallback(async (code: string) => {
-    lastCode.current = code
-    setBusy(true)
-    setError("")
-    setJustAdmitted(false)
-    try {
-      const scanned = await admin.scanTicket(code, true)
-      setResult(scanned)
-      setJustAdmitted(Boolean(scanned.justAdmitted))
-    } catch (err) {
-      setResult(null)
-      setError(err instanceof Error ? err.message : "Couldn't check this ticket")
-    } finally {
-      setBusy(false)
-    }
-  }, [])
+  // Sends one scan to the server. Only one request runs at a time; a network failure is retried once
+  // with the same scan ID, so a lost response can't turn into a false "already scanned".
+  const check = useCallback(
+    async (text: string) => {
+      if (inFlight.current) return
+      inFlight.current = true
+      setBusy(true)
+      const scanId = newScanId()
+      try {
+        let scan: TicketScan
+        try {
+          scan = await admin.scanTicket(text, true, scanId)
+        } catch (err) {
+          if (!(err instanceof ApiError) || err.status !== 0) throw err
+          await new Promise((resolve) => setTimeout(resolve, 800))
+          scan = await admin.scanTicket(text, true, scanId)
+        }
+        if (scan.justAdmitted) setOutcome({ kind: "authorized", scan })
+        else if (scan.admission === "ALREADY_ENTERED") setOutcome({ kind: "used", scan })
+        else setOutcome({ kind: "ineligible", scan })
+        navigator.vibrate?.(scan.justAdmitted ? 120 : [80, 60, 80])
+      } catch (err) {
+        const status = err instanceof ApiError ? err.status : -1
+        if (status === 401) {
+          stopCamera()
+          setOutcome({ kind: "session", message: "Your sign-in has expired. Sign in again to keep scanning." })
+          onSessionExpired?.()
+        } else if (status === 400 || status === 404) {
+          setOutcome({ kind: "invalid", message: "This QR isn't a valid SHOURYA'26 ticket." })
+        } else {
+          setOutcome({
+            kind: "network",
+            message: "Couldn't reach the server, so this ticket was NOT checked. Check the connection and scan it again.",
+          })
+        }
+      } finally {
+        inFlight.current = false
+        setBusy(false)
+        pauseUntil.current = Date.now() + PAUSE_AFTER_RESULT_MS
+      }
+    },
+    [onSessionExpired, stopCamera],
+  )
 
-  // A QR opened from the phone camera is checked once, as soon as the organizer is signed in.
+  // A QR link opened from a phone camera is checked once, as soon as the organizer is signed in.
   const handledInitial = useRef(false)
   useEffect(() => {
     if (!initialCode || handledInitial.current) return
     handledInitial.current = true
-    void lookUp(initialCode).finally(() => onInitialCodeHandled?.())
-  }, [initialCode, lookUp, onInitialCodeHandled])
+    void check(initialCode).finally(() => onInitialCodeHandled?.())
+  }, [initialCode, check, onInitialCodeHandled])
 
   // Reads one video frame; returns the QR text or null.
   async function readFrame(video: HTMLVideoElement, detector: QrDetector | null, jsQR: typeof import("jsqr").default | null) {
@@ -84,11 +152,11 @@ export default function TicketScanner({ initialCode, onInitialCodeHandled }: { i
   }
 
   async function startCamera() {
-    setError("")
-    setResult(null)
-    setJustAdmitted(false)
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError("This browser can't open the camera here. Type the ticket code below instead.")
+    setCameraError("")
+    // A deliberate restart may re-scan the QR that was just shown.
+    lastSeen.current = { text: "", at: 0 }
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setCameraError("This browser can't open the camera on this page. Use the https:// site in Chrome or Safari, or type the ticket code below.")
       return
     }
     setCamera("starting")
@@ -113,78 +181,112 @@ export default function TicketScanner({ initialCode, onInitialCodeHandled }: { i
 
       const tick = async () => {
         if (!streamRef.current) return
-        const text = await readFrame(video, detector, jsQR)
-        if (text) {
-          stopCamera()
-          navigator.vibrate?.(120)
-          await lookUp(text)
-          return
+        const now = Date.now()
+        if (!inFlight.current && now >= pauseUntil.current) {
+          const text = await readFrame(video, detector, jsQR)
+          const repeat = text && text === lastSeen.current.text && now - lastSeen.current.at < SAME_CODE_COOLDOWN_MS
+          if (text) lastSeen.current = { text, at: now }
+          if (text && !repeat) await check(text)
         }
         timerRef.current = window.setTimeout(() => void tick(), 180)
       }
       void tick()
     } catch (err) {
       stopCamera()
-      const denied = err instanceof DOMException && err.name === "NotAllowedError"
-      setError(
-        denied
-          ? "Camera access was blocked. Allow the camera for this site in your browser settings, or type the ticket code below."
-          : "Couldn't open the camera. Type the ticket code below instead.",
-      )
-    }
-  }
-
-  async function admit() {
-    if (!result) return
-    setBusy(true)
-    setError("")
-    try {
-      setResult(await admin.admitParticipant(result.participant.id))
-      setJustAdmitted(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't record the entry")
-      // Show the latest state, e.g. another volunteer admitted this person a moment ago.
-      if (lastCode.current) setResult(await admin.scanTicket(lastCode.current).catch(() => result))
-    } finally {
-      setBusy(false)
+      setCameraError(cameraProblem(err))
     }
   }
 
   function submitManual(e: FormEvent) {
     e.preventDefault()
-    if (manual.trim()) void lookUp(manual.trim())
+    if (manual.trim()) void check(manual.trim())
   }
 
-  const verdict = result
-    ? justAdmitted
-      ? { tone: "allowed", text: "✓ Valid ticket. Entry recorded. Give the band." }
-      : result.admission === "ALLOWED"
-        ? { tone: "allowed", text: "✓ Valid ticket. Allow entry." }
-        : result.admission === "ALREADY_ENTERED"
+  const scan = outcome && "scan" in outcome ? outcome.scan : null
+  const headline = !outcome
+    ? null
+    : outcome.kind === "authorized"
+      ? { tone: "allowed", title: "VALID TICKET — ENTRY AUTHORIZED", detail: "Check the name, then give the band." }
+      : outcome.kind === "used"
+        ? {
+            tone: "denied",
+            title: "INVALID TICKET — ALREADY SCANNED",
+            detail: `First scanned ${time(outcome.scan.participant.checkedInAt)}${outcome.scan.participant.checkedInBy ? ` by ${outcome.scan.participant.checkedInBy}` : ""}. Don't give another band.`,
+          }
+        : outcome.kind === "ineligible"
           ? {
-              tone: "entered",
-              text: `⚠ QR ALREADY SCANNED ${time(result.participant.checkedInAt)}${result.participant.checkedInBy ? ` by ${result.participant.checkedInBy}` : ""}. This ticket is used: don't give another band.`,
+              tone: "denied",
+              title: "ENTRY DENIED — NOT APPROVED",
+              detail: `This registration is "${STATUS_LABELS[outcome.scan.registration.status]}", so the ticket can't be used.`,
             }
-          : { tone: "denied", text: `✗ Not approved (${STATUS_LABELS[result.registration.status]}). Don't allow entry.` }
-    : null
+          : outcome.kind === "invalid"
+            ? { tone: "denied", title: "INVALID QR CODE — ENTRY DENIED", detail: outcome.message }
+            : {
+                tone: "entered",
+                title: outcome.kind === "session" ? "SIGN IN AGAIN" : "NETWORK ERROR — NOT CHECKED",
+                detail: "message" in outcome ? outcome.message : "",
+              }
 
   return (
     <section className="account-card ticket-scanner">
       <h2>Entrance check-in</h2>
       <p className="account-muted">
-        Scan a member&apos;s entry QR (from their email or dashboard) here or with your phone camera. A valid ticket is checked in on
-        the first scan: check the name and event, then give the band. Scanning the same QR again shows it as already scanned.
+        Tap <strong>Start scanning</strong> and point the camera at each attendee&apos;s entry QR (from their email or dashboard). The camera
+        keeps running: a valid ticket is checked in on its first scan, and the same QR scanned again is refused.
       </p>
 
       <div className={`ticket-camera ${camera === "off" ? "ticket-camera--off" : ""}`}>
         <video ref={videoRef} playsInline muted />
         {camera === "on" && <div className="ticket-camera-frame" aria-hidden="true" />}
+        {camera === "on" && busy && <div className="ticket-camera-busy">Checking…</div>}
       </div>
+
+      {outcome && headline && (
+        <div ref={resultRef} className={`ticket-result ticket-result--${headline.tone}`} aria-live="assertive">
+          <p className="ticket-verdict">{headline.title}</p>
+          <p className="ticket-verdict-detail">{headline.detail}</p>
+          {scan && (
+            <>
+              <p className="ticket-name">{scan.participant.name}</p>
+              <p className="ticket-event">{scan.event.name}</p>
+              <div className="success-receipt-box account-receipt">
+                <div className="receipt-row"><span>Registration ID</span><strong>{scan.registration.code}</strong></div>
+                <div className="receipt-row"><span>Email</span><strong>{scan.participant.email}</strong></div>
+                <div className="receipt-row"><span>College</span><strong>{scan.participant.college}</strong></div>
+                {scan.participant.rollNumber && (
+                  <div className="receipt-row"><span>Roll number</span><strong>{scan.participant.rollNumber}</strong></div>
+                )}
+                <div className="receipt-row"><span>Team</span><strong>{scan.registration.teamName}</strong></div>
+                <div className="receipt-row"><span>Registration</span><strong>{STATUS_LABELS[scan.registration.status]}</strong></div>
+                <div className="receipt-row">
+                  <span>Check-in</span>
+                  <strong>
+                    {scan.participant.checkedInAt
+                      ? `${time(scan.participant.checkedInAt)}${scan.participant.checkedInBy ? ` · ${scan.participant.checkedInBy}` : ""}`
+                      : "Not checked in"}
+                  </strong>
+                </div>
+              </div>
+              {scan.teammates.length > 1 && (
+                <ul className="ticket-teammates">
+                  {scan.teammates.map((member) => (
+                    <li key={member.id} className={member.id === scan.participant.id ? "is-current" : ""}>
+                      <span>{member.name}</span>
+                      <em>{member.checkedInAt ? `entered ${time(member.checkedInAt)}` : "not entered yet"}</em>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+          {camera === "on" && <p className="ticket-next">Ready for the next attendee: point the camera at their QR.</p>}
+        </div>
+      )}
 
       <div className="admin-actions">
         {camera === "off" ? (
-          <button type="button" className="pill-button pill-button--gold" onClick={startCamera} disabled={busy}>
-            {result || error ? "Scan next ticket" : "Start scanning"}
+          <button type="button" className="pill-button pill-button--gold" onClick={startCamera}>
+            Start scanning
           </button>
         ) : (
           <button type="button" className="pill-button pill-button--outline" onClick={stopCamera}>
@@ -192,50 +294,20 @@ export default function TicketScanner({ initialCode, onInitialCodeHandled }: { i
           </button>
         )}
       </div>
+      {cameraError && <div className="modal-error-banner" style={{ marginTop: 14 }}>{cameraError}</div>}
 
       <form className="ticket-manual" onSubmit={submitManual}>
         <div className="form-field">
           <label htmlFor="ticket-code">Or type the ticket code (printed under the QR in the email)</label>
-          <input id="ticket-code" value={manual} onChange={(e) => setManual(e.target.value)} autoComplete="off" spellCheck={false} maxLength={60} />
+          <input id="ticket-code" value={manual} onChange={(e) => setManual(e.target.value)} autoComplete="off" spellCheck={false} maxLength={80} />
         </div>
         <button type="submit" className="pill-button pill-button--outline" disabled={busy || !manual.trim()}>
-          Look up
+          Check ticket
         </button>
       </form>
 
-      {busy && <p className="account-muted">Checking…</p>}
-      {error && <div className="modal-error-banner" style={{ marginTop: 14 }}>{error}</div>}
+      {busy && camera === "off" && <p className="account-muted">Checking…</p>}
 
-      {result && verdict && (
-        <div className={`ticket-result ticket-result--${verdict.tone}`} aria-live="polite">
-          <p className="ticket-verdict">{verdict.text}</p>
-          <p className="ticket-name">{result.participant.name}</p>
-          <p className="ticket-event">{result.event.name}</p>
-          <div className="success-receipt-box account-receipt">
-            <div className="receipt-row"><span>Team</span><strong>{result.registration.teamName} · {result.registration.code}</strong></div>
-            <div className="receipt-row"><span>College</span><strong>{result.participant.college}</strong></div>
-            {result.participant.rollNumber && (
-              <div className="receipt-row"><span>Roll number</span><strong>{result.participant.rollNumber}</strong></div>
-            )}
-            <div className="receipt-row"><span>Email</span><strong>{result.participant.email}</strong></div>
-          </div>
-          {result.teammates.length > 1 && (
-            <ul className="ticket-teammates">
-              {result.teammates.map((member) => (
-                <li key={member.id} className={member.id === result.participant.id ? "is-current" : ""}>
-                  <span>{member.name}</span>
-                  <em>{member.checkedInAt ? `entered ${time(member.checkedInAt)}` : "not entered yet"}</em>
-                </li>
-              ))}
-            </ul>
-          )}
-          {result.admission === "ALLOWED" && !justAdmitted && (
-            <button type="button" className="pill-button pill-button--gold ticket-admit" onClick={admit} disabled={busy}>
-              Mark entered &amp; give band
-            </button>
-          )}
-        </div>
-      )}
     </section>
   )
 }

@@ -4192,10 +4192,38 @@ html {
 }
 
 .ticket-verdict {
-  margin: 0 0 10px;
+  margin: 0;
   font-family: "DM Mono", monospace;
+  font-size: clamp(17px, 4.6vw, 22px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+}
+
+.ticket-verdict-detail {
+  margin: 6px 0 14px;
+  color: #d6d0c2;
   font-size: 14px;
-  font-weight: 600;
+  line-height: 1.45;
+}
+
+.ticket-next {
+  margin: 14px 0 0;
+  color: #9a9a9a;
+  font-size: 13px;
+}
+
+.ticket-camera-busy {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #f4c97a;
+  font-family: "DM Mono", monospace;
+  font-size: 13px;
 }
 
 .ticket-result--allowed .ticket-verdict {

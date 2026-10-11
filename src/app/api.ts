@@ -153,9 +153,25 @@ export function getToken() {
   return memoryToken
 }
 
+// The sign-in token's expiry (JWT "exp", in seconds), or null if it can't be read.
+function tokenExpiry(token: string) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) as { exp?: number }
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
 export function getStoredUser(): User | null {
   const raw = readStorage(USER_KEY)
   if (!raw || !memoryToken) return null
+  // An expired sign-in is cleared up front, so pages ask to sign in once instead of failing later.
+  const expiresAt = tokenExpiry(memoryToken)
+  if (expiresAt !== null && expiresAt <= Date.now()) {
+    signOut()
+    return null
+  }
   try {
     return JSON.parse(raw) as User
   } catch {
@@ -298,8 +314,9 @@ export const admin = {
       lastSuccessfulSyncAt: string | null
     }>("/admin/sync-status"),
   // Entrance: look up a scanned entry QR, then record that member's entry.
-  // admit=true records the entry on the ticket's first valid scan.
-  scanTicket: (code: string, admit = false) => request<TicketScan>("/admin/tickets/scan", { json: { code, admit } }),
+  // admit=true records the entry on the ticket's first valid scan; reusing scanId on a retry is safe.
+  scanTicket: (code: string, admit = false, scanId?: string) =>
+    request<TicketScan>("/admin/tickets/scan", { json: { code, admit, scanId } }),
   admitParticipant: (participantId: string) =>
     request<TicketScan>(`/admin/tickets/${participantId}/check-in`, { method: "POST" }),
   ticketMailStatus: () => request<{ configured: boolean; pending: number; failed: number }>("/admin/tickets/mail-status"),
