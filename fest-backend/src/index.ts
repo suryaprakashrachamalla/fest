@@ -401,6 +401,22 @@ app.post(
     async (req: express.Request, res: express.Response) =>
         ok(res, await tickets.admitParticipant(String(req.params.participantId), req.user!.id), "Entry recorded"),
 );
+// Entrance fallback: find a team by its registration ID, then check in the chosen members.
+app.post(
+    "/admin/tickets/team",
+    admin,
+    async (req: express.Request, res: express.Response) => ok(res, await tickets.lookupTeam(req.body?.code), "Team found"),
+);
+app.post(
+    "/admin/registrations/:registrationId/check-in-members",
+    admin,
+    async (req: express.Request, res: express.Response) =>
+        ok(
+            res,
+            await tickets.checkInMembers(String(req.params.registrationId), req.body?.participantIds, req.user!.id),
+            "Entry recorded",
+        ),
+);
 app.get(
     "/admin/tickets/mail-status",
     admin,

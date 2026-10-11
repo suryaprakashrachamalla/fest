@@ -4491,3 +4491,69 @@ html {
     text-align: center;
   }
 }
+
+/* Team found by registration ID: tick the members at the gate */
+.team-checkin-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.team-checkin-list li {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.team-checkin-list li.is-selected {
+  border-color: #f4c97a;
+  background: rgba(244, 201, 122, 0.08);
+}
+
+.team-checkin-list li.is-done {
+  opacity: 0.7;
+}
+
+.team-checkin-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.team-checkin-list input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  accent-color: #f4c97a;
+}
+
+.team-checkin-list span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.team-checkin-list strong {
+  font-size: 15px;
+}
+
+.team-checkin-list em {
+  color: #9a9a9a;
+  font-size: 12px;
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+
+.team-checkin-list .team-checkin-status {
+  color: #d6d0c2;
+}
+
+.team-checkin-list li.is-done .team-checkin-status {
+  color: #34d399;
+}

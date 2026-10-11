@@ -378,6 +378,88 @@ export async function admitParticipant(participantId: string, adminId: string, s
     return ticketView(member);
 }
 
+// Entrance fallback when a QR won't scan: the organizer types the team's registration ID, sees every
+// member, and checks in the ones at the gate. Each member is still admitted at most once.
+
+// Registration IDs look like SG26-3H8945J2 (see generateRegistrationCode).
+export function parseRegistrationCode(raw: unknown) {
+    if (typeof raw !== "string") return null;
+    const value = raw.trim().toUpperCase();
+    return /^SG26-[2-9A-HJ-NP-Z]{8}$/.test(value) ? value : null;
+}
+
+const teamInclude = {
+    event: { select: { name: true, slug: true } },
+    participants: { orderBy: { createdAt: "asc" }, include: { checkedInBy: { select: { name: true } } } },
+} as const satisfies Prisma.RegistrationInclude;
+
+type TeamRecord = Prisma.RegistrationGetPayload<{ include: typeof teamInclude }>;
+
+function teamView(reg: TeamRecord) {
+    return {
+        admission: TICKETED.includes(reg.status) && reg.verified ? "APPROVED" : "NOT_APPROVED",
+        registration: {
+            id: reg.id,
+            code: reg.code,
+            teamName: reg.teamName,
+            teamSize: reg.teamSize,
+            college: reg.college,
+            status: reg.status,
+        },
+        event: reg.event,
+        members: reg.participants.map((p) => ({
+            id: p.id,
+            name: p.name,
+            email: p.email,
+            college: p.college,
+            rollNumber: p.rollNumber,
+            checkedInAt: p.checkedInAt,
+            checkedInBy: p.checkedInBy?.name ?? null,
+        })),
+    };
+}
+
+export async function lookupTeam(raw: unknown) {
+    const code = parseRegistrationCode(raw);
+    if (!code) throw httpError(400, "Enter a registration ID like SG26-3H8945J2");
+    const reg = await prisma.registration.findUnique({ where: { code }, include: teamInclude });
+    if (!reg) throw httpError(404, "No registration has this ID");
+    return teamView(reg);
+}
+
+// Checks in the chosen members of one team. Members who already entered are reported, not re-admitted.
+export async function checkInMembers(registrationId: string, participantIds: unknown, adminId: string) {
+    if (
+        !Array.isArray(participantIds) ||
+        participantIds.length === 0 ||
+        participantIds.length > 10 ||
+        !participantIds.every((id) => typeof id === "string")
+    )
+        throw httpError(400, "Choose at least one team member to authorize");
+    const reg = await prisma.registration.findUnique({ where: { id: registrationId }, include: teamInclude });
+    if (!reg) throw httpError(404, "Registration not found");
+    if (teamView(reg).admission !== "APPROVED")
+        throw httpError(409, "This registration isn't approved, so its members can't enter");
+    const memberIds = new Set(reg.participants.map((p) => p.id));
+    const chosen = [...new Set(participantIds as string[])];
+    if (!chosen.every((id) => memberIds.has(id))) throw httpError(400, "Those people aren't members of this team");
+
+    const results: { participantId: string; name: string; outcome: "ADMITTED" | "ALREADY_ENTERED" }[] = [];
+    for (const id of chosen) {
+        const name = reg.participants.find((p) => p.id === id)!.name;
+        try {
+            await admitParticipant(id, adminId);
+            results.push({ participantId: id, name, outcome: "ADMITTED" });
+        } catch (error) {
+            // The only remaining 409 is "already entered" (approval was checked above).
+            if ((error as { status?: number }).status !== 409) throw error;
+            results.push({ participantId: id, name, outcome: "ALREADY_ENTERED" });
+        }
+    }
+    const latest = await prisma.registration.findUniqueOrThrow({ where: { id: registrationId }, include: teamInclude });
+    return { results, team: teamView(latest) };
+}
+
 // The member's QR as a PNG for the team's dashboard (owner) or organizers, once approved.
 export async function ticketImage(registrationId: string, participantId: string, userId: string, isAdmin: boolean) {
     const member = await prisma.participant.findFirst({

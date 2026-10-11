@@ -425,3 +425,50 @@ integrationTest("only signed-in organizers get past the scan API's guards", asyn
     await prisma.user.update({ where: { id: created.id }, data: { role: "ADMIN" } });
     expect(await guard(`Bearer ${token}`)).toBe("passed");
 });
+
+integrationTest("typing a registration ID shows the team; chosen members are checked in once each", async () => {
+    const { reg } = await verifiedTeam("teamid", 3);
+    const [a, b, c] = await members(reg.id);
+    expect(tickets.parseRegistrationCode(` ${reg.code.toLowerCase()} `)).toBe(reg.code);
+    expect(tickets.parseRegistrationCode("SG26-123")).toBeNull();
+
+    const team = await tickets.lookupTeam(reg.code.toLowerCase());
+    expect(team.admission).toBe("APPROVED");
+    expect(team.registration.code).toBe(reg.code);
+    expect(team.members.map((m) => m.name)).toEqual(["teamid member 1", "teamid member 2", "teamid member 3"]);
+    expect(team.members.every((m) => m.checkedInAt === null)).toBe(true);
+
+    // Authorize two members together.
+    const first = await tickets.checkInMembers(reg.id, [a.id, b.id], ids.admin);
+    expect(first.results.map((r) => r.outcome)).toEqual(["ADMITTED", "ADMITTED"]);
+    expect(first.team.members.filter((m) => m.checkedInAt).map((m) => m.name)).toEqual(["teamid member 1", "teamid member 2"]);
+    expect(first.team.members[0].checkedInBy).toBe("Gate Admin");
+
+    // Including someone who already entered: only the new member is admitted, the time isn't overwritten.
+    const before = first.team.members[0].checkedInAt;
+    const second = await tickets.checkInMembers(reg.id, [a.id, c.id], ids.admin);
+    expect(second.results.map((r) => [r.name, r.outcome])).toEqual([
+        ["teamid member 1", "ALREADY_ENTERED"],
+        ["teamid member 3", "ADMITTED"],
+    ]);
+    expect(second.team.members[0].checkedInAt).toEqual(before);
+    expect((await registrations.getAuditHistory(reg.id)).filter((e) => e.action === "MEMBER_CHECKED_IN")).toHaveLength(3);
+    // Each check-in reaches that member's Participants sheet row.
+    expect((await latestParticipantRow(c.id)).checkedInAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+});
+
+integrationTest("registration ID check-in refuses unknown IDs, other teams' members and unapproved teams", async () => {
+    await expectError(tickets.lookupTeam("not-an-id"), 400);
+    await expectError(tickets.lookupTeam("SG26-ZZZZZZZZ"), 404);
+    const { reg } = await verifiedTeam("teamguard", 1);
+    const other = await verifiedTeam("teamother", 1);
+    const [outsider] = await members(other.reg.id);
+    await expectError(tickets.checkInMembers(reg.id, [outsider.id], ids.admin), 400, /aren't members/);
+    await expectError(tickets.checkInMembers(reg.id, [], ids.admin), 400);
+
+    const pending = await verifiedTeam("teampending", 1, false);
+    const [p] = await members(pending.reg.id);
+    expect((await tickets.lookupTeam(pending.reg.code)).admission).toBe("NOT_APPROVED");
+    await expectError(tickets.checkInMembers(pending.reg.id, [p.id], ids.admin), 409, /isn't approved/);
+    expect((await prisma.participant.findUniqueOrThrow({ where: { id: p.id } })).checkedInAt).toBeNull();
+});

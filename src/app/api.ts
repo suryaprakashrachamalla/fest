@@ -39,6 +39,22 @@ export interface BackendEvent {
   maxTeamSize: number
 }
 
+// A team found by its registration ID at the entrance (when a QR can't be scanned).
+export interface TeamCheckIn {
+  admission: "APPROVED" | "NOT_APPROVED"
+  registration: { id: string; code: string; teamName: string; teamSize: number; college: string; status: RegistrationStatus }
+  event: { name: string; slug: string }
+  members: {
+    id: string
+    name: string
+    email: string
+    college: string
+    rollNumber: string | null
+    checkedInAt: string | null
+    checkedInBy: string | null
+  }[]
+}
+
 export interface Participant {
   id: string
   name: string
@@ -317,6 +333,13 @@ export const admin = {
   // admit=true records the entry on the ticket's first valid scan; reusing scanId on a retry is safe.
   scanTicket: (code: string, admit = false, scanId?: string) =>
     request<TicketScan>("/admin/tickets/scan", { json: { code, admit, scanId } }),
+  // Entrance fallback: find a team by registration ID, then check in the chosen members.
+  lookupTeam: (code: string) => request<TeamCheckIn>("/admin/tickets/team", { json: { code } }),
+  checkInMembers: (registrationId: string, participantIds: string[]) =>
+    request<{ results: { participantId: string; name: string; outcome: "ADMITTED" | "ALREADY_ENTERED" }[]; team: TeamCheckIn }>(
+      `/admin/registrations/${registrationId}/check-in-members`,
+      { json: { participantIds } },
+    ),
   admitParticipant: (participantId: string) =>
     request<TicketScan>(`/admin/tickets/${participantId}/check-in`, { method: "POST" }),
   ticketMailStatus: () => request<{ configured: boolean; pending: number; failed: number }>("/admin/tickets/mail-status"),
