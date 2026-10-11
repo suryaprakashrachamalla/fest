@@ -358,7 +358,6 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                   onClick={() => setCollegeType("mvsr")}
                 >
                   <strong>MVSR</strong>
-                  <span>Roll numbers needed</span>
                 </button>
                 <button
                   type="button"
@@ -368,7 +367,6 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                   onClick={() => setCollegeType("other")}
                 >
                   <strong>Other college</strong>
-                  <span>Type your college name</span>
                 </button>
               </div>
               {collegeType === "other" && (
