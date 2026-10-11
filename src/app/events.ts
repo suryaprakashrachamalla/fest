@@ -22,7 +22,7 @@ export type FestivalEvent = {
   food?: string
   // Total prize pool, shown in the hero and the facts list.
   prize?: string
-  // Headline total for the hero, shown as "Total prize pool worth" in place of the prize pool.
+  // Headline total for the hero only, shown as "Total prize pool worth" in place of the prize pool.
   heroPrize?: string
   // Optional per-place breakdown listed under the prize pool.
   prizes?: [string, string][]
@@ -82,13 +82,7 @@ export const events: FestivalEvent[] = [
     venue: "CSE Labs 2, 3, 4, 5",
     food: "Provided · No extra charge",
     fee: "₹399 / head",
-    prize: "₹30,000 + ₹3 Lakh vouchers",
     heroPrize: "₹4L+",
-    prizes: [
-      ["1st prize", "₹15,000"],
-      ["2nd prize", "₹7,000"],
-      ["3rd prize", "₹4,000"],
-    ],
     accent: "#e8ddc4",
     image: techImage,
     criteria: { label: "Hackathon domains", title: ["Pick your domain.", "We'll bring the arena."] },

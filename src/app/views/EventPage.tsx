@@ -48,7 +48,7 @@ export default function EventPage() {
           >
             {event.tagline && <p>{event.tagline}</p>}
             <h1>{event.name}</h1>
-            {event.prize && (
+            {(event.heroPrize ?? event.prize) && (
               <div className="event-hero-prize">
                 <span>{event.heroPrize ? "Total prize pool worth" : "Prize pool"}</span>
                 <strong>{event.heroPrize ?? event.prize}</strong>
