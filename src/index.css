@@ -3992,3 +3992,202 @@ html {
   color: #9a9a9a;
   font-style: normal;
 }
+
+/* ── Registration popup: light palette for every event ── */
+.registration-modal-backdrop {
+  background: rgba(24, 18, 40, 0.55);
+}
+
+.registration-modal-card {
+  --rm-bg: #fbf8f3;
+  --rm-surface: #ffffff;
+  --rm-soft: #f3eee6;
+  --rm-border: #e4ddd1;
+  --rm-text: #1f1b16;
+  --rm-muted: #6f675d;
+  --rm-primary: #5b3df5;
+  --rm-primary-deep: #4527d6;
+  --rm-primary-tint: #efebff;
+  background: var(--rm-bg);
+  border-color: var(--rm-border);
+  box-shadow: 0 30px 80px rgba(24, 18, 40, 0.35);
+  color: var(--rm-text);
+  scrollbar-color: #cfc6b8 transparent;
+}
+
+.registration-modal-card .modal-close-btn {
+  border-color: var(--rm-border);
+  background: var(--rm-surface);
+  color: var(--rm-text);
+}
+
+.registration-modal-card .modal-close-btn:hover {
+  background: var(--rm-soft);
+}
+
+.registration-modal-card .modal-header {
+  border-bottom-color: var(--rm-border);
+}
+
+.registration-modal-card .eyebrow,
+.registration-modal-card .form-section-title {
+  color: var(--rm-primary);
+}
+
+.registration-modal-card .modal-header h2,
+.registration-modal-card .registration-success-view h2 {
+  color: var(--rm-text);
+}
+
+.registration-modal-card .modal-event-meta,
+.registration-modal-card .payment-security-note,
+.registration-modal-card .success-subtitle {
+  color: var(--rm-muted);
+}
+
+.registration-modal-card .form-field label {
+  color: #4f483f;
+}
+
+.registration-modal-card .form-field input,
+.registration-modal-card .form-field select,
+.registration-modal-card .form-field input[type="file"] {
+  background: var(--rm-surface);
+  border-color: var(--rm-border);
+  color: var(--rm-text);
+}
+
+.registration-modal-card .form-field input::placeholder {
+  color: #a39a8e;
+}
+
+.registration-modal-card .form-field input:focus,
+.registration-modal-card .form-field select:focus {
+  outline: none;
+  border-color: var(--rm-primary);
+  background: var(--rm-surface);
+  box-shadow: 0 0 0 3px rgba(91, 61, 245, 0.15);
+}
+
+.registration-modal-card .form-field select option {
+  background: var(--rm-surface);
+  color: var(--rm-text);
+}
+
+.registration-modal-card .form-field input[readonly] {
+  background: var(--rm-soft);
+  color: var(--rm-primary-deep);
+  font-weight: 600;
+}
+
+.registration-modal-card .size-tab {
+  background: var(--rm-surface);
+  border-color: var(--rm-border);
+  color: var(--rm-muted);
+}
+
+.registration-modal-card .size-tab strong {
+  color: var(--rm-text);
+}
+
+.registration-modal-card .size-tab span {
+  color: var(--rm-muted);
+}
+
+.registration-modal-card .size-tab:hover {
+  background: var(--rm-surface);
+  border-color: rgba(91, 61, 245, 0.45);
+}
+
+.registration-modal-card .size-tab--active {
+  background: var(--rm-primary-tint) !important;
+  border-color: var(--rm-primary) !important;
+  box-shadow: 0 0 0 3px rgba(91, 61, 245, 0.12);
+}
+
+.registration-modal-card .size-tab--active strong,
+.registration-modal-card .size-tab--active span {
+  color: var(--rm-primary-deep) !important;
+}
+
+.registration-modal-card .pill-button--gold {
+  background: linear-gradient(135deg, #6d4dff 0%, #4527d6 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(91, 61, 245, 0.3);
+}
+
+.registration-modal-card .pill-button--gold:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c60ff 0%, #5233e8 100%);
+  box-shadow: 0 8px 26px rgba(91, 61, 245, 0.4);
+}
+
+.registration-modal-card .pill-button--outline {
+  border-color: var(--rm-border);
+  color: var(--rm-text);
+}
+
+.registration-modal-card .pill-button--outline:hover {
+  background: var(--rm-soft);
+  border-color: #cfc6b8;
+}
+
+.registration-modal-card .payment-qr-box {
+  background: var(--rm-surface);
+  border-color: var(--rm-border);
+}
+
+.registration-modal-card .payment-qr-box img,
+.registration-modal-card .payment-qr-placeholder {
+  border: 1px solid var(--rm-border);
+}
+
+.registration-modal-card .payment-qr-box p {
+  color: #4f483f;
+}
+
+.registration-modal-card .payment-qr-box strong,
+.registration-modal-card .receipt-amount,
+.registration-modal-card .total-highlight,
+.registration-modal-card .receipt-pid {
+  color: var(--rm-primary-deep) !important;
+}
+
+.registration-modal-card .payment-qr-demo {
+  color: #b45309 !important;
+}
+
+.registration-modal-card .modal-error-banner {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.registration-modal-card .modal-notice-banner {
+  background: #fff7e8;
+  border-color: #f2c46d;
+  color: #8a5a00;
+}
+
+.registration-modal-card .success-receipt-box,
+.registration-modal-card .order-summary-box {
+  background: var(--rm-surface);
+  border-color: rgba(91, 61, 245, 0.35);
+}
+
+.registration-modal-card .receipt-row,
+.registration-modal-card .order-row {
+  color: var(--rm-muted);
+}
+
+.registration-modal-card .receipt-row strong,
+.registration-modal-card .order-total {
+  color: var(--rm-text);
+}
+
+.registration-modal-card .receipt-divider {
+  background: var(--rm-border);
+}
+
+.registration-modal-card .success-sync-notice {
+  color: #047857;
+}

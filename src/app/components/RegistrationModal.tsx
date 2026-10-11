@@ -235,7 +235,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
           {step === "loading" && <p className="payment-security-note">Loading registration…</p>}
 
           {step === "unavailable" && (
-            <div className="modal-error-banner" style={{ borderColor: "#f4c97a", color: "#f4c97a" }}>
+            <div className="modal-error-banner modal-notice-banner">
               {notice}
             </div>
           )}
