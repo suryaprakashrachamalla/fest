@@ -6,6 +6,7 @@ import * as registrations from "./RegistrationsService.ts";
 import * as payments from "./PaymentVerificationService.ts";
 import * as checkIn from "./CheckInService.ts";
 import { registrationSheetRow, registrationSyncInclude } from "./lib/registrationSync.ts";
+import { planSheetRows } from "./lib/sheetsSyncLogic.ts";
 
 const integrationTest = process.env.RUN_DB_INTEGRATION_TESTS === "true" ? test : test.skip;
 const runId = crypto.randomUUID().slice(0, 8);
@@ -73,12 +74,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
     if (process.env.RUN_DB_INTEGRATION_TESTS !== "true") return;
-    const regs = await prisma.registration.findMany({ where: { eventId: ids.event }, select: { id: true } });
+    const regs = await prisma.registration.findMany({ where: { eventId: ids.event }, select: { id: true, code: true } });
     const regIds = regs.map((r) => r.id);
+    const regCodes = regs.map((r) => r.code);
     await prisma.auditLog.deleteMany({ where: { registrationId: { in: regIds } } });
     await prisma.paymentProof.deleteMany({ where: { registrationId: { in: regIds } } });
     await prisma.registration.deleteMany({ where: { id: { in: regIds } } });
-    await prisma.spreadsheetSyncOutbox.deleteMany({ where: { entityId: { in: regIds } } });
+    await prisma.spreadsheetSyncOutbox.deleteMany({ where: { entityId: { in: [...regIds, ...regCodes] } } });
     await prisma.event.delete({ where: { id: ids.event } });
     await prisma.user.deleteMany({ where: { id: { in: ids.users } } });
 });
@@ -98,9 +100,14 @@ integrationTest("successful registration computes the per-head fee server-side a
     const audit = await registrations.getAuditHistory(reg.id);
     expect(audit.map((a) => a.action)).toEqual(["REGISTERED"]);
     const outbox = await prisma.spreadsheetSyncOutbox.findFirstOrThrow({
-        where: { entityType: "REGISTRATION", entityId: reg.id },
+        where: { entityType: "REGISTRATION", entityId: reg.code },
     });
     expect((outbox.payload as { registrationId: string }).registrationId).toBe(reg.code);
+    // The sheet writer refuses rows whose key differs from the outbox entity ID.
+    const registrationsSheet = ["registrationId", "status"];
+    expect(() =>
+        planSheetRows("registrationId", registrationsSheet, [{ entityId: outbox.entityId, payload: outbox.payload as Record<string, unknown> }], []),
+    ).not.toThrow();
 });
 
 integrationTest("invalid registrations are rejected with clear messages", async () => {

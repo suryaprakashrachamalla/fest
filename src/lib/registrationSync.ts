@@ -108,7 +108,8 @@ export async function queueRegistrationSync(tx: Prisma.TransactionClient, regist
         where: { id: registrationId },
         include: registrationSyncInclude,
     });
-    await addOutbox(tx, "REGISTRATION", reg.id, registrationSheetRow(reg));
+    // Keyed by the code, the Registrations sheet's row ID (reconciliation uses the same key).
+    await addOutbox(tx, "REGISTRATION", reg.code, registrationSheetRow(reg));
     return reg;
 }
 
