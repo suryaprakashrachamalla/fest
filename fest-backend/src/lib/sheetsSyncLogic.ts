@@ -97,3 +97,11 @@ export function isTransientSheetsFailure(error: unknown) {
     if (status === 400 || status === 401 || status === 403 || status === 404) return false;
     return true;
 }
+
+// True when a worksheet's header row is the start of the expected headers, i.e. columns were
+// appended since the sheet was created; the header row can then simply be extended.
+export function headersArePrefix(actual: unknown[], expected: string[]) {
+    const filled = actual.map((cell) => (cell === undefined || cell === null ? "" : String(cell)));
+    while (filled.length && filled[filled.length - 1] === "") filled.pop();
+    return filled.length > 0 && filled.length < expected.length && filled.every((cell, i) => cell === expected[i]);
+}

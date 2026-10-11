@@ -1,6 +1,7 @@
 import { prisma } from "./lib/prisma.ts";
 import { uniqueViolation } from "./lib/prismaErrors.ts";
 import { addOutbox } from "./lib/outbox.ts";
+import { reviewProof } from "./PaymentVerificationService.ts";
 import type { RegistrationStatus } from "./generated/prisma/client.ts";
 import {
     addAudit,
@@ -296,6 +297,27 @@ export async function approveRegistration(id: string, adminId: string) {
         const registration = await queueRegistrationSync(tx, id);
         return { registration, alreadyApproved: false };
     });
+}
+
+// One-click organizer approval from the admin panel: verifies the pending payment proof the organizer
+// has just checked (screenshot and UTR), then approves. Approval is what emails each member their QR.
+export async function approveWithPayment(id: string, adminId: string) {
+    const current = await prisma.registration.findUnique({
+        where: { id },
+        select: { status: true, paymentProofs: { where: { status: "PENDING" }, select: { id: true }, take: 1 } },
+    });
+    if (!current) throw Object.assign(new Error("Registration not found"), { status: 404 });
+    if (current.status === "PAYMENT_REVIEW") {
+        const proof = current.paymentProofs[0];
+        if (!proof) throw Object.assign(new Error("There is no payment proof to verify"), { status: 409 });
+        try {
+            await reviewProof(proof.id, adminId, "verify");
+        } catch (error) {
+            // Another organizer reviewed it a moment ago; approval below re-checks the current status.
+            if ((error as { status?: number }).status !== 409) throw error;
+        }
+    }
+    return approveRegistration(id, adminId);
 }
 
 export async function rejectRegistration(id: string, adminId: string, reason: unknown) {

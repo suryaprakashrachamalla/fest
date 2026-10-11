@@ -149,7 +149,16 @@ function ticketSummary(registration: Registration) {
   return sent ? `Emailed ${sent}/${total}, sending the rest…` : "Waiting to be emailed"
 }
 
-function AdminRegistration({ registration, onChanged }: { registration: Registration; onChanged: () => void }) {
+function AdminRegistration({
+  registration,
+  onChanged,
+  onNotice,
+}: {
+  registration: Registration
+  onChanged: () => void
+  // Page-level message that stays visible after the team moves to another filter.
+  onNotice: (message: string) => void
+}) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState("")
@@ -287,22 +296,29 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
             <input id={`reason-${registration.id}`} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
           </div>
           <div className="admin-actions">
-            {pendingProof && (
-              <>
-                <button type="button" className="pill-button pill-button--gold" disabled={busy}
-                  onClick={() => act("Payment verified", () => admin.verifyProof(pendingProof.id))}>
-                  Verify payment
-                </button>
-                <button type="button" className="pill-button pill-button--outline" disabled={busy}
-                  onClick={() => needReason() && act("Payment rejected", () => admin.rejectProof(pendingProof.id, reason.trim()))}>
-                  Reject payment
-                </button>
-              </>
-            )}
-            {registration.status === "PAYMENT_VERIFIED" && (
+            {(pendingProof || registration.status === "PAYMENT_VERIFIED") && (
+              // One click: verifies the payment, approves the team and emails every member their entry QR.
               <button type="button" className="pill-button pill-button--gold" disabled={busy}
-                onClick={() => act("Registration approved", () => admin.approve(registration.id))}>
-                Approve registration
+                onClick={() => act(
+                  `Approved. Each of the ${registration.participants.length} members is being emailed their entry QR.`,
+                  async () => {
+                    await admin.approve(registration.id)
+                    onNotice(
+                      `${registration.teamName} (${registration.code}) approved. Entry QR emails are going to ${registration.participants
+                        .map((p) => p.name)
+                        .join(", ")}. Find the team under "Ticket issued" once they're sent.`,
+                    )
+                    // Refresh again once the first emails have gone out, so the counts update.
+                    window.setTimeout(onChanged, 8000)
+                  },
+                )}>
+                Approve
+              </button>
+            )}
+            {pendingProof && (
+              <button type="button" className="pill-button pill-button--outline" disabled={busy}
+                onClick={() => needReason() && act("Payment rejected", () => admin.rejectProof(pendingProof.id, reason.trim()))}>
+                Reject payment
               </button>
             )}
             {ticketed && (
@@ -358,6 +374,7 @@ export default function AdminPage() {
   const [sync, setSync] = useState<Awaited<ReturnType<typeof admin.syncStatus>> | null>(null)
   const [syncNote, setSyncNote] = useState("")
   const [mail, setMail] = useState<Awaited<ReturnType<typeof admin.ticketMailStatus>> | null>(null)
+  const [notice, setNotice] = useState("")
   const [error, setError] = useState("")
   const isAdmin = user?.role === "ADMIN"
 
@@ -460,11 +477,12 @@ export default function AdminPage() {
                 </p>
               </div>
             )}
+            {notice && <p className="success-sync-notice" style={{ justifyContent: "flex-start" }}>✓ {notice}</p>}
             {error && <div className="modal-error-banner">{error}</div>}
             {rows === null && !error && <p className="account-muted">Loading…</p>}
             {rows?.length === 0 && <p className="account-muted">No registrations here.</p>}
             {rows?.map((registration) => (
-              <AdminRegistration key={registration.id} registration={registration} onChanged={load} />
+              <AdminRegistration key={registration.id} registration={registration} onChanged={load} onNotice={setNotice} />
             ))}
           </>
         )}

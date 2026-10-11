@@ -284,7 +284,8 @@ app.patch(
     "/admin/registrations/:registrationId/approve",
     admin,
     async (req: express.Request, res: express.Response) => {
-        const result = await registrations.approveRegistration(
+        // Verifies a pending payment proof first, so one Approve click covers both steps.
+        const result = await registrations.approveWithPayment(
             String(req.params.registrationId),
             req.user!.id,
         );

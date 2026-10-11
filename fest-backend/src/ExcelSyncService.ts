@@ -13,7 +13,7 @@ import {
     registrationSheetRow,
     registrationSyncInclude,
 } from "./lib/registrationSync.ts";
-import { coalesceUpdates, isTransientSheetsFailure, planSheetRows } from "./lib/sheetsSyncLogic.ts";
+import { coalesceUpdates, headersArePrefix, isTransientSheetsFailure, planSheetRows } from "./lib/sheetsSyncLogic.ts";
 
 type SheetDefinition = {
     title: string;
@@ -106,6 +106,10 @@ const definitions: SheetDefinition[] = [
             "college",
             "rollNumber",
             "createdAt",
+            // Added with entry tickets; older sheets get these appended automatically.
+            "ticketEmailStatus",
+            "ticketEmailedAt",
+            "checkedInAt",
         ],
     },
     {
@@ -255,6 +259,11 @@ async function initializeWorksheets() {
             return;
         }
         if (!rowsMatch(definition.headers, values)) {
+            // New columns are only ever appended, so a sheet with the older, shorter header row is extended.
+            if (headersArePrefix(values, definition.headers)) {
+                headerWrites.push({ range: headerRanges[index], values: [definition.headers] });
+                return;
+            }
             throw new Error(
                 `Worksheet ${definition.title} has unexpected headers. Expected: ${definition.headers.join(", ")}`,
             );

@@ -102,6 +102,8 @@ afterAll(async () => {
     if (process.env.RUN_DB_INTEGRATION_TESTS !== "true") return;
     const regs = await prisma.registration.findMany({ where: { eventId: ids.event }, select: { id: true, code: true } });
     const regIds = regs.map((r) => r.id);
+    const memberIds = (await prisma.participant.findMany({ where: { registrationId: { in: regIds } }, select: { id: true } })).map((p) => p.id);
+    await prisma.spreadsheetSyncOutbox.deleteMany({ where: { entityId: { in: memberIds } } });
     await prisma.auditLog.deleteMany({ where: { registrationId: { in: regIds } } });
     await prisma.paymentProof.deleteMany({ where: { registrationId: { in: regIds } } });
     await prisma.registration.deleteMany({ where: { id: { in: regIds } } });
@@ -243,4 +245,84 @@ integrationTest("only the team's own account or an organizer can open its QR ima
     expect((await tickets.ticketImage(reg.id, member.id, ids.admin, true)).length).toBeGreaterThan(100);
     // A participant ID from another registration isn't accepted.
     await expectError(tickets.ticketImage(reg.id, pendingMember.id, userId, false), 404);
+});
+
+// A team that has submitted its payment proof but hasn't been reviewed yet.
+async function teamInPaymentReview(label: string, size: number) {
+    const user = await prisma.user.create({
+        data: { name: label, email: `${label}-${runId}@example.com`, passwordHash: "x" },
+    });
+    ids.users.push(user.id);
+    const reg = await registrations.createRegistration(user.id, ids.event, {
+        teamName: `Team ${label}`,
+        college: "Test Institute of Technology",
+        phone: "9876543210",
+        participants: Array.from({ length: size }, (_, i) => ({
+            name: `${label} member ${i + 1}`,
+            email: `${label}-m${i + 1}-${runId}@example.com`,
+        })),
+    });
+    await payments.submitProof(reg.id, user.id, `TKT${label}${runId}`.toUpperCase(), png());
+    return reg;
+}
+async function latestParticipantRow(participantId: string) {
+    const entry = await prisma.spreadsheetSyncOutbox.findFirstOrThrow({
+        where: { entityType: "PARTICIPANT", entityId: participantId },
+        orderBy: { createdAt: "desc" },
+    });
+    return entry.payload as Record<string, string>;
+}
+
+integrationTest("one Approve click verifies the pending payment, approves, and the tickets follow", async () => {
+    const reg = await teamInPaymentReview("oneclick", 2);
+    const result = await registrations.approveWithPayment(reg.id, ids.admin);
+    expect(result.alreadyApproved).toBe(false);
+    expect(result.registration.status).toBe("APPROVED");
+    expect(result.registration.verified).toBe(true);
+    expect(await prisma.paymentProof.count({ where: { registrationId: reg.id, status: "VERIFIED" } })).toBe(1);
+    expect((await registrations.getAuditHistory(reg.id)).map((a) => a.action)).toEqual([
+        "REGISTERED",
+        "PAYMENT_SUBMITTED",
+        "PAYMENT_VERIFIED",
+        "APPROVED",
+    ]);
+    // A second click is harmless.
+    expect((await registrations.approveWithPayment(reg.id, ids.admin)).alreadyApproved).toBe(true);
+
+    const mail = fakeMailer();
+    await sendFor(reg.id, mail.send);
+    expect(mail.sent.map((m) => m.to).sort()).toEqual([`oneclick-m1-${runId}@example.com`, `oneclick-m2-${runId}@example.com`]);
+    expect((await prisma.registration.findUniqueOrThrow({ where: { id: reg.id } })).status).toBe("TICKET_ISSUED");
+});
+
+integrationTest("Approve refuses a team that hasn't submitted a payment", async () => {
+    const user = await prisma.user.create({ data: { name: "nopay", email: `nopay-${runId}@example.com`, passwordHash: "x" } });
+    ids.users.push(user.id);
+    const reg = await registrations.createRegistration(user.id, ids.event, {
+        teamName: "Team nopay",
+        college: "Test Institute of Technology",
+        phone: "9876543210",
+        participants: [{ name: "nopay member", email: `nopay-m1-${runId}@example.com` }],
+    });
+    await expectError(registrations.approveWithPayment(reg.id, ids.admin), 409, /Verify the payment/);
+});
+
+integrationTest("each member's own Participants sheet row shows their ticket email and entry", async () => {
+    const reg = await teamInPaymentReview("rows", 2);
+    const [a, b] = await members(reg.id);
+    expect((await latestParticipantRow(a.id)).ticketEmailStatus).toBe("NOT_SENT");
+    await registrations.approveWithPayment(reg.id, ids.admin);
+    const mail = fakeMailer(`rows-m2-${runId}@example.com`);
+    await sendFor(reg.id, mail.send);
+
+    const rowA = await latestParticipantRow(a.id);
+    expect(rowA.participantName).toBe("rows member 1");
+    expect(rowA.email).toBe(`rows-m1-${runId}@example.com`);
+    expect(rowA.ticketEmailStatus).toBe("SENT");
+    expect(rowA.ticketEmailedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(rowA.checkedInAt).toBe("");
+    expect((await latestParticipantRow(b.id)).ticketEmailStatus).toMatch(/^FAILED: 550/);
+
+    await tickets.admitParticipant(a.id, ids.admin);
+    expect((await latestParticipantRow(a.id)).checkedInAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 });

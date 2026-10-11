@@ -103,6 +103,9 @@ export function participantRow(p: {
     college: string;
     rollNumber: string | null;
     createdAt: Date;
+    ticketEmailedAt?: Date | null;
+    ticketEmailError?: string | null;
+    checkedInAt?: Date | null;
 }) {
     return {
         participantId: p.id,
@@ -112,7 +115,17 @@ export function participantRow(p: {
         college: p.college,
         rollNumber: p.rollNumber ?? "",
         createdAt: p.createdAt.toISOString(),
+        // This member's own entry QR email and entrance scan.
+        ticketEmailStatus: p.ticketEmailedAt ? "SENT" : p.ticketEmailError ? `FAILED: ${p.ticketEmailError}` : "NOT_SENT",
+        ticketEmailedAt: p.ticketEmailedAt?.toISOString() ?? "",
+        checkedInAt: p.checkedInAt?.toISOString() ?? "",
     };
+}
+
+// Queues this member's row in the Participants worksheet.
+export async function queueParticipantSync(tx: Prisma.TransactionClient, participantId: string) {
+    const participant = await tx.participant.findUniqueOrThrow({ where: { id: participantId } });
+    await addOutbox(tx, "PARTICIPANT", participant.id, participantRow(participant));
 }
 
 // Reloads the registration inside the transaction so the queued row always reflects committed state.

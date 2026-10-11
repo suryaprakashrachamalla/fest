@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import { prisma } from "./lib/prisma.ts";
-import { addAudit, queueRegistrationSync } from "./lib/registrationSync.ts";
+import { addAudit, queueParticipantSync, queueRegistrationSync } from "./lib/registrationSync.ts";
 import { mailConfigured, sendMail as smtpSendMail, type MailMessage, type SendMail } from "./lib/mailer.ts";
 import type { Prisma, RegistrationStatus } from "./generated/prisma/client.ts";
 
@@ -152,6 +152,7 @@ export async function sendPendingTicketEmails({ limit = 100, send = smtpSendMail
         });
         if (claimed.count !== 1) continue;
         const reg = member.registration;
+        let sendError: string | null = null;
         try {
             const message = ticketEmail(
                 {
@@ -166,16 +167,19 @@ export async function sendPendingTicketEmails({ limit = 100, send = smtpSendMail
                 await ticketQrPng(member.ticketCode),
             );
             await send({ to: member.email, ...message });
-            await prisma.participant.update({
-                where: { id: member.id },
-                data: { ticketEmailedAt: new Date(), ticketEmailError: null },
-            });
-            result.sent++;
         } catch (error) {
-            const message = (error instanceof Error ? error.message : String(error)).slice(0, 300);
-            await prisma.participant.update({ where: { id: member.id }, data: { ticketEmailError: message } });
-            result.failed.push({ email: member.email, error: message });
+            sendError = (error instanceof Error ? error.message : String(error)).slice(0, 300);
         }
+        // Record the outcome on the member and their own row in the Participants sheet.
+        await prisma.$transaction(async (tx) => {
+            await tx.participant.update({
+                where: { id: member.id },
+                data: sendError ? { ticketEmailError: sendError } : { ticketEmailedAt: new Date(), ticketEmailError: null },
+            });
+            await queueParticipantSync(tx, member.id);
+        });
+        if (sendError) result.failed.push({ email: member.email, error: sendError });
+        else result.sent++;
         touched.add(reg.id);
     }
 
@@ -252,6 +256,7 @@ export async function resendTickets(registrationId: string, adminId: string, par
             where: { id: { in: members.map((p) => p.id) } },
             data: { ticketEmailedAt: null, ticketEmailAttemptAt: null, ticketEmailError: null },
         });
+        for (const member of members) await queueParticipantSync(tx, member.id);
         await addAudit(tx, {
             registrationId,
             actorId: adminId,
@@ -334,6 +339,7 @@ export async function admitParticipant(participantId: string, adminId: string) {
             action: "MEMBER_CHECKED_IN",
             detail: `${member.name} entered (ticket scanned)`,
         });
+        await queueParticipantSync(tx, participantId);
         await queueRegistrationSync(tx, reg.id);
     });
     const member = await prisma.participant.findUniqueOrThrow({ where: { id: participantId }, include: ticketInclude });

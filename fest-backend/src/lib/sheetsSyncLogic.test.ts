@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import {
     coalesceUpdates,
+    headersArePrefix,
     isTransientSheetsFailure,
     planSheetRows,
 } from "./sheetsSyncLogic.ts";
@@ -77,5 +78,19 @@ describe("Google Sheets sync planning", () => {
         expect(isTransientSheetsFailure({ response: { status: 429 } })).toBe(true);
         expect(isTransientSheetsFailure({ response: { status: 503 } })).toBe(true);
         expect(isTransientSheetsFailure({ response: { status: 401 } })).toBe(false);
+    });
+});
+
+describe("worksheet header upgrades", () => {
+    const headers = ["participantId", "name", "createdAt", "ticketEmailStatus", "checkedInAt"];
+    test("an older header row that is a prefix of the new one can be extended", () => {
+        expect(headersArePrefix(["participantId", "name", "createdAt"], headers)).toBe(true);
+        expect(headersArePrefix(["participantId", "name", "createdAt", "", ""], headers)).toBe(true);
+    });
+    test("renamed, reordered, empty or identical header rows are not treated as upgrades", () => {
+        expect(headersArePrefix(["participantId", "fullName", "createdAt"], headers)).toBe(false);
+        expect(headersArePrefix(["name", "participantId"], headers)).toBe(false);
+        expect(headersArePrefix([], headers)).toBe(false);
+        expect(headersArePrefix(headers, headers)).toBe(false);
     });
 });
