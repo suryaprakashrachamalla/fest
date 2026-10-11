@@ -5,9 +5,11 @@ import { mailConfigured, sendMail as smtpSendMail, type MailMessage, type SendMa
 import type { Prisma, RegistrationStatus } from "./generated/prisma/client.ts";
 
 // Every team member gets their own entrance ticket once an organizer approves the registration.
-// The QR holds "SHOURYA26:<ticketCode>"; organizers scan it in the admin panel, which shows the
-// member's name and event and lets them mark the member as entered (one band per member).
+// The QR is a link to the admin panel (<site>/admin?ticket=<ticketCode>), so it works with the
+// admin scanner and with any phone camera. Scanning it shows the member's name and event and
+// records their entry at once; any later scan of the same QR is reported as already scanned.
 
+// Tickets emailed before the QR became a link hold "SHOURYA26:<ticketCode>"; they still scan.
 const QR_PREFIX = "SHOURYA26:";
 // A member whose email attempt hasn't finished within this window is retried.
 const CLAIM_TIMEOUT_MS = 5 * 60_000;
@@ -19,15 +21,22 @@ function httpError(status: number, message: string) {
 }
 
 export function ticketQrText(code: string) {
-    return `${QR_PREFIX}${code}`;
+    return `${SITE_URL}/admin?ticket=${code}`;
 }
 
-// Accepts the scanned QR text or the bare 32-character code typed in by hand.
+// Accepts the scanned link, an older "SHOURYA26:<code>" QR, or the bare 32-character code typed in.
 export function parseTicketCode(raw: unknown) {
     if (typeof raw !== "string") return null;
-    const value = raw.trim();
-    const code = value.toUpperCase().startsWith(QR_PREFIX) ? value.slice(QR_PREFIX.length).trim() : value;
-    return /^[0-9a-f]{32}$/i.test(code) ? code.toLowerCase() : null;
+    let value = raw.trim();
+    if (/^https?:\/\//i.test(value)) {
+        try {
+            value = new URL(value).searchParams.get("ticket") ?? "";
+        } catch {
+            return null;
+        }
+    } else if (value.toUpperCase().startsWith(QR_PREFIX)) value = value.slice(QR_PREFIX.length);
+    value = value.trim();
+    return /^[0-9a-f]{32}$/i.test(value) ? value.toLowerCase() : null;
 }
 
 export function ticketQrPng(code: string) {
@@ -306,13 +315,24 @@ function ticketView(p: TicketRecord) {
     };
 }
 
-// Looks up a scanned QR. Unknown codes are a 404 so a fake or old QR is obvious at the gate.
-export async function scanTicket(raw: unknown) {
+// Looks up a scanned QR. Unknown codes are a 404 so a fake QR is obvious at the gate.
+// With `admitBy` (the scanning organizer), a valid unused ticket is checked in straight away, so
+// the first scan uses it up and every later scan shows ALREADY_ENTERED.
+export async function scanTicket(raw: unknown, admitBy?: string) {
     const code = parseTicketCode(raw);
     if (!code) throw httpError(400, "This isn't a SHOURYA'26 ticket QR");
     const member = await prisma.participant.findUnique({ where: { ticketCode: code }, include: ticketInclude });
     if (!member) throw httpError(404, "Ticket not found: this QR isn't a valid SHOURYA'26 ticket");
-    return ticketView(member);
+    const view = ticketView(member);
+    if (!admitBy || view.admission !== "ALLOWED") return { ...view, justAdmitted: false };
+    try {
+        return { ...(await admitParticipant(member.id, admitBy)), justAdmitted: true };
+    } catch (error) {
+        // Two volunteers scanned the same QR at once: the other scan won, so show it as used.
+        if ((error as { status?: number }).status !== 409) throw error;
+        const latest = await prisma.participant.findUniqueOrThrow({ where: { id: member.id }, include: ticketInclude });
+        return { ...ticketView(latest), justAdmitted: false };
+    }
 }
 
 // Marks one member as entered. Works once per member; the team counts as entered with its first member.

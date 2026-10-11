@@ -9,8 +9,10 @@ function time(value: string | null) {
   return value ? new Date(value).toLocaleString("en-IN", { timeStyle: "short", dateStyle: "medium" }) : ""
 }
 
-// Entrance check-in: scan a member's entry QR, see their name and event, then record their entry.
-export default function TicketScanner() {
+// Entrance check-in: scanning a member's entry QR shows their name and event and records their entry,
+// so the QR is used up; scanning it again shows it as already scanned. `initialCode` is a ticket
+// opened from a phone camera (the QR link lands on /admin?ticket=...).
+export default function TicketScanner({ initialCode, onInitialCodeHandled }: { initialCode?: string | null; onInitialCodeHandled?: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -40,7 +42,9 @@ export default function TicketScanner() {
     setError("")
     setJustAdmitted(false)
     try {
-      setResult(await admin.scanTicket(code))
+      const scanned = await admin.scanTicket(code, true)
+      setResult(scanned)
+      setJustAdmitted(Boolean(scanned.justAdmitted))
     } catch (err) {
       setResult(null)
       setError(err instanceof Error ? err.message : "Couldn't check this ticket")
@@ -48,6 +52,14 @@ export default function TicketScanner() {
       setBusy(false)
     }
   }, [])
+
+  // A QR opened from the phone camera is checked once, as soon as the organizer is signed in.
+  const handledInitial = useRef(false)
+  useEffect(() => {
+    if (!initialCode || handledInitial.current) return
+    handledInitial.current = true
+    void lookUp(initialCode).finally(() => onInitialCodeHandled?.())
+  }, [initialCode, lookUp, onInitialCodeHandled])
 
   // Reads one video frame; returns the QR text or null.
   async function readFrame(video: HTMLVideoElement, detector: QrDetector | null, jsQR: typeof import("jsqr").default | null) {
@@ -145,13 +157,13 @@ export default function TicketScanner() {
 
   const verdict = result
     ? justAdmitted
-      ? { tone: "allowed", text: "✓ Entry recorded. Give the band." }
+      ? { tone: "allowed", text: "✓ Valid ticket. Entry recorded. Give the band." }
       : result.admission === "ALLOWED"
         ? { tone: "allowed", text: "✓ Valid ticket. Allow entry." }
         : result.admission === "ALREADY_ENTERED"
           ? {
               tone: "entered",
-              text: `Already entered ${time(result.participant.checkedInAt)}${result.participant.checkedInBy ? ` (by ${result.participant.checkedInBy})` : ""}. No second band.`,
+              text: `⚠ QR ALREADY SCANNED ${time(result.participant.checkedInAt)}${result.participant.checkedInBy ? ` by ${result.participant.checkedInBy}` : ""}. This ticket is used: don't give another band.`,
             }
           : { tone: "denied", text: `✗ Not approved (${STATUS_LABELS[result.registration.status]}). Don't allow entry.` }
     : null
@@ -160,8 +172,8 @@ export default function TicketScanner() {
     <section className="account-card ticket-scanner">
       <h2>Entrance check-in</h2>
       <p className="account-muted">
-        Scan a member&apos;s entry QR (from their email or dashboard). Check the name, tap <strong>Mark entered</strong>, then give the band.
-        Each QR works once.
+        Scan a member&apos;s entry QR (from their email or dashboard) here or with your phone camera. A valid ticket is checked in on
+        the first scan: check the name and event, then give the band. Scanning the same QR again shows it as already scanned.
       </p>
 
       <div className={`ticket-camera ${camera === "off" ? "ticket-camera--off" : ""}`}>

@@ -55,6 +55,8 @@ export interface Participant {
 // What the entrance scanner shows for a scanned entry QR.
 export interface TicketScan {
   admission: "ALLOWED" | "ALREADY_ENTERED" | "NOT_APPROVED"
+  // True when this scan recorded the entry (the ticket's first valid scan).
+  justAdmitted?: boolean
   participant: {
     id: string
     name: string
@@ -296,7 +298,8 @@ export const admin = {
       lastSuccessfulSyncAt: string | null
     }>("/admin/sync-status"),
   // Entrance: look up a scanned entry QR, then record that member's entry.
-  scanTicket: (code: string) => request<TicketScan>("/admin/tickets/scan", { json: { code } }),
+  // admit=true records the entry on the ticket's first valid scan.
+  scanTicket: (code: string, admit = false) => request<TicketScan>("/admin/tickets/scan", { json: { code, admit } }),
   admitParticipant: (participantId: string) =>
     request<TicketScan>(`/admin/tickets/${participantId}/check-in`, { method: "POST" }),
   ticketMailStatus: () => request<{ configured: boolean; pending: number; failed: number }>("/admin/tickets/mail-status"),

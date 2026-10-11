@@ -114,8 +114,12 @@ afterAll(async () => {
 
 test("ticket codes are read from the QR text or typed by hand, and anything else is refused", () => {
     const code = "0123456789abcdef0123456789abcdef";
+    expect(tickets.ticketQrText(code)).toMatch(new RegExp(`^https://[^/]+/admin\\?ticket=${code}$`));
     expect(tickets.parseTicketCode(tickets.ticketQrText(code))).toBe(code);
+    // QR codes emailed before the link format still scan.
+    expect(tickets.parseTicketCode(`SHOURYA26:${code}`)).toBe(code);
     expect(tickets.parseTicketCode(` ${code.toUpperCase()} `)).toBe(code);
+    expect(tickets.parseTicketCode("https://shouryacse.site/admin")).toBeNull();
     expect(tickets.parseTicketCode("SHOURYA26:not-a-code")).toBeNull();
     expect(tickets.parseTicketCode("https://example.com")).toBeNull();
     expect(tickets.parseTicketCode(42)).toBeNull();
@@ -325,4 +329,29 @@ integrationTest("each member's own Participants sheet row shows their ticket ema
 
     await tickets.admitParticipant(a.id, ids.admin);
     expect((await latestParticipantRow(a.id)).checkedInAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+});
+
+integrationTest("the first scan admits the member and uses up the QR; later scans show it as already scanned", async () => {
+    const { reg } = await verifiedTeam("autoscan", 2);
+    const [a] = await members(reg.id);
+    const first = await tickets.scanTicket(tickets.ticketQrText(a.ticketCode), ids.admin);
+    expect(first.justAdmitted).toBe(true);
+    expect(first.admission).toBe("ALREADY_ENTERED");
+    expect(first.participant.name).toBe("autoscan member 1");
+    expect(first.event.name).toBe(`Ticket test ${runId}`);
+    expect(first.participant.checkedInBy).toBe("Gate Admin");
+
+    const again = await tickets.scanTicket(tickets.ticketQrText(a.ticketCode), ids.admin);
+    expect(again.justAdmitted).toBe(false);
+    expect(again.admission).toBe("ALREADY_ENTERED");
+    expect(again.participant.checkedInAt).toEqual(first.participant.checkedInAt);
+    expect((await registrations.getAuditHistory(reg.id)).filter((e) => e.action === "MEMBER_CHECKED_IN")).toHaveLength(1);
+
+    // An unapproved team's QR is never admitted by scanning.
+    const pending = await verifiedTeam("autoscanpending", 1, false);
+    const [p] = await members(pending.reg.id);
+    const refused = await tickets.scanTicket(p.ticketCode, ids.admin);
+    expect(refused.admission).toBe("NOT_APPROVED");
+    expect(refused.justAdmitted).toBe(false);
+    expect((await prisma.participant.findUniqueOrThrow({ where: { id: p.id } })).checkedInAt).toBeNull();
 });

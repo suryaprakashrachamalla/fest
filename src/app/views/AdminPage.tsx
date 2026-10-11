@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react"
-import { Link } from "react-router"
+import { Link, useSearchParams } from "react-router"
 import {
   type AuditEntry,
   type PaymentQr,
@@ -375,6 +375,10 @@ export default function AdminPage() {
   const [syncNote, setSyncNote] = useState("")
   const [mail, setMail] = useState<Awaited<ReturnType<typeof admin.ticketMailStatus>> | null>(null)
   const [notice, setNotice] = useState("")
+  // An entry QR scanned with a phone camera opens /admin?ticket=<code>; it is checked after sign-in.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const scannedTicket = searchParams.get("ticket")
+  const clearScannedTicket = useCallback(() => setSearchParams({}, { replace: true }), [setSearchParams])
   const [error, setError] = useState("")
   const isAdmin = user?.role === "ADMIN"
 
@@ -414,7 +418,15 @@ export default function AdminPage() {
         {!apiConfigured ? (
           <div className="account-card"><h1>Organizer dashboard</h1><p className="account-muted">The registration server isn&apos;t connected yet.</p></div>
         ) : !user ? (
-          <SignInPanel title="Organizer dashboard" subtitle="Sign in with an organizer account." onSignedIn={setUser} />
+          <SignInPanel
+            title="Organizer dashboard"
+            subtitle={
+              scannedTicket
+                ? "This is a SHOURYA'26 entry ticket. Sign in with an organizer account to check it in."
+                : "Sign in with an organizer account."
+            }
+            onSignedIn={setUser}
+          />
         ) : !isAdmin ? (
           <div className="account-card">
             <h1>Organizer dashboard</h1>
@@ -423,7 +435,7 @@ export default function AdminPage() {
         ) : (
           <>
             <h1 className="account-title">Organizer dashboard</h1>
-            <TicketScanner />
+            <TicketScanner initialCode={scannedTicket} onInitialCodeHandled={clearScannedTicket} />
             <PaymentQrManager />
             <h2 className="account-subtitle">Registrations</h2>
             <p className="account-muted">

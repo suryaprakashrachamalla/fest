@@ -384,7 +384,12 @@ app.post(
     "/admin/tickets/scan",
     admin,
     async (req: express.Request, res: express.Response) =>
-        ok(res, await tickets.scanTicket(req.body?.code), "Ticket found"),
+        ok(
+            res,
+            // admit=true records the entry on a valid ticket's first scan.
+            await tickets.scanTicket(req.body?.code, req.body?.admit === true ? req.user!.id : undefined),
+            "Ticket found",
+        ),
 );
 app.post(
     "/admin/tickets/:participantId/check-in",
