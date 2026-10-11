@@ -45,6 +45,7 @@ export interface Participant {
   email: string
   college: string
   rollNumber: string | null
+  lumaCheckedInAt?: string | null
 }
 
 export interface PaymentProof {
@@ -72,6 +73,7 @@ export interface Registration {
   lumaSyncedAt?: string | null
   lumaError?: string | null
   entered: boolean
+  enteredAt?: string | null
   event: BackendEvent
   participants: Participant[]
   paymentProofs: PaymentProof[]
@@ -250,6 +252,9 @@ export const admin = {
     }>("/admin/sync-status"),
   // Adds approved registrations to Luma now; Luma emails each member their ticket.
   lumaSync: () => request<{ code: string; outcome: string; detail?: string }[]>("/admin/luma-sync", { method: "POST" }),
+  // Imports entrance scans made in the Luma check-in app.
+  lumaCheckIns: () =>
+    request<{ event: string; membersScanned: number; teamsEntered: number; error?: string }[]>("/admin/luma-checkins", { method: "POST" }),
   // Re-checks every row against the sheet and retries failed sync jobs.
   retrySync: () => request("/admin/sync-reconcile", { method: "POST" }),
   // Screenshots need the admin token, so they are fetched and shown as a temporary object URL.

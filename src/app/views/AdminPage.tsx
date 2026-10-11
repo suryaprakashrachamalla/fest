@@ -94,6 +94,9 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
                 </strong>
               </div>
             )}
+            {registration.entered && (
+              <div className="receipt-row"><span>Entrance</span><strong>Checked in {formatDate(registration.enteredAt ?? null)}</strong></div>
+            )}
           </div>
 
           <p className="form-section-title">Team members</p>
@@ -102,7 +105,10 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
               <li key={p.id}>
                 <span>Student {i + 1}</span>
                 <strong>{p.name}</strong>
-                <em>{p.email}{p.rollNumber ? ` · ${p.rollNumber}` : ""}</em>
+                <em>
+                  {p.email}{p.rollNumber ? ` · ${p.rollNumber}` : ""}
+                  {p.lumaCheckedInAt ? ` · scanned ${formatDate(p.lumaCheckedInAt)}` : ""}
+                </em>
               </li>
             ))}
           </ul>
@@ -220,6 +226,7 @@ export default function AdminPage() {
   const [rows, setRows] = useState<Registration[] | null>(null)
   const [sync, setSync] = useState<Awaited<ReturnType<typeof admin.syncStatus>> | null>(null)
   const [syncNote, setSyncNote] = useState("")
+  const [lumaNote, setLumaNote] = useState("")
   const [error, setError] = useState("")
   const isAdmin = user?.role === "ADMIN"
 
@@ -299,6 +306,30 @@ export default function AdminPage() {
                 {syncNote && <p className="account-muted">{syncNote}</p>}
               </div>
             )}
+            <div className="admin-sync">
+              <p className="account-muted">Entrance scans are made in the Luma check-in app and imported here every minute when auto sync is on.</p>
+              <button
+                type="button"
+                className="pill-button pill-button--outline account-signout"
+                onClick={async () => {
+                  setLumaNote("")
+                  try {
+                    const results = await admin.lumaCheckIns()
+                    setLumaNote(
+                      results
+                        .map((r) => (r.error ? `${r.event}: ${r.error}` : `${r.event}: ${r.membersScanned} scanned, ${r.teamsEntered} new`))
+                        .join(" · ") || "No Luma events mapped yet.",
+                    )
+                    void load()
+                  } catch (err) {
+                    setLumaNote(err instanceof Error ? err.message : "Import failed")
+                  }
+                }}
+              >
+                Import Luma check-ins
+              </button>
+              {lumaNote && <p className="account-muted">{lumaNote}</p>}
+            </div>
             {error && <div className="modal-error-banner">{error}</div>}
             {rows === null && !error && <p className="account-muted">Loading…</p>}
             {rows?.length === 0 && <p className="account-muted">No registrations here.</p>}
