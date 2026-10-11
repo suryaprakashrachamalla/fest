@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router"
 import { getStoredUser } from "../api"
 import { publicUrl } from "../publicUrl"
+import { ADMIN_PATH } from "../adminPath"
 
 export default function Header({ light = false }: { light?: boolean }) {
   // Re-read on every navigation so the links switch right after logging in or out.
@@ -27,7 +28,7 @@ export default function Header({ light = false }: { light?: boolean }) {
 
       <nav className="account-nav" aria-label="Account">
         {user?.role === "ADMIN" ? (
-          <Link to="/admin">ADMIN</Link>
+          <Link to={ADMIN_PATH}>ADMIN</Link>
         ) : user ? (
           <Link to="/dashboard">DASHBOARD</Link>
         ) : (

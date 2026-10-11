@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate, useOutlet } from "react-router"
 import { markIntroDone } from "../introState"
+import { ADMIN_PATH } from "../adminPath"
 
 interface OutletRecord {
   key: string
@@ -131,7 +132,7 @@ export default function RootLayout() {
   }, [location.pathname, navigate])
 
   const getPageTheme = (path: string) => {
-    if (path === "/login" || path === "/signup" || path === "/dashboard" || path === "/admin") return "portal"
+    if (path === "/login" || path === "/signup" || path === "/dashboard" || path === ADMIN_PATH) return "portal"
     if (path.startsWith("/events/")) return "event"
     return "home"
   }

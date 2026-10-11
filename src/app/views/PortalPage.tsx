@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router"
 import { apiConfigured, createAccount, getStoredUser, signIn } from "../api"
+import { ADMIN_PATH } from "../adminPath"
 
 function PortalForm() {
   const { pathname, state } = useLocation()
@@ -31,7 +32,7 @@ function PortalForm() {
       } else {
         const signedIn = await signIn(email.trim(), password)
         // Organizers land on the organizer dashboard; everyone else on their own dashboard.
-        navigate(signedIn.role === "ADMIN" ? "/admin" : "/dashboard")
+        navigate(signedIn.role === "ADMIN" ? ADMIN_PATH : "/dashboard")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
@@ -77,7 +78,7 @@ function PortalForm() {
               <span>✓</span>
               You&apos;re logged in as {user.email}.
             </div>
-            <Link className="portal-cta" to={user.role === "ADMIN" ? "/admin" : "/dashboard"}>
+            <Link className="portal-cta" to={user.role === "ADMIN" ? ADMIN_PATH : "/dashboard"}>
               {user.role === "ADMIN" ? "Open organizer dashboard" : "Open my dashboard"} <span>↗</span>
             </Link>
           </>

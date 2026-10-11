@@ -15,6 +15,7 @@ import {
   ticketQrUrl,
 } from "../api"
 import SignInPanel from "../components/SignInPanel"
+import { ADMIN_PATH } from "../adminPath"
 
 const STEPS = ["Registered", "Waiting for approval", "Approved"] as const
 
@@ -271,7 +272,7 @@ export default function DashboardPage() {
             <h1 className="account-title">Hi, {user.name.split(" ")[0]}</h1>
             <p className="account-muted">Your registrations for MVSR Sangamam 2026.</p>
             {user.role === "ADMIN" && (
-              <Link to="/admin" className="pill-button pill-button--gold" style={{ marginTop: 14 }}>
+              <Link to={ADMIN_PATH} className="pill-button pill-button--gold" style={{ marginTop: 14 }}>
                 Open organizer dashboard
               </Link>
             )}

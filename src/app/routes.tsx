@@ -5,6 +5,7 @@ import DashboardPage from "./views/DashboardPage"
 import EventPage from "./views/EventPage"
 import HomePage from "./views/HomePage"
 import PortalPage from "./views/PortalPage"
+import { ADMIN_PATH } from "./adminPath"
 
 export const router = createBrowserRouter([
   {
@@ -16,7 +17,7 @@ export const router = createBrowserRouter([
       { path: "login", Component: PortalPage },
       { path: "signup", Component: PortalPage },
       { path: "dashboard", Component: DashboardPage },
-      { path: "admin", Component: AdminPage },
+      { path: ADMIN_PATH.slice(1), Component: AdminPage },
       { path: "*", Component: HomePage },
     ],
   },
