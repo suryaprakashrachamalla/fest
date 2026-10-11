@@ -22,6 +22,8 @@ export type FestivalEvent = {
   food?: string
   // Total prize pool, shown in the hero and the facts list.
   prize?: string
+  // Headline total for the hero, shown as "Total prize pool worth" in place of the prize pool.
+  heroPrize?: string
   // Optional per-place breakdown listed under the prize pool.
   prizes?: [string, string][]
   accent: string
@@ -81,6 +83,7 @@ export const events: FestivalEvent[] = [
     food: "Provided · No extra charge",
     fee: "₹399 / head",
     prize: "₹30,000 + ₹3 Lakh vouchers",
+    heroPrize: "₹4L+",
     prizes: [
       ["1st prize", "₹15,000"],
       ["2nd prize", "₹7,000"],
