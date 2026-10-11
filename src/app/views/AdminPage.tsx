@@ -14,6 +14,7 @@ import {
   signOut,
 } from "../api"
 import SignInPanel from "../components/SignInPanel"
+import TicketScanner from "../components/TicketScanner"
 
 const FILTERS: { label: string; status?: RegistrationStatus }[] = [
   { label: "Payment review", status: "PAYMENT_REVIEW" },
@@ -138,6 +139,16 @@ function PaymentQrManager() {
   )
 }
 
+// Entry QR email progress for a team, e.g. "Emailed 3/3".
+function ticketSummary(registration: Registration) {
+  const total = registration.participants.length
+  const sent = registration.participants.filter((p) => p.ticketEmailedAt).length
+  const failed = registration.participants.find((p) => !p.ticketEmailedAt && p.ticketEmailError)
+  if (failed) return `Emailed ${sent}/${total} · failed for ${failed.name}: ${failed.ticketEmailError}`
+  if (sent === total) return `Entry QR emailed to all ${total} member${total === 1 ? "" : "s"}`
+  return sent ? `Emailed ${sent}/${total}, sending the rest…` : "Waiting to be emailed"
+}
+
 function AdminRegistration({ registration, onChanged }: { registration: Registration; onChanged: () => void }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -147,6 +158,8 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
   const [screenshots, setScreenshots] = useState<Record<string, string>>({})
   const [audit, setAudit] = useState<AuditEntry[] | null>(null)
   const pendingProof = registration.paymentProofs.find((p) => p.status === "PENDING")
+  const ticketed = registration.status === "APPROVED" || registration.status === "TICKET_ISSUED"
+  const membersIn = registration.participants.filter((p) => p.checkedInAt).length
 
   async function act(label: string, action: () => Promise<unknown>) {
     setBusy(true)
@@ -204,20 +217,18 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
             {registration.rejectionReason && (
               <div className="receipt-row"><span>Rejection reason</span><strong>{registration.rejectionReason}</strong></div>
             )}
-            {(registration.status === "APPROVED" || registration.status === "TICKET_ISSUED") && (
+            {ticketed && (
+              <div className="receipt-row"><span>Entry tickets</span><strong>{ticketSummary(registration)}</strong></div>
+            )}
+            {(membersIn > 0 || registration.entered) && (
               <div className="receipt-row">
-                <span>Luma</span>
+                <span>Entrance</span>
                 <strong>
-                  {registration.lumaSyncedAt
-                    ? `Added ${formatDate(registration.lumaSyncedAt)} · ticket emailed by Luma`
-                    : registration.lumaError
-                      ? `Not sent: ${registration.lumaError}`
-                      : "Waiting to be sent"}
+                  {membersIn > 0
+                    ? `${membersIn}/${registration.participants.length} members entered`
+                    : `Team checked in ${formatDate(registration.enteredAt ?? null)}`}
                 </strong>
               </div>
-            )}
-            {registration.entered && (
-              <div className="receipt-row"><span>Entrance</span><strong>Checked in {formatDate(registration.enteredAt ?? null)}</strong></div>
             )}
           </div>
 
@@ -229,7 +240,8 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
                 <strong>{p.name}</strong>
                 <em>
                   {p.email}{p.rollNumber ? ` · ${p.rollNumber}` : ""}
-                  {p.lumaCheckedInAt ? ` · scanned ${formatDate(p.lumaCheckedInAt)}` : ""}
+                  {ticketed && (p.ticketEmailedAt ? " · QR emailed" : p.ticketEmailError ? " · QR email failed" : " · QR not sent yet")}
+                  {p.checkedInAt ? ` · entered ${formatDate(p.checkedInAt)}${p.checkedInBy ? ` by ${p.checkedInBy.name}` : ""}` : ""}
                 </em>
               </li>
             ))}
@@ -293,14 +305,10 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
                 Approve registration
               </button>
             )}
-            {registration.status === "APPROVED" && !registration.lumaSyncedAt && (
-              <button type="button" className="pill-button pill-button--gold" disabled={busy}
-                onClick={() => act("Sent to Luma", async () => {
-                  const results = await admin.lumaSync()
-                  const mine = results.find((r) => r.code === registration.code)
-                  if (mine && mine.outcome !== "added") throw new Error(mine.detail ?? `Luma: ${mine.outcome}`)
-                })}>
-                Send to Luma now
+            {ticketed && (
+              <button type="button" className="pill-button pill-button--outline" disabled={busy}
+                onClick={() => act("Entry QR emails queued again for every member", () => admin.resendTickets(registration.id))}>
+                Resend tickets
               </button>
             )}
             {registration.status !== "REJECTED" && registration.status !== "TICKET_ISSUED" && !registration.entered && (
@@ -349,7 +357,7 @@ export default function AdminPage() {
   const [counts, setCounts] = useState<Partial<Record<RegistrationStatus | "ALL", number>>>({})
   const [sync, setSync] = useState<Awaited<ReturnType<typeof admin.syncStatus>> | null>(null)
   const [syncNote, setSyncNote] = useState("")
-  const [lumaNote, setLumaNote] = useState("")
+  const [mail, setMail] = useState<Awaited<ReturnType<typeof admin.ticketMailStatus>> | null>(null)
   const [error, setError] = useState("")
   const isAdmin = user?.role === "ADMIN"
 
@@ -363,6 +371,7 @@ export default function AdminPage() {
       const status = FILTERS[filter].status
       setRows(status ? all.filter((r) => r.status === status) : all)
       setSync(await admin.syncStatus().catch(() => null))
+      setMail(await admin.ticketMailStatus().catch(() => null))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't load registrations.")
     }
@@ -397,11 +406,12 @@ export default function AdminPage() {
         ) : (
           <>
             <h1 className="account-title">Organizer dashboard</h1>
+            <TicketScanner />
             <PaymentQrManager />
             <h2 className="account-subtitle">Registrations</h2>
             <p className="account-muted">
-              Open a team to see its members, payment screenshot and UTR. Verify the payment, then approve the team.
-              Every action is recorded with your name and synced to Google Sheets.
+              Open a team to see its members, payment screenshot and UTR. Verify the payment, then approve the team:
+              each member is then emailed their own entry QR. Every action is recorded with your name and synced to Google Sheets.
             </p>
             <div className="admin-filters">
               {FILTERS.map((f, i) => (
@@ -440,30 +450,16 @@ export default function AdminPage() {
                 {syncNote && <p className="account-muted">{syncNote}</p>}
               </div>
             )}
-            <div className="admin-sync">
-              <p className="account-muted">Entrance scans are made in the Luma check-in app and imported here every minute when auto sync is on.</p>
-              <button
-                type="button"
-                className="pill-button pill-button--outline account-signout"
-                onClick={async () => {
-                  setLumaNote("")
-                  try {
-                    const results = await admin.lumaCheckIns()
-                    setLumaNote(
-                      results
-                        .map((r) => (r.error ? `${r.event}: ${r.error}` : `${r.event}: ${r.membersScanned} scanned, ${r.teamsEntered} new`))
-                        .join(" · ") || "No Luma events mapped yet.",
-                    )
-                    void load()
-                  } catch (err) {
-                    setLumaNote(err instanceof Error ? err.message : "Import failed")
-                  }
-                }}
-              >
-                Import Luma check-ins
-              </button>
-              {lumaNote && <p className="account-muted">{lumaNote}</p>}
-            </div>
+            {mail && (
+              <div className="admin-sync">
+                <p className="account-muted">
+                  Entry ticket emails:{" "}
+                  {mail.configured
+                    ? `on · ${mail.pending} waiting to send${mail.failed ? ` · ${mail.failed} failed (open the team to resend)` : ""}`
+                    : "not set up yet. Approved teams get their QR emails as soon as the mail settings are added."}
+                </p>
+              </div>
+            )}
             {error && <div className="modal-error-banner">{error}</div>}
             {rows === null && !error && <p className="account-muted">Loading…</p>}
             {rows?.length === 0 && <p className="account-muted">No registrations here.</p>}

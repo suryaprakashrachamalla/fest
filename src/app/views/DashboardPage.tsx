@@ -12,6 +12,7 @@ import {
   rupees,
   signOut,
   submitPaymentProof,
+  ticketQrUrl,
 } from "../api"
 import SignInPanel from "../components/SignInPanel"
 
@@ -83,6 +84,60 @@ function PaymentUpload({ registration, onDone }: { registration: Registration; o
         {busy ? "Uploading…" : "Submit payment proof"}
       </button>
     </form>
+  )
+}
+
+// Each member's entry QR, the same one that was emailed to them.
+function EntryTickets({ registration }: { registration: Registration }) {
+  const [images, setImages] = useState<Record<string, string>>({})
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    let cancelled = false
+    const urls: string[] = []
+    for (const member of registration.participants) {
+      ticketQrUrl(registration.id, member.id)
+        .then((url) => {
+          urls.push(url)
+          if (!cancelled) setImages((current) => ({ ...current, [member.id]: url }))
+        })
+        .catch(() => !cancelled && setError("Couldn't load the entry QR codes. Refresh to try again."))
+    }
+    return () => {
+      cancelled = true
+      urls.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [registration.id, registration.participants])
+
+  return (
+    <div className="entry-tickets">
+      <p className="form-section-title">Entry tickets</p>
+      <p className="account-muted">
+        Every member has their own QR, also sent to their email. Show it at the entrance to get your band. Each QR works once.
+      </p>
+      {error && <div className="modal-error-banner">{error}</div>}
+      <div className="entry-ticket-grid">
+        {registration.participants.map((member) => (
+          <figure key={member.id} className="entry-ticket">
+            {images[member.id] ? (
+              <img src={images[member.id]} alt={`Entry QR for ${member.name}`} />
+            ) : (
+              <div className="entry-ticket-placeholder" />
+            )}
+            <figcaption>
+              <strong>{member.name}</strong>
+              <span>
+                {member.checkedInAt
+                  ? `Entered ${new Date(member.checkedInAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`
+                  : member.ticketEmailedAt
+                    ? "Emailed"
+                    : "Email on its way"}
+              </span>
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -158,6 +213,7 @@ function RegistrationCard({ registration, onChanged }: { registration: Registrat
         ))}
       </ul>
 
+      {(registration.status === "APPROVED" || registration.status === "TICKET_ISSUED") && <EntryTickets registration={registration} />}
       {canPay && <PaymentUpload registration={registration} onDone={onChanged} />}
     </article>
   )

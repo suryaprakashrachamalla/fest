@@ -20,6 +20,7 @@ import {
     startOutboxWorker,
 } from "./ExcelSyncService.ts";
 import * as luma from "./LumaSyncService.ts";
+import * as tickets from "./TicketService.ts";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -198,6 +199,22 @@ app.get(
         res.type(image.mimeType).send(image.bytes);
     },
 );
+// A team member's entry QR, shown on the team's dashboard once the registration is approved.
+app.get(
+    "/registrations/:registrationId/participants/:participantId/ticket",
+    authenticate,
+    async (req, res) => {
+        const png = await tickets.ticketImage(
+            String(req.params.registrationId),
+            String(req.params.participantId),
+            req.user!.id,
+            req.user!.role === "ADMIN",
+        );
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Cache-Control", "private, no-store");
+        res.type("image/png").send(png);
+    },
+);
 
 app.get(
     "/admin/payment-qrs",
@@ -271,7 +288,10 @@ app.patch(
             String(req.params.registrationId),
             req.user!.id,
         );
-        if (!result.alreadyApproved) luma.syncSoon();
+        if (!result.alreadyApproved) {
+            tickets.sendTicketsSoon();
+            luma.syncSoon();
+        }
         ok(res, result, result.alreadyApproved ? "Registration was already approved" : "Registration approved");
     },
 );
@@ -358,6 +378,38 @@ app.post(
     },
 );
 
+// Entrance: look up a scanned entry QR, then mark that member as entered (one band each).
+app.post(
+    "/admin/tickets/scan",
+    admin,
+    async (req: express.Request, res: express.Response) =>
+        ok(res, await tickets.scanTicket(req.body?.code), "Ticket found"),
+);
+app.post(
+    "/admin/tickets/:participantId/check-in",
+    admin,
+    async (req: express.Request, res: express.Response) =>
+        ok(res, await tickets.admitParticipant(String(req.params.participantId), req.user!.id), "Entry recorded"),
+);
+app.get(
+    "/admin/tickets/mail-status",
+    admin,
+    async (_req: express.Request, res: express.Response) => ok(res, await tickets.ticketMailStatus()),
+);
+app.post(
+    "/admin/registrations/:registrationId/resend-tickets",
+    admin,
+    async (req: express.Request, res: express.Response) => {
+        const result = await tickets.resendTickets(
+            String(req.params.registrationId),
+            req.user!.id,
+            req.body?.participantId,
+        );
+        tickets.sendTicketsSoon();
+        ok(res, result, "Ticket email queued");
+    },
+);
+
 app.get("/health", (_req, res) => ok(res, { status: "ok" }, "Service is healthy"));
 app.get(
     "/admin/sync-status",
@@ -405,6 +457,7 @@ app.use(errorHandler);
 
 let stopWorker: (() => void) | undefined;
 const stopLuma = luma.startLumaWorker();
+const stopTickets = tickets.startTicketMailer();
 const server = app.listen(port, host, () => {
     console.info(`Fest registration backend listening on ${host}:${port}`);
     void startOutboxWorker().then((stop) => {
@@ -414,6 +467,7 @@ const server = app.listen(port, host, () => {
 async function shutdown() {
     stopWorker?.();
     stopLuma();
+    stopTickets();
     server.close(async () => {
         await prisma.$disconnect();
         process.exit(0);

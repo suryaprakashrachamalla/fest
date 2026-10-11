@@ -65,6 +65,7 @@ model User {
   authorizedRegistrations Registration[] @relation("AdmissionAuthorizer")
   checkedInRegistrations  Registration[] @relation("CheckInAdmin")
   approvedRegistrations   Registration[] @relation("RegistrationApprover")
+  checkedInParticipants   Participant[]  @relation("ParticipantCheckIn")
   auditEntries            AuditLog[]
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
@@ -146,11 +147,22 @@ model Participant {
   // Filled from Luma: the guest ID (gst-...) and when their ticket QR was scanned at the entrance.
   lumaGuestId    String?
   lumaCheckedInAt DateTime?
+  // Entrance ticket: the QR encodes "SHOURYA26:<ticketCode>". 122 random bits, so codes can't be guessed.
+  ticketCode           String    @unique @default(dbgenerated("replace((gen_random_uuid())::text, '-'::text, ''::text)"))
+  // Set once the ticket email reached the mail server; sending starts only after organizer approval.
+  ticketEmailedAt      DateTime?
+  ticketEmailAttemptAt DateTime?
+  ticketEmailError     String?
+  // Set when an organizer scans this member's QR at the entrance (one band per member).
+  checkedInAt          DateTime?
+  checkedInById        String?
+  checkedInBy          User?        @relation("ParticipantCheckIn", fields: [checkedInById], references: [id], onDelete: Restrict)
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
 
   @@unique([eventId, email])
   @@index([registrationId])
+  @@index([ticketEmailedAt])
 }
 
 model PaymentProof {

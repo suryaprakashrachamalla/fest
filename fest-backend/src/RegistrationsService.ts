@@ -185,6 +185,11 @@ const participantSelect = {
     college: true,
     rollNumber: true,
     lumaCheckedInAt: true,
+    // Ticket progress only; the ticket code itself is never sent in lists.
+    ticketEmailedAt: true,
+    ticketEmailError: true,
+    checkedInAt: true,
+    checkedInBy: { select: { name: true } },
 } as const;
 const proofSelect = {
     id: true,

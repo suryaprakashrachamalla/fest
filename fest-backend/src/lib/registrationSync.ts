@@ -43,9 +43,22 @@ function approvalStatus(status: RegistrationStatus) {
     return "PENDING";
 }
 
+// Entry QR emails go to each member after approval; Luma is the older, optional ticket path.
+function ticketEmailStatus(reg: RegistrationForSheet) {
+    const total = reg.participants.length;
+    const sent = reg.participants.filter((p) => p.ticketEmailedAt).length;
+    const failed = reg.participants.find((p) => !p.ticketEmailedAt && p.ticketEmailError);
+    if (failed) return `FAILED (${sent}/${total} sent): ${failed.ticketEmailError}`;
+    if (sent) return sent === total ? `SENT ${sent}/${total}` : `SENDING ${sent}/${total}`;
+    if (reg.lumaSyncedAt) return "SENT_BY_LUMA";
+    if (reg.lumaError) return `LUMA_FAILED: ${reg.lumaError}`;
+    return "NOT_SENT";
+}
+
 // One row per registration in the "Registrations" worksheet, keyed by the registration code.
 export function registrationSheetRow(reg: RegistrationForSheet) {
     const latestProof = reg.paymentProofs[0];
+    const membersIn = reg.participants.filter((p) => p.checkedInAt).length;
     return {
         registrationId: reg.code,
         internalId: reg.id,
@@ -74,9 +87,9 @@ export function registrationSheetRow(reg: RegistrationForSheet) {
             reg.participants.map((p) => p.lumaGuestId).filter(Boolean).join(", ") ||
             (reg.lumaSyncedAt ? `ADDED ${reg.lumaSyncedAt.toISOString()}` : ""),
         ticketStatus: reg.status === "TICKET_ISSUED" ? "ISSUED" : "NOT_ISSUED",
-        // Luma sends the ticket email when the guests are added.
-        emailStatus: reg.lumaSyncedAt ? "SENT_BY_LUMA" : reg.lumaError ? `LUMA_FAILED: ${reg.lumaError}` : "NOT_SENT",
-        checkedIn: reg.entered,
+        emailStatus: ticketEmailStatus(reg),
+        // Members are scanned one by one at the entrance; the team counts as entered with its first member.
+        checkedIn: membersIn ? `${membersIn}/${reg.participants.length} entered` : reg.entered,
         checkedInAt: reg.enteredAt?.toISOString() ?? "",
         updatedAt: reg.updatedAt.toISOString(),
     };

@@ -46,6 +46,27 @@ export interface Participant {
   college: string
   rollNumber: string | null
   lumaCheckedInAt?: string | null
+  ticketEmailedAt?: string | null
+  ticketEmailError?: string | null
+  checkedInAt?: string | null
+  checkedInBy?: { name: string } | null
+}
+
+// What the entrance scanner shows for a scanned entry QR.
+export interface TicketScan {
+  admission: "ALLOWED" | "ALREADY_ENTERED" | "NOT_APPROVED"
+  participant: {
+    id: string
+    name: string
+    email: string
+    college: string
+    rollNumber: string | null
+    checkedInAt: string | null
+    checkedInBy: string | null
+  }
+  registration: { id: string; code: string; teamName: string; teamSize: number; college: string; status: RegistrationStatus }
+  event: { name: string; slug: string }
+  teammates: { id: string; name: string; checkedInAt: string | null }[]
 }
 
 export interface PaymentProof {
@@ -231,6 +252,20 @@ export function myRegistrations() {
   return request<Registration[]>("/registrations/me")
 }
 
+// Fetches an image that needs the signed-in token and returns a temporary object URL for <img>.
+async function authorizedImageUrl(path: string, failure: string) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: memoryToken ? { Authorization: `Bearer ${memoryToken}` } : {},
+  })
+  if (!response.ok) throw new ApiError(response.status, failure)
+  return URL.createObjectURL(await response.blob())
+}
+
+// A team member's entry QR (available once the registration is approved).
+export function ticketQrUrl(registrationId: string, participantId: string) {
+  return authorizedImageUrl(`/registrations/${registrationId}/participants/${participantId}/ticket`, "Couldn't load the ticket QR")
+}
+
 // Falls back to the bundled demo QR until an organizer uploads and activates the real one.
 export async function paymentQrUrl() {
   const demo = `${import.meta.env.BASE_URL}payment-qr-demo.png`
@@ -260,11 +295,14 @@ export const admin = {
       lastError: string | null
       lastSuccessfulSyncAt: string | null
     }>("/admin/sync-status"),
-  // Adds approved registrations to Luma now; Luma emails each member their ticket.
-  lumaSync: () => request<{ code: string; outcome: string; detail?: string }[]>("/admin/luma-sync", { method: "POST" }),
-  // Imports entrance scans made in the Luma check-in app.
-  lumaCheckIns: () =>
-    request<{ event: string; membersScanned: number; teamsEntered: number; error?: string }[]>("/admin/luma-checkins", { method: "POST" }),
+  // Entrance: look up a scanned entry QR, then record that member's entry.
+  scanTicket: (code: string) => request<TicketScan>("/admin/tickets/scan", { json: { code } }),
+  admitParticipant: (participantId: string) =>
+    request<TicketScan>(`/admin/tickets/${participantId}/check-in`, { method: "POST" }),
+  ticketMailStatus: () => request<{ configured: boolean; pending: number; failed: number }>("/admin/tickets/mail-status"),
+  // Emails the same entry QR again to one member, or to the whole team.
+  resendTickets: (registrationId: string, participantId?: string) =>
+    request(`/admin/registrations/${registrationId}/resend-tickets`, { json: participantId ? { participantId } : {} }),
   // Re-checks every row against the sheet and retries failed sync jobs.
   retrySync: () => request("/admin/sync-reconcile", { method: "POST" }),
   paymentQrs: () => request<PaymentQr[]>("/admin/payment-qrs"),
@@ -276,21 +314,10 @@ export const admin = {
   },
   setPaymentQrActive: (id: string, isActive: boolean) =>
     request<PaymentQr>(`/admin/payment-qrs/${id}/active`, { method: "PATCH", json: { isActive } }),
-  async paymentQrImageUrl(id: string) {
-    const response = await fetch(`${API_BASE}/admin/payment-qrs/${id}/image`, {
-      headers: memoryToken ? { Authorization: `Bearer ${memoryToken}` } : {},
-    })
-    if (!response.ok) throw new ApiError(response.status, "Couldn't load the QR image")
-    return URL.createObjectURL(await response.blob())
-  },
+  paymentQrImageUrl: (id: string) => authorizedImageUrl(`/admin/payment-qrs/${id}/image`, "Couldn't load the QR image"),
   // Screenshots need the admin token, so they are fetched and shown as a temporary object URL.
-  async screenshotUrl(proofId: string) {
-    const response = await fetch(`${API_BASE}/admin/payment-proofs/${proofId}/screenshot`, {
-      headers: memoryToken ? { Authorization: `Bearer ${memoryToken}` } : {},
-    })
-    if (!response.ok) throw new ApiError(response.status, "Couldn't load the payment screenshot")
-    return URL.createObjectURL(await response.blob())
-  },
+  screenshotUrl: (proofId: string) =>
+    authorizedImageUrl(`/admin/payment-proofs/${proofId}/screenshot`, "Couldn't load the payment screenshot"),
 }
 
 export const STATUS_LABELS: Record<RegistrationStatus, string> = {

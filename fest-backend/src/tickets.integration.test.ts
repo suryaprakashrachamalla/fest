@@ -1,0 +1,246 @@
+// @ts-ignore Bun provides this module at runtime; the project does not use Bun ambient types.
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import type { Express } from "express";
+import { prisma } from "./lib/prisma.ts";
+import type { MailMessage } from "./lib/mailer.ts";
+import * as registrations from "./RegistrationsService.ts";
+import * as payments from "./PaymentVerificationService.ts";
+import * as tickets from "./TicketService.ts";
+import { registrationSheetRow, registrationSyncInclude } from "./lib/registrationSync.ts";
+
+const integrationTest = process.env.RUN_DB_INTEGRATION_TESTS === "true" ? test : test.skip;
+const runId = crypto.randomUUID().slice(0, 8);
+const ids = { event: "", users: [] as string[], admin: "" };
+
+function png(): Express.Multer.File {
+    const buffer = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13]);
+    return { buffer, size: buffer.length, mimetype: "image/png", originalname: "proof.png" } as Express.Multer.File;
+}
+async function expectError(promise: Promise<unknown>, statusCode: number, message?: RegExp) {
+    try {
+        await promise;
+    } catch (error) {
+        expect((error as { status?: number }).status).toBe(statusCode);
+        if (message) expect((error as Error).message).toMatch(message);
+        return;
+    }
+    throw new Error(`Expected a ${statusCode} error`);
+}
+// A registration paid and verified by an organizer, optionally approved.
+async function verifiedTeam(label: string, size: number, approve = true) {
+    const user = await prisma.user.create({
+        data: { name: label, email: `${label}-${runId}@example.com`, passwordHash: "x" },
+    });
+    ids.users.push(user.id);
+    const reg = await registrations.createRegistration(user.id, ids.event, {
+        teamName: `Team ${label}`,
+        college: "Test Institute of Technology",
+        phone: "9876543210",
+        participants: Array.from({ length: size }, (_, i) => ({
+            name: `${label} member ${i + 1}`,
+            email: `${label}-m${i + 1}-${runId}@example.com`,
+        })),
+    });
+    await payments.submitProof(reg.id, user.id, `TKT${label}${runId}`.toUpperCase(), png());
+    const proof = await prisma.paymentProof.findFirstOrThrow({ where: { registrationId: reg.id, status: "PENDING" } });
+    await payments.reviewProof(proof.id, ids.admin, "verify");
+    if (approve) await registrations.approveRegistration(reg.id, ids.admin);
+    return { reg, userId: user.id };
+}
+async function members(registrationId: string) {
+    return prisma.participant.findMany({ where: { registrationId }, orderBy: { createdAt: "asc" } });
+}
+// Collects messages instead of sending them.
+function fakeMailer(failFor?: string) {
+    const sent: MailMessage[] = [];
+    return {
+        sent,
+        send: async (message: MailMessage) => {
+            if (failFor && message.to === failFor) throw new Error("550 mailbox unavailable");
+            sent.push(message);
+        },
+    };
+}
+// Sends for one registration only: every other pending member in the database is parked
+// (marked as in-flight) for the call and restored afterwards.
+async function sendFor(registrationId: string, send: (m: MailMessage) => Promise<void>) {
+    const others = await prisma.participant.findMany({
+        where: { registrationId: { not: registrationId }, ticketEmailedAt: null },
+        select: { id: true, ticketEmailAttemptAt: true },
+    });
+    await prisma.participant.updateMany({ where: { id: { in: others.map((o) => o.id) } }, data: { ticketEmailAttemptAt: new Date() } });
+    try {
+        return await tickets.sendPendingTicketEmails({ send });
+    } finally {
+        for (const other of others)
+            await prisma.participant.update({ where: { id: other.id }, data: { ticketEmailAttemptAt: other.ticketEmailAttemptAt } });
+    }
+}
+
+beforeAll(async () => {
+    if (process.env.RUN_DB_INTEGRATION_TESTS !== "true") return;
+    const event = await prisma.event.create({
+        data: {
+            name: `Ticket test ${runId}`,
+            slug: `ticket-test-${runId}`,
+            feePaise: 15_000,
+            feeMode: "PER_HEAD",
+            minTeamSize: 1,
+            maxTeamSize: 3,
+            isPublished: true,
+        },
+    });
+    ids.event = event.id;
+    const admin = await prisma.user.create({
+        data: { name: "Gate Admin", email: `gate-admin-${runId}@example.com`, passwordHash: "x", role: "ADMIN" },
+    });
+    ids.admin = admin.id;
+    ids.users.push(admin.id);
+});
+
+afterAll(async () => {
+    if (process.env.RUN_DB_INTEGRATION_TESTS !== "true") return;
+    const regs = await prisma.registration.findMany({ where: { eventId: ids.event }, select: { id: true, code: true } });
+    const regIds = regs.map((r) => r.id);
+    await prisma.auditLog.deleteMany({ where: { registrationId: { in: regIds } } });
+    await prisma.paymentProof.deleteMany({ where: { registrationId: { in: regIds } } });
+    await prisma.registration.deleteMany({ where: { id: { in: regIds } } });
+    await prisma.spreadsheetSyncOutbox.deleteMany({ where: { entityId: { in: [...regIds, ...regs.map((r) => r.code)] } } });
+    await prisma.event.delete({ where: { id: ids.event } });
+    await prisma.user.deleteMany({ where: { id: { in: ids.users } } });
+});
+
+test("ticket codes are read from the QR text or typed by hand, and anything else is refused", () => {
+    const code = "0123456789abcdef0123456789abcdef";
+    expect(tickets.parseTicketCode(tickets.ticketQrText(code))).toBe(code);
+    expect(tickets.parseTicketCode(` ${code.toUpperCase()} `)).toBe(code);
+    expect(tickets.parseTicketCode("SHOURYA26:not-a-code")).toBeNull();
+    expect(tickets.parseTicketCode("https://example.com")).toBeNull();
+    expect(tickets.parseTicketCode(42)).toBeNull();
+});
+
+integrationTest("every member gets a unique ticket code, and nothing is emailed before approval", async () => {
+    const { reg } = await verifiedTeam("noapprove", 3, false);
+    const team = await members(reg.id);
+    expect(new Set(team.map((m) => m.ticketCode)).size).toBe(3);
+    expect(team.every((m) => /^[0-9a-f]{32}$/.test(m.ticketCode))).toBe(true);
+    const mail = fakeMailer();
+    await sendFor(reg.id, mail.send);
+    expect(mail.sent).toHaveLength(0);
+    // A verified but unapproved team can't enter.
+    const scan = await tickets.scanTicket(team[0].ticketCode);
+    expect(scan.admission).toBe("NOT_APPROVED");
+    await expectError(tickets.admitParticipant(team[0].id, ids.admin), 409, /isn't approved/);
+});
+
+integrationTest("approval emails each member their own QR, then marks the tickets issued", async () => {
+    const { reg } = await verifiedTeam("mail", 3);
+    const mail = fakeMailer();
+    const result = await sendFor(reg.id, mail.send);
+    expect(result.sent).toBe(3);
+    expect(mail.sent.map((m) => m.to).sort()).toEqual(
+        [1, 2, 3].map((i) => `mail-m${i}-${runId}@example.com`).sort(),
+    );
+    const first = mail.sent.find((m) => m.to === `mail-m1-${runId}@example.com`)!;
+    expect(first.subject).toContain(`Ticket test ${runId}`);
+    expect(first.html).toContain("mail member 1");
+    expect(first.html).toContain("cid:ticket-qr");
+    expect(first.attachments?.[0].cid).toBe("ticket-qr");
+    // The attachment is a real PNG.
+    expect(first.attachments?.[0].content.subarray(1, 4).toString()).toBe("PNG");
+
+    const after = await prisma.registration.findUniqueOrThrow({ where: { id: reg.id }, include: registrationSyncInclude });
+    expect(after.status).toBe("TICKET_ISSUED");
+    expect(registrationSheetRow(after).emailStatus).toBe("SENT 3/3");
+    const actions = (await registrations.getAuditHistory(reg.id)).map((a) => a.action);
+    expect(actions.at(-1)).toBe("TICKETS_EMAILED");
+
+    // Already-emailed members aren't emailed again.
+    const again = fakeMailer();
+    await sendFor(reg.id, again.send);
+    expect(again.sent).toHaveLength(0);
+});
+
+integrationTest("a failed email is recorded, retried later, and the team stays approved until it goes out", async () => {
+    const { reg } = await verifiedTeam("retry", 2);
+    const failing = fakeMailer(`retry-m2-${runId}@example.com`);
+    const result = await sendFor(reg.id, failing.send);
+    expect(result.sent).toBe(1);
+    expect(result.failed).toHaveLength(1);
+    let row = registrationSheetRow(
+        await prisma.registration.findUniqueOrThrow({ where: { id: reg.id }, include: registrationSyncInclude }),
+    );
+    expect(row.emailStatus).toMatch(/^FAILED \(1\/2 sent\): 550/);
+    expect((await prisma.registration.findUniqueOrThrow({ where: { id: reg.id } })).status).toBe("APPROVED");
+
+    // After the retry window the failed member is tried again.
+    await prisma.participant.updateMany({
+        where: { registrationId: reg.id, ticketEmailedAt: null },
+        data: { ticketEmailAttemptAt: new Date(Date.now() - 10 * 60_000) },
+    });
+    const working = fakeMailer();
+    await sendFor(reg.id, working.send);
+    expect(working.sent.map((m) => m.to)).toEqual([`retry-m2-${runId}@example.com`]);
+    row = registrationSheetRow(
+        await prisma.registration.findUniqueOrThrow({ where: { id: reg.id }, include: registrationSyncInclude }),
+    );
+    expect(row.emailStatus).toBe("SENT 2/2");
+});
+
+integrationTest("scanning shows the member and event, admits them once, and the team counts as entered", async () => {
+    const { reg } = await verifiedTeam("gate", 2);
+    const [a, b] = await members(reg.id);
+
+    const scan = await tickets.scanTicket(tickets.ticketQrText(a.ticketCode));
+    expect(scan.admission).toBe("ALLOWED");
+    expect(scan.participant.name).toBe("gate member 1");
+    expect(scan.event.name).toBe(`Ticket test ${runId}`);
+    expect(scan.registration.teamName).toBe("Team gate");
+    expect(scan.teammates.map((t) => t.name)).toEqual(["gate member 1", "gate member 2"]);
+
+    const admitted = await tickets.admitParticipant(a.id, ids.admin);
+    expect(admitted.admission).toBe("ALREADY_ENTERED");
+    expect(admitted.participant.checkedInBy).toBe("Gate Admin");
+    // The same QR can't be used for a second band.
+    await expectError(tickets.admitParticipant(a.id, ids.admin), 409, /already entered/);
+    expect((await tickets.scanTicket(a.ticketCode)).admission).toBe("ALREADY_ENTERED");
+
+    const team = await prisma.registration.findUniqueOrThrow({ where: { id: reg.id }, include: registrationSyncInclude });
+    expect(team.entered).toBe(true);
+    expect(team.enteredById).toBe(ids.admin);
+    expect(registrationSheetRow(team).checkedIn).toBe("1/2 entered");
+
+    // The teammate's own QR still works.
+    expect((await tickets.scanTicket(b.ticketCode)).admission).toBe("ALLOWED");
+    await tickets.admitParticipant(b.id, ids.admin);
+    const audit = (await registrations.getAuditHistory(reg.id)).filter((e) => e.action === "MEMBER_CHECKED_IN");
+    expect(audit.map((e) => e.detail)).toEqual(["gate member 1 entered (ticket scanned)", "gate member 2 entered (ticket scanned)"]);
+});
+
+integrationTest("unknown or malformed QR codes are refused", async () => {
+    await expectError(tickets.scanTicket("SHOURYA26:ffffffffffffffffffffffffffffffff"), 404, /isn't a valid/);
+    await expectError(tickets.scanTicket("hello"), 400, /isn't a SHOURYA'26 ticket/);
+});
+
+integrationTest("a rejected registration's tickets no longer admit anyone", async () => {
+    const { reg } = await verifiedTeam("rejected", 1);
+    await registrations.rejectRegistration(reg.id, ids.admin, "Duplicate entry found");
+    const [member] = await members(reg.id);
+    expect((await tickets.scanTicket(member.ticketCode)).admission).toBe("NOT_APPROVED");
+    await expectError(tickets.admitParticipant(member.id, ids.admin), 409);
+});
+
+integrationTest("only the team's own account or an organizer can open its QR images, and only after approval", async () => {
+    const pending = await verifiedTeam("imgpending", 1, false);
+    const [pendingMember] = await members(pending.reg.id);
+    await expectError(tickets.ticketImage(pending.reg.id, pendingMember.id, pending.userId, false), 409, /after the organizers approve/);
+
+    const { reg, userId } = await verifiedTeam("img", 2);
+    const [member] = await members(reg.id);
+    const image = await tickets.ticketImage(reg.id, member.id, userId, false);
+    expect(image.subarray(1, 4).toString()).toBe("PNG");
+    await expectError(tickets.ticketImage(reg.id, member.id, pending.userId, false), 403);
+    expect((await tickets.ticketImage(reg.id, member.id, ids.admin, true)).length).toBeGreaterThan(100);
+    // A participant ID from another registration isn't accepted.
+    await expectError(tickets.ticketImage(reg.id, pendingMember.id, userId, false), 404);
+});

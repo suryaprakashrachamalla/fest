@@ -4086,3 +4086,187 @@ html {
     grid-template-columns: 1fr;
   }
 }
+
+/* Entrance check-in: camera scanner and the result for a scanned entry QR */
+.ticket-camera {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1;
+  margin: 16px auto 0;
+  border-radius: 16px;
+  background: #000;
+}
+
+.ticket-camera--off {
+  display: none;
+}
+
+.ticket-camera video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ticket-camera-frame {
+  position: absolute;
+  inset: 18%;
+  border: 3px solid #f4c97a;
+  border-radius: 14px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.ticket-scanner .admin-actions {
+  justify-content: center;
+}
+
+.ticket-manual {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 18px;
+}
+
+.ticket-result {
+  margin-top: 18px;
+  padding: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+}
+
+.ticket-result--allowed {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.ticket-result--entered {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.ticket-result--denied {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.ticket-verdict {
+  margin: 0 0 10px;
+  font-family: "DM Mono", monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ticket-result--allowed .ticket-verdict {
+  color: #34d399;
+}
+
+.ticket-result--entered .ticket-verdict {
+  color: #fbbf24;
+}
+
+.ticket-result--denied .ticket-verdict {
+  color: #fca5a5;
+}
+
+.ticket-name {
+  margin: 0;
+  font-size: clamp(24px, 6vw, 32px);
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.ticket-event {
+  margin: 4px 0 0;
+  color: #f4c97a;
+  font-size: 16px;
+}
+
+.ticket-teammates {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.ticket-teammates li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ticket-teammates li.is-current {
+  outline: 1px solid rgba(244, 201, 122, 0.5);
+}
+
+.ticket-teammates em {
+  color: #9a9a9a;
+  font-style: normal;
+  text-align: right;
+}
+
+.ticket-admit {
+  width: 100%;
+  margin-top: 16px;
+  padding: 16px;
+  font-size: 16px;
+}
+
+/* Team dashboard: each member's entry QR */
+.entry-tickets {
+  margin-top: 20px;
+}
+
+.entry-ticket-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.entry-ticket {
+  margin: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+
+.entry-ticket img,
+.entry-ticket-placeholder {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.entry-ticket-placeholder {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.entry-ticket figcaption {
+  display: grid;
+  gap: 2px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.entry-ticket figcaption span {
+  color: #9a9a9a;
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .ticket-manual {
+    grid-template-columns: 1fr;
+  }
+}
