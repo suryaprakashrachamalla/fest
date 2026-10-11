@@ -6,7 +6,9 @@ type QrDetector = { detect(source: CanvasImageSource): Promise<{ rawValue: strin
 type QrDetectorClass = new (options: { formats: string[] }) => QrDetector
 
 // What the backend said about one scan. Camera problems are shown separately (cameraError).
+// "ready" is a valid, unused ticket waiting for the organizer to tap Authorize entry.
 type Outcome =
+  | { kind: "ready"; scan: TicketScan; code: string }
   | { kind: "authorized" | "used" | "ineligible"; scan: TicketScan }
   | { kind: "invalid" | "network" | "session"; message: string }
 
@@ -77,10 +79,14 @@ export default function TicketScanner({
 
   useEffect(() => stopCamera, [stopCamera])
 
-  // Sends one scan to the server. Only one request runs at a time; a network failure is retried once
-  // with the same scan ID, so a lost response can't turn into a false "already scanned".
-  const check = useCallback(
-    async (text: string) => {
+  // A valid ticket waits here for Authorize entry; scanning pauses until it's authorized or skipped.
+  const awaiting = useRef(false)
+
+  // Sends one request to the server. Only one runs at a time; a network failure is retried once with
+  // the same scan ID, so a lost response to Authorize can't turn into a false "already scanned".
+  // admit=false only checks the ticket; admit=true (the Authorize button) records the entry.
+  const send = useCallback(
+    async (text: string, admit: boolean) => {
       if (inFlight.current) return
       inFlight.current = true
       setBusy(true)
@@ -88,16 +94,22 @@ export default function TicketScanner({
       try {
         let scan: TicketScan
         try {
-          scan = await admin.scanTicket(text, true, scanId)
+          scan = await admin.scanTicket(text, admit, scanId)
         } catch (err) {
           if (!(err instanceof ApiError) || err.status !== 0) throw err
           await new Promise((resolve) => setTimeout(resolve, 800))
-          scan = await admin.scanTicket(text, true, scanId)
+          scan = await admin.scanTicket(text, admit, scanId)
         }
+        awaiting.current = false
+        // The QR is usually still in front of the camera: don't re-read it as a fresh scan.
+        lastSeen.current = { text, at: Date.now() }
         if (scan.justAdmitted) setOutcome({ kind: "authorized", scan })
         else if (scan.admission === "ALREADY_ENTERED") setOutcome({ kind: "used", scan })
-        else setOutcome({ kind: "ineligible", scan })
-        navigator.vibrate?.(scan.justAdmitted ? 120 : [80, 60, 80])
+        else if (scan.admission === "ALLOWED") {
+          awaiting.current = true
+          setOutcome({ kind: "ready", scan, code: text })
+        } else setOutcome({ kind: "ineligible", scan })
+        navigator.vibrate?.(scan.admission === "NOT_APPROVED" || (scan.admission === "ALREADY_ENTERED" && !scan.justAdmitted) ? [80, 60, 80] : 120)
       } catch (err) {
         const status = err instanceof ApiError ? err.status : -1
         if (status === 401) {
@@ -120,6 +132,19 @@ export default function TicketScanner({
     },
     [onSessionExpired, stopCamera],
   )
+  const check = useCallback((text: string) => send(text, false), [send])
+
+  // Records the entry for the ticket on screen; Google Sheets is updated by the backend.
+  function authorize() {
+    if (outcome?.kind === "ready") void send(outcome.code, true)
+  }
+
+  // Leaves the pending ticket unrecorded and goes back to scanning.
+  function skip() {
+    if (outcome?.kind === "ready") lastSeen.current = { text: outcome.code, at: Date.now() }
+    awaiting.current = false
+    setOutcome(null)
+  }
 
   // A QR link opened from a phone camera is checked once, as soon as the organizer is signed in.
   const handledInitial = useRef(false)
@@ -182,7 +207,7 @@ export default function TicketScanner({
       const tick = async () => {
         if (!streamRef.current) return
         const now = Date.now()
-        if (!inFlight.current && now >= pauseUntil.current) {
+        if (!inFlight.current && !awaiting.current && now >= pauseUntil.current) {
           const text = await readFrame(video, detector, jsQR)
           const repeat = text && text === lastSeen.current.text && now - lastSeen.current.at < SAME_CODE_COOLDOWN_MS
           if (text) lastSeen.current = { text, at: now }
@@ -205,8 +230,14 @@ export default function TicketScanner({
   const scan = outcome && "scan" in outcome ? outcome.scan : null
   const headline = !outcome
     ? null
-    : outcome.kind === "authorized"
-      ? { tone: "allowed", title: "VALID TICKET — ENTRY AUTHORIZED", detail: "Check the name, then give the band." }
+    : outcome.kind === "ready"
+      ? { tone: "allowed", title: "VALID TICKET", detail: "Check the name and details, then tap Authorize entry." }
+      : outcome.kind === "authorized"
+      ? {
+          tone: "allowed",
+          title: "ENTRY AUTHORIZED",
+          detail: "Check-in recorded (saved to Google Sheets in a few seconds). Give the band.",
+        }
       : outcome.kind === "used"
         ? {
             tone: "denied",
@@ -231,8 +262,8 @@ export default function TicketScanner({
     <section className="account-card ticket-scanner">
       <h2>Entrance check-in</h2>
       <p className="account-muted">
-        Tap <strong>Start scanning</strong> and point the camera at each attendee&apos;s entry QR (from their email or dashboard). The camera
-        keeps running: a valid ticket is checked in on its first scan, and the same QR scanned again is refused.
+        Tap <strong>Start scanning</strong> and point the camera at the attendee&apos;s entry QR (from their email or dashboard). Check the
+        details shown, then tap <strong>Authorize entry</strong> to check them in. A ticket can be authorized only once.
       </p>
 
       <div className={`ticket-camera ${camera === "off" ? "ticket-camera--off" : ""}`}>
@@ -279,7 +310,18 @@ export default function TicketScanner({
               )}
             </>
           )}
-          {camera === "on" && <p className="ticket-next">Ready for the next attendee: point the camera at their QR.</p>}
+          {outcome.kind === "ready" ? (
+            <div className="ticket-authorize">
+              <button type="button" className="pill-button pill-button--gold ticket-admit" onClick={authorize} disabled={busy}>
+                {busy ? "Authorizing…" : "Authorize entry"}
+              </button>
+              <button type="button" className="pill-button pill-button--outline" onClick={skip} disabled={busy}>
+                Don&apos;t authorize
+              </button>
+            </div>
+          ) : (
+            camera === "on" && <p className="ticket-next">Ready for the next attendee: point the camera at their QR.</p>
+          )}
         </div>
       )}
 

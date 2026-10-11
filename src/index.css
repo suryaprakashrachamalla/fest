@@ -4370,3 +4370,14 @@ html {
   margin-left: 6px;
   font-size: 15px;
 }
+
+/* Authorize / don't authorize under a valid scanned ticket */
+.ticket-authorize {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.ticket-authorize .ticket-admit {
+  margin-top: 0;
+}
