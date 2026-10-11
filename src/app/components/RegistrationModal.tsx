@@ -30,6 +30,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const MVSR_ROLL = /^2451-2\d-\d{3}-\d{3}$/
 const MAX_PROOF_BYTES = 5 * 1024 * 1024
 
+// Name stored for teams that pick the MVSR option; the backend requires roll numbers for MVSR teams.
+const MVSR_COLLEGE = "MVSR Engineering College"
+
 function isMvsr(college: string) {
   return college.toLowerCase().replace(/[^a-z0-9]/g, "").includes("mvsr")
 }
@@ -53,7 +56,11 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
 
   // Team
   const [teamName, setTeamName] = useState("")
+  // MVSR teams give each member's roll number; other colleges type their college name instead.
+  const [collegeType, setCollegeType] = useState<"" | "mvsr" | "other">("")
   const [college, setCollege] = useState("")
+  const mvsrTeam = collegeType === "mvsr"
+  const collegeName = mvsrTeam ? MVSR_COLLEGE : college.trim()
   const [teamSize, setTeamSize] = useState(0)
   const [students, setStudents] = useState(
     Array.from({ length: 4 }, () => ({ name: "", email: "", rollNumber: "" })),
@@ -147,13 +154,14 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
 
   function validateForm() {
     if (teamName.trim().length < 2) return "Enter your team name."
-    if (college.trim().length < 2) return "Enter your college name."
+    if (!collegeType) return "Choose your college: MVSR or Other college."
+    if (!mvsrTeam && college.trim().length < 2) return "Enter your college name."
+    if (!mvsrTeam && isMvsr(college)) return "You're from MVSR: choose the MVSR option above so each member can add their roll number."
     const team = students.slice(0, teamSize)
-    const mvsr = isMvsr(college)
     for (let i = 0; i < team.length; i++) {
       if (team[i].name.trim().length < 2) return `Enter Student ${i + 1}'s name.`
       if (!EMAIL_PATTERN.test(team[i].email.trim())) return `Enter a valid email for Student ${i + 1}.`
-      if (mvsr && !MVSR_ROLL.test(team[i].rollNumber.trim()))
+      if (mvsrTeam && !MVSR_ROLL.test(team[i].rollNumber.trim()))
         return `Enter Student ${i + 1}'s MVSR roll number in the format 2451-2X-XXX-XXX.`
     }
     const emails = team.map((s) => s.email.trim().toLowerCase())
@@ -173,17 +181,16 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
     if (problem) return setError(problem)
     setError("")
     setBusy(true)
-    const mvsr = isMvsr(college)
     let registration: Registration
     try {
       registration = await createRegistration(backendEvent.id, {
         teamName: teamName.trim(),
-        college: college.trim(),
+        college: collegeName,
         phone: phone.trim(),
         participants: students.slice(0, teamSize).map((s) => ({
           name: s.name.trim(),
           email: s.email.trim(),
-          ...(mvsr ? { rollNumber: s.rollNumber.trim() } : {}),
+          ...(mvsrTeam ? { rollNumber: s.rollNumber.trim() } : {}),
         })),
       })
     } catch (err) {
@@ -332,10 +339,6 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                   <input id="team-name" value={teamName} onChange={(e) => setTeamName(e.target.value)} maxLength={100} />
                 </div>
                 <div className="form-field">
-                  <label htmlFor="college">College *</label>
-                  <input id="college" value={college} onChange={(e) => setCollege(e.target.value)} maxLength={150} />
-                </div>
-                <div className="form-field">
                   <label htmlFor="event-name">Event</label>
                   <input id="event-name" value={backendEvent.name} readOnly />
                 </div>
@@ -344,6 +347,36 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                   <input id="phone" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" />
                 </div>
               </div>
+
+              <p className="form-section-title">College *</p>
+              <div className="team-size-selector" role="radiogroup" aria-label="College" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={mvsrTeam}
+                  className={`size-tab ${mvsrTeam ? "size-tab--active" : ""}`}
+                  onClick={() => setCollegeType("mvsr")}
+                >
+                  <strong>MVSR</strong>
+                  <span>Roll numbers needed</span>
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={collegeType === "other"}
+                  className={`size-tab ${collegeType === "other" ? "size-tab--active" : ""}`}
+                  onClick={() => setCollegeType("other")}
+                >
+                  <strong>Other college</strong>
+                  <span>Type your college name</span>
+                </button>
+              </div>
+              {collegeType === "other" && (
+                <div className="form-field" style={{ marginTop: 14 }}>
+                  <label htmlFor="college">College name *</label>
+                  <input id="college" value={college} onChange={(e) => setCollege(e.target.value)} maxLength={150} placeholder="Your college's full name" />
+                </div>
+              )}
 
               {sizes.length > 1 && (
                 <>
@@ -367,7 +400,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
               {students.slice(0, teamSize).map((student, i) => (
                 <div key={i}>
                   <p className="form-section-title">Student {i + 1}</p>
-                  <div className={isMvsr(college) ? "form-grid-3" : "form-grid-2"}>
+                  <div className={mvsrTeam ? "form-grid-3" : "form-grid-2"}>
                     <div className="form-field">
                       <label htmlFor={`s${i}-name`}>Name *</label>
                       <input id={`s${i}-name`} value={student.name} onChange={(e) => updateStudent(i, "name", e.target.value)} maxLength={100} />
@@ -376,7 +409,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                       <label htmlFor={`s${i}-email`}>Email *</label>
                       <input id={`s${i}-email`} type="email" value={student.email} onChange={(e) => updateStudent(i, "email", e.target.value)} />
                     </div>
-                    {isMvsr(college) && (
+                    {mvsrTeam && (
                       <div className="form-field">
                         <label htmlFor={`s${i}-roll`}>Roll number *</label>
                         <input
