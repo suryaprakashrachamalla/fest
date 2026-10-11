@@ -201,7 +201,7 @@ function AdminRegistration({
       <button type="button" className="admin-row-head" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span className="receipt-pid">{registration.code}</span>
         <strong>{registration.teamName}</strong>
-        <span className="account-muted">{registration.event.name} · {registration.teamSize} members · {rupees(registration.amountPaise)}</span>
+        <span className="account-muted">{registration.event.name} · {registration.teamSize} {registration.teamSize === 1 ? "member" : "members"} · {rupees(registration.amountPaise)}</span>
         <span className={`status-pill status-pill--${registration.status.toLowerCase()}`}>{STATUS_LABELS[registration.status]}</span>
       </button>
 
@@ -455,8 +455,8 @@ export default function AdminPage() {
             <PaymentQrManager />
             <h2 className="account-subtitle">Registrations</h2>
             <p className="account-muted">
-              Open a team to see its members, payment screenshot and UTR. Verify the payment, then approve the team:
-              each member is then emailed their own entry QR. Every action is recorded with your name and synced to Google Sheets.
+              Open a team to see its members, payment screenshot and UTR, then tap Approve payment: each member is emailed
+              their own entry QR. Every action is recorded with your name and synced to Google Sheets.
             </p>
             <div className="admin-filters">
               {FILTERS.map((f, i) => (

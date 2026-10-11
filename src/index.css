@@ -3760,7 +3760,12 @@ html {
 
 @media (max-width: 520px) {
   .status-steps {
-    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .status-steps li {
+    font-size: 11px;
+    text-align: center;
   }
 }
 
@@ -4380,4 +4385,109 @@ html {
 
 .ticket-authorize .ticket-admit {
   margin-top: 0;
+}
+
+/* Phones: nothing may be wider than the screen, and organizer/dashboard content is stacked and centred. */
+.form-field {
+  min-width: 0;
+}
+
+.form-field input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.receipt-row {
+  gap: 12px;
+}
+
+.receipt-row strong {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .account-page {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .account-title,
+  .account-subtitle,
+  .account-card > h2,
+  .account-card > .account-muted,
+  .account-shell > .account-muted {
+    text-align: center;
+  }
+
+  .account-card {
+    padding: 18px 16px;
+  }
+
+  /* Registration rows: ID, team, details and status stacked and centred. */
+  .admin-row-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .admin-row-head .status-pill {
+    margin-top: 4px;
+    white-space: normal;
+  }
+
+  .admin-row-body {
+    padding: 0 14px 18px;
+  }
+
+  .admin-filters,
+  .admin-sync,
+  .admin-actions {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .admin-actions .pill-button {
+    flex: 1 1 100%;
+  }
+
+  .admin-proof {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .admin-proof img {
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  .admin-qr-form .pill-button {
+    width: 100%;
+  }
+
+  .admin-qr-item {
+    align-items: center;
+    text-align: center;
+  }
+
+  .account-members li {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .account-members span {
+    grid-row: auto;
+  }
+
+  .account-card-head {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
 }
