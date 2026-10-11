@@ -52,10 +52,12 @@ async function seed() {
         const name = settings.configuredName!;
         const email = settings.configuredEmail!;
         const password = settings.configuredPassword!;
+        // The organizers chose short admin passwords; 10 characters is the floor, and the
+        // .env.example placeholders are never accepted in production.
         if (
-            password.length < 16 ||
+            password.length < 10 ||
             (process.env.NODE_ENV === "production" &&
-                (password.length < 24 || password.startsWith("DonaldTrump!")))
+                (password.startsWith("DonaldTrump!") || password.startsWith("replace-with-")))
         )
             throw new Error(
                 `${admin.password} must be replaced with a strong production password`,
@@ -67,7 +69,15 @@ async function seed() {
             update: { name, passwordHash, role: "ADMIN" },
         });
     }
+    // Only the three configured accounts may be admins; a replaced admin email keeps its
+    // account and history but loses organizer access.
+    const demoted = await prisma.user.updateMany({
+        where: { role: "ADMIN", email: { notIn: emails } },
+        data: { role: "USER" },
+    });
     console.log("Seeded the three configured administrator accounts.");
+    if (demoted.count > 0)
+        console.log(`Removed admin access from ${demoted.count} account(s) no longer configured as admins.`);
 }
 
 seed()
