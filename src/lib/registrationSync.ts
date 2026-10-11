@@ -18,11 +18,24 @@ export const registrationSyncInclude = {
         select: { utr: true, paymentMethod: true, status: true, submittedAt: true },
         orderBy: { submittedAt: "desc" },
     },
+    verifiedBy: { select: { name: true, email: true } },
+    approvedBy: { select: { name: true, email: true } },
+    // Latest rejection (payment or registration) and who made it.
+    auditEntries: {
+        where: { action: { in: ["REJECTED", "PAYMENT_REJECTED"] } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: { actor: { select: { name: true, email: true } } },
+    },
 } as const satisfies Prisma.RegistrationInclude;
 
 type RegistrationForSheet = Prisma.RegistrationGetPayload<{
     include: typeof registrationSyncInclude;
 }>;
+
+function person(user: { name: string; email: string } | null | undefined) {
+    return user ? `${user.name} <${user.email}>` : "";
+}
 
 function approvalStatus(status: RegistrationStatus) {
     if (status === "APPROVED" || status === "TICKET_ISSUED") return "APPROVED";
@@ -50,6 +63,11 @@ export function registrationSheetRow(reg: RegistrationForSheet) {
         approvalStatus: approvalStatus(reg.status),
         status: reg.status,
         rejectionReason: reg.rejectionReason ?? "",
+        paymentVerifiedBy: person(reg.verifiedBy),
+        paymentVerifiedAt: reg.verifiedAt?.toISOString() ?? "",
+        approvedBy: person(reg.approvedBy),
+        approvedAt: reg.approvedAt?.toISOString() ?? "",
+        rejectedBy: person(reg.auditEntries[0]?.actor),
         registeredAt: reg.createdAt.toISOString(),
         // Guest IDs (gst-...) arrive with the Luma guest-list import; until then the column shows when they were added.
         lumaGuestId:
@@ -59,6 +77,7 @@ export function registrationSheetRow(reg: RegistrationForSheet) {
         // Luma sends the ticket email when the guests are added.
         emailStatus: reg.lumaSyncedAt ? "SENT_BY_LUMA" : reg.lumaError ? `LUMA_FAILED: ${reg.lumaError}` : "NOT_SENT",
         checkedIn: reg.entered,
+        checkedInAt: reg.enteredAt?.toISOString() ?? "",
         updatedAt: reg.updatedAt.toISOString(),
     };
 }

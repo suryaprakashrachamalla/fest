@@ -198,8 +198,9 @@ integrationTest("the Registrations sheet row has the expected columns", async ()
     expect(Object.keys(row)).toEqual([
         "registrationId", "internalId", "participantNames", "emails", "phone", "college", "event",
         "teamName", "teamSize", "registrationFee", "paymentMethod", "utr", "paymentStatus",
-        "approvalStatus", "status", "rejectionReason", "registeredAt", "lumaGuestId", "ticketStatus",
-        "emailStatus", "checkedIn", "updatedAt",
+        "approvalStatus", "status", "rejectionReason", "paymentVerifiedBy", "paymentVerifiedAt",
+        "approvedBy", "approvedAt", "rejectedBy", "registeredAt", "lumaGuestId", "ticketStatus",
+        "emailStatus", "checkedIn", "checkedInAt", "updatedAt",
     ]);
     expect(row.registrationFee).toBe("798.00");
     expect(row.paymentStatus).toBe("NOT_SUBMITTED");

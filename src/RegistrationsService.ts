@@ -218,6 +218,8 @@ export async function listAdminRegistrations(statusFilter?: unknown) {
         include: {
             event: true,
             user: { select: { id: true, name: true, email: true } },
+            verifiedBy: { select: { name: true, email: true } },
+            approvedBy: { select: { name: true, email: true } },
             participants: { select: participantSelect, orderBy: { createdAt: "asc" } },
             paymentProofs: { select: proofSelect, orderBy: { submittedAt: "desc" } },
         },

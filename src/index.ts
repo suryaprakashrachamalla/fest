@@ -212,6 +212,16 @@ app.post(
     async (req: express.Request, res: express.Response) =>
         ok(res, await paymentQr.createQrCode(req.body?.label, req.file), "QR code added", 201),
 );
+app.get(
+    "/admin/payment-qrs/:qrId/image",
+    admin,
+    async (req: express.Request, res: express.Response) => {
+        const image = await paymentQr.getQrImage(String(req.params.qrId));
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Cache-Control", "private, no-store");
+        res.type(image.mimeType).send(image.imageBytes);
+    },
+);
 app.patch(
     "/admin/payment-qrs/:qrId/active",
     admin,
