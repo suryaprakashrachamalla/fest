@@ -152,6 +152,13 @@ integrationTest("approval emails each member their own QR, then marks the ticket
     expect(first.subject).toContain(`Ticket test ${runId}`);
     expect(first.html).toContain("mail member 1");
     expect(first.html).toContain("cid:ticket-qr");
+    // Every member's email carries the team's registration ID (subject, highlighted box, text).
+    for (const message of mail.sent) {
+        expect(message.subject).toContain(reg.code);
+        expect(message.html).toContain("REGISTRATION ID");
+        expect(message.html).toContain(reg.code);
+        expect(message.text).toContain(`Registration ID: ${reg.code}`);
+    }
     expect(first.attachments?.[0].cid).toBe("ticket-qr");
     // The attachment is a real PNG.
     expect(first.attachments?.[0].content.subarray(1, 4).toString()).toBe("PNG");

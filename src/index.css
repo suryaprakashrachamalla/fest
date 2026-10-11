@@ -4343,3 +4343,17 @@ html {
     width: 68vw;
   }
 }
+
+/* Registration ID under the team name on the registrant's dashboard */
+.account-reg-id {
+  margin: 6px 0 0;
+  color: #9a9a9a;
+  font-family: "DM Mono", monospace;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.account-reg-id strong {
+  margin-left: 6px;
+  font-size: 15px;
+}

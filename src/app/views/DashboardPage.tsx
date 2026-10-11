@@ -122,6 +122,7 @@ function EntryTickets({ registration }: { registration: Registration }) {
             )}
             <figcaption>
               <strong>{member.name}</strong>
+              <span className="receipt-pid">{registration.code}</span>
               <span>
                 {member.checkedInAt
                   ? `Entered ${new Date(member.checkedInAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`
@@ -149,6 +150,9 @@ function RegistrationCard({ registration, onChanged }: { registration: Registrat
         <div>
           <p className="eyebrow">{registration.event.name}</p>
           <h2>{registration.teamName}</h2>
+          <p className="account-reg-id">
+            Registration ID <strong className="receipt-pid">{registration.code}</strong>
+          </p>
         </div>
         <span className={`status-pill status-pill--${registration.status.toLowerCase()}`}>{PARTICIPANT_STATUS_LABELS[registration.status]}</span>
       </div>

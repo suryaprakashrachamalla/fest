@@ -71,16 +71,18 @@ export function ticketEmail(input: TicketEmailInput, qrPng: Buffer): Omit<MailMe
         code: escapeHtml(input.code),
     };
     return {
-        subject: `Your SHOURYA'26 entry ticket - ${input.eventName}`,
+        subject: `Your SHOURYA'26 entry ticket - ${input.eventName} (${input.code})`,
         text: [
             `Hi ${input.name},`,
             "",
             `Your team "${input.teamName}" is approved for ${input.eventName} at SHOURYA'26, Department of Computer Science, MVSR.`,
             "",
+            `Registration ID: ${input.code}`,
+            "Keep this ID: it identifies your team at the help desk.",
+            "",
             "Your personal entry QR code is attached. Show it at the entrance: the organizers scan it, check your name and give you your band.",
             `The QR admits only you and works once. ${others} Please don't share it.`,
             "",
-            `Registration: ${input.code}`,
             `Ticket code (if the QR can't be scanned): ${input.ticketCode}`,
             `Event details: ${eventUrl}`,
             "",
@@ -95,8 +97,13 @@ export function ticketEmail(input: TicketEmailInput, qrPng: Buffer): Omit<MailMe
 <tr><td style="padding:24px">
 <p style="margin:0 0 12px;font-size:16px">Hi <strong>${h.name}</strong>,</p>
 <p style="margin:0 0 18px;font-size:15px;line-height:1.5">Your team <strong>${h.team}</strong> is approved for <strong>${h.event}</strong>. This is your personal entry ticket.</p>
+<div style="margin:0 0 18px;padding:12px 16px;border:1px dashed #d9a93f;border-radius:10px;background:#fbf6ea;text-align:center">
+<div style="font-size:11px;letter-spacing:2px;color:#8a6d2b">REGISTRATION ID</div>
+<div style="font-size:22px;font-weight:bold;letter-spacing:1px;color:#1d1a14;font-family:'Courier New',monospace;margin-top:4px">${h.code}</div>
+<div style="font-size:12px;color:#8a8170;margin-top:4px">Keep this ID: it identifies your team at the help desk.</div>
+</div>
 <div style="text-align:center;margin:0 0 14px"><img src="cid:ticket-qr" width="240" height="240" alt="Your entry QR code" style="display:inline-block;border:8px solid #ffffff;box-shadow:0 0 0 1px #e6dcc4"></div>
-<p style="margin:0 0 6px;text-align:center;font-size:14px;color:#5b5341">${h.name} · ${h.event}<br>Registration ${h.code}</p>
+<p style="margin:0 0 6px;text-align:center;font-size:14px;color:#5b5341">${h.name} · ${h.event} · ${h.code}</p>
 <p style="margin:0 0 18px;text-align:center;font-size:11px;color:#8a8170;font-family:'Courier New',monospace;word-break:break-all">Ticket code: ${input.ticketCode}</p>
 <p style="margin:0 0 10px;font-size:14px;line-height:1.5"><strong>At the entrance:</strong> show this QR. The organizers scan it, check your name and give you your band.</p>
 <p style="margin:0 0 18px;font-size:14px;line-height:1.5">The QR admits only you and works once. ${escapeHtml(others)} Please don't share it.</p>
