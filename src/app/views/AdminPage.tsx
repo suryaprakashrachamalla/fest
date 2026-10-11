@@ -82,6 +82,18 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
             {registration.rejectionReason && (
               <div className="receipt-row"><span>Rejection reason</span><strong>{registration.rejectionReason}</strong></div>
             )}
+            {(registration.status === "APPROVED" || registration.status === "TICKET_ISSUED") && (
+              <div className="receipt-row">
+                <span>Luma</span>
+                <strong>
+                  {registration.lumaSyncedAt
+                    ? `Added ${formatDate(registration.lumaSyncedAt)} · ticket emailed by Luma`
+                    : registration.lumaError
+                      ? `Not sent: ${registration.lumaError}`
+                      : "Waiting to be sent"}
+                </strong>
+              </div>
+            )}
           </div>
 
           <p className="form-section-title">Team members</p>
@@ -151,6 +163,16 @@ function AdminRegistration({ registration, onChanged }: { registration: Registra
               <button type="button" className="pill-button pill-button--gold" disabled={busy}
                 onClick={() => act("Registration approved", () => admin.approve(registration.id))}>
                 Approve registration
+              </button>
+            )}
+            {registration.status === "APPROVED" && !registration.lumaSyncedAt && (
+              <button type="button" className="pill-button pill-button--gold" disabled={busy}
+                onClick={() => act("Sent to Luma", async () => {
+                  const results = await admin.lumaSync()
+                  const mine = results.find((r) => r.code === registration.code)
+                  if (mine && mine.outcome !== "added") throw new Error(mine.detail ?? `Luma: ${mine.outcome}`)
+                })}>
+                Send to Luma now
               </button>
             )}
             {registration.status !== "REJECTED" && registration.status !== "TICKET_ISSUED" && !registration.entered && (

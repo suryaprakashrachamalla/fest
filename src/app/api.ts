@@ -69,6 +69,8 @@ export interface Registration {
   rejectionReason: string | null
   createdAt: string
   approvedAt: string | null
+  lumaSyncedAt?: string | null
+  lumaError?: string | null
   entered: boolean
   event: BackendEvent
   participants: Participant[]
@@ -246,6 +248,8 @@ export const admin = {
       lastError: string | null
       lastSuccessfulSyncAt: string | null
     }>("/admin/sync-status"),
+  // Adds approved registrations to Luma now; Luma emails each member their ticket.
+  lumaSync: () => request<{ code: string; outcome: string; detail?: string }[]>("/admin/luma-sync", { method: "POST" }),
   // Re-checks every row against the sheet and retries failed sync jobs.
   retrySync: () => request("/admin/sync-reconcile", { method: "POST" }),
   // Screenshots need the admin token, so they are fetched and shown as a temporary object URL.
