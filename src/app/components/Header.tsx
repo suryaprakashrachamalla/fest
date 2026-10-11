@@ -1,7 +1,12 @@
-import { Link } from "react-router"
+import { Link, useLocation } from "react-router"
+import { getStoredUser } from "../api"
 import { publicUrl } from "../publicUrl"
 
 export default function Header({ light = false }: { light?: boolean }) {
+  // Re-read on every navigation so the links switch right after logging in or out.
+  useLocation()
+  const user = getStoredUser()
+
   return (
     <header className={`site-header ${light ? "site-header--light" : ""}`}>
       <Link className="brand" to="/" aria-label="Shourya Fest home">
@@ -19,6 +24,17 @@ export default function Header({ light = false }: { light?: boolean }) {
         <a href={publicUrl("/#faq")}>FAQ</a>
         <a href={publicUrl("/#info")}>INFO</a>
         <a href={publicUrl("/#contact")}>CONTACT</a>
+      </nav>
+
+      <nav className="account-nav" aria-label="Account">
+        {user ? (
+          <Link to="/dashboard">DASHBOARD</Link>
+        ) : (
+          <>
+            <Link to="/login">LOG IN</Link>
+            <Link to="/signup">SIGN UP</Link>
+          </>
+        )}
       </nav>
     </header>
   )

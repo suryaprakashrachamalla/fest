@@ -169,8 +169,13 @@ async function request<T>(
   return body.data as T
 }
 
-export async function signUp(name: string, email: string, password: string) {
+// Creates the account only; the person signs in separately afterwards.
+export async function createAccount(name: string, email: string, password: string) {
   await request("/auth/signup", { json: { name, email, password }, auth: false })
+}
+
+export async function signUp(name: string, email: string, password: string) {
+  await createAccount(name, email, password)
   return signIn(email, password)
 }
 
