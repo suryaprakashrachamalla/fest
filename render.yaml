@@ -45,3 +45,9 @@ services:
         sync: false
       - key: GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
         sync: false
+      - key: LUMA_API_KEY
+        sync: false
+      - key: LUMA_EVENT_IDS
+        sync: false
+      - key: LUMA_AUTO_SYNC
+        value: "false"

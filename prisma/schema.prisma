@@ -101,6 +101,10 @@ model Registration {
   approvedAt          DateTime?
   approvedById        String?
   rejectionReason     String?
+  // Luma guest sync: set once every member is added to the Luma event (Luma then emails them).
+  lumaSyncedAt        DateTime?
+  lumaAttemptAt       DateTime?
+  lumaError           String?
   verified            Boolean        @default(false)
   verifiedAt          DateTime?
   verifiedById        String?
@@ -127,6 +131,7 @@ model Registration {
   @@index([eventId, entered])
   @@index([userId])
   @@index([status, createdAt])
+  @@index([status, lumaSyncedAt])
 }
 
 model Participant {

@@ -19,6 +19,7 @@ import {
     getSyncStatus,
     startOutboxWorker,
 } from "./ExcelSyncService.ts";
+import * as luma from "./LumaSyncService.ts";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -260,6 +261,7 @@ app.patch(
             String(req.params.registrationId),
             req.user!.id,
         );
+        if (!result.alreadyApproved) luma.syncSoon();
         ok(res, result, result.alreadyApproved ? "Registration was already approved" : "Registration approved");
     },
 );
@@ -353,6 +355,17 @@ app.get(
     async (_req: express.Request, res: express.Response) =>
         ok(res, await getSyncStatus()),
 );
+// Sends approved registrations to Luma now (Luma emails the tickets); dryRun=true only previews.
+app.post(
+    "/admin/luma-sync",
+    admin,
+    async (req: express.Request, res: express.Response) => {
+        if (!luma.lumaConfigured())
+            throw Object.assign(new Error("Luma isn't configured: set LUMA_API_KEY and LUMA_EVENT_IDS"), { status: 409 });
+        const dryRun = req.query.dryRun === "true";
+        ok(res, await luma.syncApprovedToLuma({ dryRun }), dryRun ? "Luma preview" : "Luma sync completed");
+    },
+);
 app.post(
     "/admin/sync-reconcile",
     admin,
@@ -371,6 +384,7 @@ app.use((_req, res) =>
 app.use(errorHandler);
 
 let stopWorker: (() => void) | undefined;
+const stopLuma = luma.startLumaWorker();
 const server = app.listen(port, host, () => {
     console.info(`Fest registration backend listening on ${host}:${port}`);
     void startOutboxWorker().then((stop) => {
@@ -379,6 +393,7 @@ const server = app.listen(port, host, () => {
 });
 async function shutdown() {
     stopWorker?.();
+    stopLuma();
     server.close(async () => {
         await prisma.$disconnect();
         process.exit(0);

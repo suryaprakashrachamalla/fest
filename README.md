@@ -73,3 +73,17 @@ The worker creates the Registrations, Participants, PaymentProofs, Events and Us
 ```sh
 RUN_DB_INTEGRATION_TESTS=true DATABASE_URL=postgresql://… bun test
 ```
+
+### Luma (ticket emails)
+
+Approved registrations are added as guests to the matching Luma event, and Luma emails each team member their ticket. Nothing is sent when a UTR is submitted or a payment is verified; only organizer approval triggers it. Each registration moves to `TICKET_ISSUED` once Luma accepts it, with an audit entry and the Sheets row's email status set to `SENT_BY_LUMA`.
+
+1. Luma Plus is required for the API. In the Luma calendar, open Settings → Developer and create an API key.
+2. Create a Luma event for each website event and copy its ID (`evt-…`).
+3. In `.env` set `LUMA_API_KEY` and `LUMA_EVENT_IDS`, e.g. `hackathon=evt-abc,build-lab=evt-def` (slugs as in `seedEvents.ts`).
+4. Preview, then send:
+   - `bun run luma:sync` lists what would be sent and sends nothing.
+   - `bun run luma:sync -- --send` adds the guests to Luma.
+5. To automate it, set `LUMA_AUTO_SYNC=true`: the server sends each new approval right away and re-checks every `LUMA_SYNC_INTERVAL_MS` (default 60 s). Organizers can also press **Send to Luma now** on the admin dashboard (`POST /admin/luma-sync`).
+
+Failures (for example a wrong event ID) are stored on the registration, shown on the admin dashboard and retried after 5 minutes.
