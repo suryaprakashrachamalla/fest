@@ -87,3 +87,10 @@ Approved registrations are added as guests to the matching Luma event, and Luma 
 5. To automate it, set `LUMA_AUTO_SYNC=true`: the server sends each new approval right away and re-checks every `LUMA_SYNC_INTERVAL_MS` (default 60 s). Organizers can also press **Send to Luma now** on the admin dashboard (`POST /admin/luma-sync`).
 
 Failures (for example a wrong event ID) are stored on the registration, shown on the admin dashboard and retried after 5 minutes.
+
+#### Tickets and entrance check-in
+
+Luma emails every added guest a ticket with a QR code (also in the Luma app and Apple/Google Wallet). At the entrance, scan it with the scanner in the Luma app (Event → Check In → Scan), not the phone camera.
+
+- Payment happens on the website, so make each Luma event's ticket free, or create a free ticket type such as "Paid on website" and set `LUMA_TICKET_TYPE_IDS=hackathon=<ticket type id>,…` so guests get that ticket.
+- `bun run luma:checkins` imports the entrance scans and each member's Luma guest ID (`gst-…`). A team counts as checked in once any member is scanned; the admin dashboard and the Sheets row update. With `LUMA_AUTO_SYNC=true` this runs every minute, and organizers can press **Import Luma check-ins** on the admin dashboard (`POST /admin/luma-checkins`).

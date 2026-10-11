@@ -51,8 +51,10 @@ export function registrationSheetRow(reg: RegistrationForSheet) {
         status: reg.status,
         rejectionReason: reg.rejectionReason ?? "",
         registeredAt: reg.createdAt.toISOString(),
-        // Luma returns no guest IDs when adding guests, so this column records whether they were added.
-        lumaGuestId: reg.lumaSyncedAt ? `ADDED ${reg.lumaSyncedAt.toISOString()}` : "",
+        // Guest IDs (gst-...) arrive with the Luma guest-list import; until then the column shows when they were added.
+        lumaGuestId:
+            reg.participants.map((p) => p.lumaGuestId).filter(Boolean).join(", ") ||
+            (reg.lumaSyncedAt ? `ADDED ${reg.lumaSyncedAt.toISOString()}` : ""),
         ticketStatus: reg.status === "TICKET_ISSUED" ? "ISSUED" : "NOT_ISSUED",
         // Luma sends the ticket email when the guests are added.
         emailStatus: reg.lumaSyncedAt ? "SENT_BY_LUMA" : reg.lumaError ? `LUMA_FAILED: ${reg.lumaError}` : "NOT_SENT",

@@ -143,6 +143,9 @@ model Participant {
   email          String
   college        String
   rollNumber     String?
+  // Filled from Luma: the guest ID (gst-...) and when their ticket QR was scanned at the entrance.
+  lumaGuestId    String?
+  lumaCheckedInAt DateTime?
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
 

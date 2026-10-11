@@ -366,6 +366,16 @@ app.post(
         ok(res, await luma.syncApprovedToLuma({ dryRun }), dryRun ? "Luma preview" : "Luma sync completed");
     },
 );
+// Imports entrance scans made in the Luma check-in app.
+app.post(
+    "/admin/luma-checkins",
+    admin,
+    async (_req: express.Request, res: express.Response) => {
+        if (!luma.lumaConfigured())
+            throw Object.assign(new Error("Luma isn't configured: set LUMA_API_KEY and LUMA_EVENT_IDS"), { status: 409 });
+        ok(res, await luma.importLumaCheckIns(), "Luma check-ins imported");
+    },
+);
 app.post(
     "/admin/sync-reconcile",
     admin,

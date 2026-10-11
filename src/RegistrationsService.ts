@@ -184,6 +184,7 @@ const participantSelect = {
     email: true,
     college: true,
     rollNumber: true,
+    lumaCheckedInAt: true,
 } as const;
 const proofSelect = {
     id: true,

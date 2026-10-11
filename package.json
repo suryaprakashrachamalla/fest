@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "seed": "bun src/lib/seed.ts",
     "seed:events": "bun src/lib/seedEvents.ts",
-    "luma:sync": "bun src/lib/lumaSync.ts"
+    "luma:sync": "bun src/lib/lumaSync.ts",
+    "luma:checkins": "bun src/lib/lumaCheckins.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

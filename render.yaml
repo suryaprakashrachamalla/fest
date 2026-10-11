@@ -49,5 +49,7 @@ services:
         sync: false
       - key: LUMA_EVENT_IDS
         sync: false
+      - key: LUMA_TICKET_TYPE_IDS
+        sync: false
       - key: LUMA_AUTO_SYNC
         value: "false"
