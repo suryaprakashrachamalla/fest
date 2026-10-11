@@ -10,7 +10,8 @@
 set -euo pipefail
 export MSYS_NO_PATHCONV=1
 
-REGION="${AWS_REGION:-ap-south-1}"
+# The AWS account (new Builder ID experience) only allows its project home Region, Sydney.
+REGION="${AWS_REGION:-ap-southeast-2}"
 SERVICE="fest-backend"
 REPO="mvsr-fest-backend"
 PARAM_PATH="/fest"
@@ -33,7 +34,12 @@ aws_ ecr describe-repositories --repository-names "$REPO" >/dev/null 2>&1 ||
     aws_ ecr create-repository --repository-name "$REPO" --image-scanning-configuration scanOnPush=true >/dev/null
 aws_ ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY" >/dev/null
 docker build --platform linux/amd64 -t "$IMAGE" "$(native "$BACKEND_DIR")"
-docker push "$IMAGE"
+# The image is ~1 GB; retry so a dropped connection doesn't abort the deploy (pushed layers are skipped).
+for attempt in 1 2 3 4 5; do
+    docker push "$IMAGE" && break
+    [ "$attempt" = 5 ] && exit 1
+    echo "Push failed, retrying ($attempt/5)..."; sleep 10
+done
 
 # 2. Settings: secrets become SecureString parameters; everything else stays a plain env var.
 SECRET_KEYS="DATABASE_URL JWT_SECRET ADMIN_SUPER_PASSWORD ADMIN_VOLUNTEER1_PASSWORD ADMIN_VOLUNTEER2_PASSWORD GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY LUMA_API_KEY"
@@ -70,7 +76,7 @@ NODE
 
 node -e 'const c=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));for(const s of c.secrets)console.log(s.name+"\t"+s.value)' "$(native "$CONTAINER_JSON")" |
     while IFS=$'\t' read -r name value; do
-        aws_ ssm put-parameter --name "$PARAM_PATH/$name" --type SecureString --overwrite --value "$value" >/dev/null
+        aws_ ssm put-parameter --name "$PARAM_PATH/$name" --type SecureString --overwrite --value="$value" >/dev/null
         echo "Stored secret $PARAM_PATH/$name"
     done
 # Strip the plaintext values now that they live in Parameter Store.
