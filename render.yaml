@@ -10,6 +10,8 @@ services:
     dockerfilePath: ./fest-backend/Dockerfile
     dockerContext: ./fest-backend
     plan: free
+    # Closest Render region to India.
+    region: singapore
     healthCheckPath: /health
     # Applies migrations and re-runs the idempotent admin and event seeds before starting.
     dockerCommand: sh -c "bunx prisma migrate deploy && bun src/lib/seed.ts && bun src/lib/seedEvents.ts && bun src/index.ts"
