@@ -20,6 +20,12 @@ const admins = [
         email: "ADMIN_VOLUNTEER2_EMAIL",
         password: "ADMIN_VOLUNTEER2_PASSWORD",
     },
+    {
+        username: "adminVolunteer3",
+        name: "ADMIN_VOLUNTEER3_NAME",
+        email: "ADMIN_VOLUNTEER3_EMAIL",
+        password: "ADMIN_VOLUNTEER3_PASSWORD",
+    },
 ];
 
 async function seed() {
@@ -43,9 +49,9 @@ async function seed() {
     }
     const emails = configured.map((admin) => admin.configuredEmail!);
     const passwords = configured.map((admin) => admin.configuredPassword!);
-    if (new Set(emails).size !== 3)
+    if (new Set(emails).size !== admins.length)
         throw new Error("Each administrator must have a different email address");
-    if (new Set(passwords).size !== 3)
+    if (new Set(passwords).size !== admins.length)
         throw new Error("Each administrator must have a unique password");
     for (const admin of admins) {
         const settings = configured.find((item) => item.username === admin.username)!;
@@ -69,13 +75,13 @@ async function seed() {
             update: { name, passwordHash, role: "ADMIN" },
         });
     }
-    // Only the three configured accounts may be admins; a replaced admin email keeps its
+    // Only the configured accounts may be admins; a replaced admin email keeps its
     // account and history but loses organizer access.
     const demoted = await prisma.user.updateMany({
         where: { role: "ADMIN", email: { notIn: emails } },
         data: { role: "USER" },
     });
-    console.log("Seeded the three configured administrator accounts.");
+    console.log(`Seeded the ${admins.length} configured administrator accounts.`);
     if (demoted.count > 0)
         console.log(`Removed admin access from ${demoted.count} account(s) no longer configured as admins.`);
 }

@@ -14,7 +14,7 @@ const QR_PREFIX = "SHOURYA26:";
 // A member whose email attempt hasn't finished within this window is retried.
 const CLAIM_TIMEOUT_MS = 5 * 60_000;
 const TICKETED: RegistrationStatus[] = ["APPROVED", "TICKET_ISSUED"];
-const SITE_URL = (process.env.PUBLIC_SITE_URL?.trim() || "https://shouryacse.site").replace(/\/$/, "");
+const SITE_URL = (process.env.PUBLIC_SITE_URL?.trim() || "https://shouryacse.com").replace(/\/$/, "");
 
 function httpError(status: number, message: string) {
     return Object.assign(new Error(message), { status });
