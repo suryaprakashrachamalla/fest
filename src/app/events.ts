@@ -80,6 +80,7 @@ export const events: FestivalEvent[] = [
     slug: "hackathon",
     coordinators: [{ name: "Sana", phone: "9100903450" }, { name: "Aniketh", phone: "8309012359" }],
     name: "CSE-HACKATHON",
+    hotspot: "Prizes worth ₹4L+",
     category: "Technical",
     number: "01",
     tagline: "Build the impossible before the clock runs out.",

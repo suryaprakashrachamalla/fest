@@ -3,6 +3,7 @@ import { Link } from "react-router"
 import Footer from "../components/Footer"
 import Header from "../components/Header"
 import GallerySection from "../components/GallerySection"
+import HotspotSpotlight from "../components/HotspotSpotlight"
 import ScriptReveal from "../components/ScriptReveal"
 import ContactIcon from "../components/ContactIcon"
 import { socialLinks } from "../contacts"
@@ -97,6 +98,7 @@ export default function HomePage() {
   return (
     <div className="festival-site">
       <Header />
+      <HotspotSpotlight events={hotspotEvents} />
 
       <main>
         <section className="hero">

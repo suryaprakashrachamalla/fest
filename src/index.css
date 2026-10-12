@@ -5209,3 +5209,129 @@ html {
   flex: 0 0 54px;
   white-space: nowrap;
 }
+
+/* Hotspot spotlight: a beam drops onto the hotspot events after the intro, holds, then sweeps out. */
+.hotspot-spotlight {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  overflow: hidden;
+  cursor: pointer;
+  background: radial-gradient(ellipse 55% 50% at 50% 52%, rgb(14 10 6 / 82%) 0%, rgb(4 3 2 / 97%) 70%);
+  animation: spotlight-dim-in 500ms ease both;
+}
+
+.hotspot-spotlight.is-exit {
+  animation: spotlight-dim-out 700ms ease 150ms both;
+}
+
+.hotspot-spotlight-beam {
+  position: absolute;
+  top: -10vh;
+  left: 50%;
+  width: min(120vw, 1100px);
+  height: 115vh;
+  transform: translateX(-50%);
+  transform-origin: 50% 0;
+  background: linear-gradient(180deg, rgb(255 230 170 / 42%), rgb(255 200 110 / 12%) 55%, transparent 80%);
+  clip-path: polygon(46% 0, 54% 0, 100% 100%, 0 100%);
+  filter: blur(18px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: spotlight-beam-in 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hotspot-spotlight.is-exit .hotspot-spotlight-beam {
+  animation: spotlight-beam-out 600ms cubic-bezier(0.7, 0, 0.84, 0) both;
+}
+
+.hotspot-spotlight-stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  text-align: center;
+}
+
+.hotspot-spotlight-eyebrow {
+  margin: 0;
+  color: #ffd27a;
+  font-family: "DM Mono", monospace;
+  font-size: clamp(14px, 1.6vw, 20px);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  text-shadow: 0 0 24px rgb(255 159 28 / 70%);
+  animation: spotlight-rise 600ms 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hotspot-spotlight-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(14px, 2.5vw, 32px);
+}
+
+.hotspot-spotlight-card {
+  display: grid;
+  gap: 6px;
+  width: clamp(150px, 24vw, 300px);
+  color: #fff;
+  animation: spotlight-rise 650ms calc(380ms + var(--i, 0) * 120ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hotspot-spotlight-card img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgb(255 210 122 / 45%), 0 18px 60px rgb(255 159 28 / 35%);
+}
+
+.hotspot-spotlight-card strong {
+  margin-top: 6px;
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.hotspot-spotlight-card em {
+  color: #ffd27a;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hotspot-spotlight.is-exit .hotspot-spotlight-stage {
+  animation: spotlight-stage-out 600ms cubic-bezier(0.7, 0, 0.84, 0) both;
+}
+
+@keyframes spotlight-dim-in {
+  from { opacity: 0; }
+}
+
+@keyframes spotlight-dim-out {
+  to { opacity: 0; visibility: hidden; }
+}
+
+@keyframes spotlight-beam-in {
+  from { opacity: 0; transform: translateX(-50%) scaleY(0); }
+}
+
+@keyframes spotlight-beam-out {
+  to { opacity: 0; transform: translateX(-50%) scaleY(0); }
+}
+
+@keyframes spotlight-rise {
+  from { opacity: 0; transform: translateY(28px) scale(0.94); filter: blur(6px); }
+}
+
+@keyframes spotlight-stage-out {
+  to { opacity: 0; transform: scale(1.06); filter: blur(8px); }
+}
