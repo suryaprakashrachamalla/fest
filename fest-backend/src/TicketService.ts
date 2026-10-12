@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { prisma } from "./lib/prisma.ts";
 import { addAudit, queueParticipantSync, queueRegistrationSync } from "./lib/registrationSync.ts";
+import { EVENT_INFO, formatPhone } from "./lib/eventInfo.ts";
 import { mailConfigured, sendMail as smtpSendMail, type MailMessage, type SendMail } from "./lib/mailer.ts";
 import type { Prisma, RegistrationStatus } from "./generated/prisma/client.ts";
 
@@ -76,19 +77,52 @@ export function ticketEmail(input: TicketEmailInput, qrPng: Buffer): Omit<MailMe
     const approvedHtml = input.teamName
         ? `Your team <strong>${escapeHtml(input.teamName)}</strong> is approved for <strong>${h.event}</strong>`
         : `Your registration for <strong>${h.event}</strong> is approved`;
+    const info = EVENT_INFO[input.eventSlug];
+    const detailsText = info
+        ? [
+              `Date: ${info.date}`,
+              `Time: ${info.time}`,
+              `Venue: ${info.venue}, MVSREC`,
+              ...(info.coordinators.length
+                  ? ["", "Event coordinators:", ...info.coordinators.map((c) => `  ${c.name}: ${formatPhone(c.phone)}`)]
+                  : []),
+              "",
+          ]
+        : [];
+    const detailRow = (label: string, value: string) =>
+        `<tr><td style="padding:4px 0;font-size:12px;letter-spacing:1px;color:#8a6d2b;width:90px;vertical-align:top">${label}</td><td style="padding:4px 0;font-size:14px;font-weight:bold;color:#1d1a14">${escapeHtml(value)}</td></tr>`;
+    const detailsHtml = info
+        ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;padding:12px 16px;border:1px solid #e6dcc4;border-radius:10px;background:#fbf6ea">
+${detailRow("DATE", info.date)}
+${detailRow("TIME", info.time)}
+${detailRow("VENUE", `${info.venue}, MVSREC`)}
+</table>
+${
+    info.coordinators.length
+        ? `<p style="margin:0 0 6px;font-size:12px;letter-spacing:2px;color:#8a6d2b">EVENT COORDINATORS</p>
+<p style="margin:0 0 18px;font-size:14px;line-height:1.7">${info.coordinators
+              .map(
+                  (c) =>
+                      `<strong>${escapeHtml(c.name)}</strong> · <a href="tel:+91${c.phone}" style="color:#1d1a14">${formatPhone(c.phone)}</a>`,
+              )
+              .join("<br>")}</p>`
+        : ""
+}`
+        : "";
     const idHelp = input.teamName
         ? "Keep this ID: it identifies your team at the help desk."
         : "Keep this ID: it identifies your registration at the help desk.";
     return {
-        subject: `Your SHOURYA'26 entry ticket - ${input.eventName} (${input.code})`,
+        subject: `Your SHOURYA'26 entry ticket | SANGAMAM'26 - ${input.eventName} (${input.code})`,
         text: [
             `Hi ${input.name},`,
             "",
-            `${approvedText} at SHOURYA'26, Department of Computer Science, MVSR.`,
+            `${approvedText} at SHOURYA'26, the tech fest of the Department of Computer Science and Engineering at SANGAMAM'26, Maturi Venkata Subba Rao Engineering College (MVSREC), Hyderabad.`,
             "",
             `Registration ID: ${input.code}`,
             idHelp,
             "",
+            ...detailsText,
             "Your personal entry QR code is attached. Show it at the entrance: the organizers scan it, check your name and give you your band.",
             `The QR admits only you and works once. ${others} Please don't share it.`,
             "",
@@ -100,8 +134,10 @@ export function ticketEmail(input: TicketEmailInput, qrPng: Buffer): Omit<MailMe
         html: `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f1e8;font-family:Arial,Helvetica,sans-serif;color:#1d1a14">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e6dcc4">
 <tr><td style="background:#0b0a08;padding:22px 24px;text-align:center">
-<div style="color:#d9a93f;font-size:12px;letter-spacing:3px">DEPARTMENT OF COMPUTER SCIENCE · MVSR</div>
+<div style="color:#f3d27a;font-size:13px;font-weight:bold;letter-spacing:4px">SANGAMAM'26</div>
+<div style="color:#d9a93f;font-size:11px;letter-spacing:2px;margin-top:6px">DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING</div>
 <div style="color:#f3d27a;font-size:26px;font-weight:bold;letter-spacing:2px;margin-top:6px">SHOURYA'26</div>
+<div style="color:#bfb39a;font-size:11px;margin-top:6px">Maturi Venkata Subba Rao Engineering College (MVSREC), Hyderabad</div>
 </td></tr>
 <tr><td style="padding:24px">
 <p style="margin:0 0 12px;font-size:16px">Hi <strong>${h.name}</strong>,</p>
@@ -114,6 +150,7 @@ export function ticketEmail(input: TicketEmailInput, qrPng: Buffer): Omit<MailMe
 <div style="text-align:center;margin:0 0 14px"><img src="cid:ticket-qr" width="240" height="240" alt="Your entry QR code" style="display:inline-block;border:8px solid #ffffff;box-shadow:0 0 0 1px #e6dcc4"></div>
 <p style="margin:0 0 6px;text-align:center;font-size:14px;color:#5b5341">${h.name} · ${h.event} · ${h.code}</p>
 <p style="margin:0 0 18px;text-align:center;font-size:11px;color:#8a8170;font-family:'Courier New',monospace;word-break:break-all">Ticket code: ${input.ticketCode}</p>
+${detailsHtml}
 <p style="margin:0 0 10px;font-size:14px;line-height:1.5"><strong>At the entrance:</strong> show this QR. The organizers scan it, check your name and give you your band.</p>
 <p style="margin:0 0 18px;font-size:14px;line-height:1.5">The QR admits only you and works once. ${escapeHtml(others)} Please don't share it.</p>
 <p style="margin:0;text-align:center"><a href="${eventUrl}" style="display:inline-block;background:#d9a93f;color:#0b0a08;text-decoration:none;font-weight:bold;padding:10px 20px;border-radius:999px">Event details</a></p>

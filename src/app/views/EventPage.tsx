@@ -131,6 +131,19 @@ export default function EventPage() {
               </button>
             </div>
             )}
+            {event.coordinators && event.coordinators.length > 0 && (
+              <div className="event-coordinators">
+                <p className="eyebrow event-performer-label">Event coordinators</p>
+                <ul>
+                  {event.coordinators.map((person) => (
+                    <li key={person.phone}>
+                      <strong>{person.name}</strong>
+                      <a href={`tel:+91${person.phone}`}>+91 {person.phone.slice(0, 5)} {person.phone.slice(5)}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <div className="event-facts">
             {[

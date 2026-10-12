@@ -598,6 +598,21 @@ input {
   animation: lockup-reveal 0.8s 0.05s both;
 }
 
+/* Umbrella festival name above the department line. */
+.festival-umbrella {
+  margin: 0 0 clamp(6px, 1vh, 10px);
+  background: var(--logo-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(1rem, 1.6vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-align: center;
+  animation: lockup-reveal 0.8s 0.05s both;
+}
+
 .festival-dept {
   margin: 0 0 clamp(10px, 1.6vh, 18px);
   color: #e8ddc4;
@@ -1850,6 +1865,52 @@ input {
   font-size: clamp(1.8rem, 3.4vw, 3rem);
   font-weight: 700;
   letter-spacing: 0.01em;
+}
+
+.event-coordinators ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event-coordinators li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 20px;
+  border: 1px solid rgb(0 0 0 / 18%);
+  border-radius: 14px;
+}
+
+.event-coordinators strong {
+  font-size: clamp(1.05rem, 1.4vw, 1.25rem);
+  font-weight: 600;
+}
+
+.event-coordinators a {
+  color: inherit;
+  font-family: "DM Mono", monospace;
+  font-size: 15px;
+  text-decoration: none;
+  opacity: 0.8;
+}
+
+.event-coordinators a:hover,
+.event-coordinators a:focus-visible {
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* Approvers read every registration detail in bold. */
+.admin-row :is(span, small, strong, em, p, li, label, div) {
+  font-weight: 700;
+}
+
+.admin-row .account-members em {
+  font-style: normal;
 }
 
 .event-hero-prize-lead {
@@ -3677,6 +3738,10 @@ html {
   }
 
   .event-description > div {
+    justify-content: center;
+  }
+
+  .event-coordinators ul {
     justify-content: center;
   }
 

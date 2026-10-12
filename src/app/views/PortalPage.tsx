@@ -89,7 +89,7 @@ function PortalForm() {
               You&apos;re logged in as {user.email}.
             </div>
             <Link className="portal-cta" to={user.role === "ADMIN" ? ADMIN_PATH : "/dashboard"}>
-              {user.role === "ADMIN" ? "Open organizer dashboard" : "Open my dashboard"} <span>↗</span>
+              {user.role === "ADMIN" ? "Open organizer dashboard" : "Open my registrations"} <span>↗</span>
             </Link>
           </>
         ) : (

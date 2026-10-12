@@ -18,6 +18,8 @@ export type FestivalEvent = {
   fee?: string
   // Label for the fee row, e.g. "Entry fee"; defaults to "Fee".
   feeLabel?: string
+  // Event coordinators shown on the event page; phone is a 10-digit Indian mobile number.
+  coordinators?: { name: string; phone: string }[]
   // Also show the fee in the event page hero (for events without a prize pool).
   heroFee?: boolean
   // Shown as a Food row in the event facts.
@@ -72,6 +74,7 @@ const recreationImage =
 export const events: FestivalEvent[] = [
   {
     slug: "hackathon",
+    coordinators: [{ name: "Sana", phone: "9100903450" }, { name: "Aniketh", phone: "8309012359" }],
     name: "CSE-HACKATHON",
     category: "Technical",
     number: "01",
@@ -108,6 +111,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "no-code-vibathon",
+    coordinators: [{ name: "Surya", phone: "8247859699" }, { name: "Zeeshan", phone: "7981084902" }],
     name: "NOCODE VIBEATHON",
     category: "Technical",
     number: "02",
@@ -133,6 +137,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "github-workshop",
+    coordinators: [{ name: "Archita", phone: "9849112021" }],
     name: "GITHUB + SYSTEM DESIGN WORKSHOP",
     category: "Technical",
     number: "03",
@@ -159,6 +164,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "build-lab",
+    coordinators: [{ name: "Lalasa", phone: "7386858392" }],
     name: "BUILD LAB — PRODUCT DESIGN CHALLENGE",
     category: "Semi-Technical",
     number: "04",
@@ -179,6 +185,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "music-mob",
+    coordinators: [{ name: "Eshank", phone: "9642200046" }],
     name: "MUSIC MOB",
     category: "Cultural",
     number: "05",
@@ -199,6 +206,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "dandiya-night",
+    coordinators: [{ name: "Shiva Prasad", phone: "9398468432" }],
     name: "DANDIYA NIGHT",
     category: "Cultural",
     number: "06",
@@ -223,6 +231,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "standup-comedy",
+    coordinators: [{ name: "Poorvi", phone: "8341836096" }],
     name: "STANDUP COMEDY",
     category: "Fun",
     number: "07",
@@ -245,6 +254,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "recreation-creative",
+    coordinators: [{ name: "Srusha", phone: "7569101559" }, { name: "Jyotsna", phone: "7842718267" }],
     name: "RECREATION & CREATIVE EVENTS",
     category: "Fun",
     number: "08",

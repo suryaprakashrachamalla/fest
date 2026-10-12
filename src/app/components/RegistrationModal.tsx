@@ -322,7 +322,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
               </div>
               <div className="modal-action-buttons">
                 <Link to="/dashboard" className="pill-button pill-button--gold" onClick={onClose}>
-                  Open my dashboard ↗
+                  Open my registrations ↗
                 </Link>
               </div>
             </div>
@@ -517,7 +517,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
               </div>
               <div className="modal-action-buttons">
                 <Link to="/dashboard" className="pill-button pill-button--gold" onClick={onClose}>
-                  Open my dashboard ↗
+                  Open my registrations ↗
                 </Link>
               </div>
             </div>

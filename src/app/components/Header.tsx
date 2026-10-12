@@ -29,7 +29,7 @@ export default function Header({ light = false }: { light?: boolean }) {
     user?.role === "ADMIN" ? (
       <Link to={ADMIN_PATH}>ADMIN</Link>
     ) : user ? (
-      <Link to="/dashboard">DASHBOARD</Link>
+      <Link to="/dashboard">MY REGISTRATIONS</Link>
     ) : (
       <>
         <Link to="/login">LOG IN</Link>

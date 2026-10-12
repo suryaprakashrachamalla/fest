@@ -156,9 +156,10 @@ export default function HomePage() {
 
           <div
             className="hero-type hero-type--registration festival-lockup"
-            aria-label="Shourya 2026 Tech Fest at MVSR, October 16 and 17"
+            aria-label="Sangamam 2026: Shourya, the tech fest at MVSREC, October 16 and 17"
           >
             <img className="festival-college-logo" src={publicUrl("/mvsr-logo.png")} alt="Maturi Venkata Subba Rao Engineering College" />
+            <p className="festival-umbrella">SANGAMAM &apos;26</p>
             <p className="festival-dept">Department of Computer Science and Engineering</p>
             <p className="festival-presents">presents</p>
             <div className="shourya-title" aria-hidden="true">

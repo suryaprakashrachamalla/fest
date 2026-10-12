@@ -263,12 +263,12 @@ export default function DashboardPage() {
 
         {!apiConfigured ? (
           <div className="account-card">
-            <h1>My dashboard</h1>
+            <h1>My registrations</h1>
             <p className="account-muted">Online registration isn&apos;t connected yet. Please check back soon.</p>
           </div>
         ) : !user ? (
           <SignInPanel
-            title="My dashboard"
+            title="My registrations"
             subtitle="Sign in with the account you used to register to see your registrations and their status."
             onSignedIn={setUser}
           />
