@@ -187,7 +187,7 @@ export const events: FestivalEvent[] = [
     team: "Solo or group",
     duration: "1.5 hours",
     date: "17 · Day 2",
-    time: "2 PM – 3:30 PM",
+    time: "11:30 AM – 1 PM",
     venue: "Maggie Point",
     accent: "#ff3cac",
     image: musicImage,
