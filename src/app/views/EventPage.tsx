@@ -49,7 +49,7 @@ export default function EventPage() {
           <img src={event.image} alt={`${event.name} atmosphere`} style={{ objectPosition: event.imagePosition }} />
           <div className="event-hero-overlay" />
           {/* Returns to this event's category on the home page. */}
-          <Link className="event-back" to="/" state={{ scrollTo: event.category.toLowerCase().replace(" ", "-") }}>
+          <Link className="event-back" to="/" state={{ scrollTo: event.hotspot ? "hotspot" : event.category.toLowerCase().replace(" ", "-") }}>
             <span aria-hidden="true">←</span> Back to events
           </Link>
           <p className="event-breadcrumb">

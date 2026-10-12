@@ -68,6 +68,7 @@ function EventCard({
       >
         <img src={event.cardImage ?? event.image} alt="" />
         <span className="event-index">{event.number}</span>
+        {event.hotspot && <span className="event-hot-badge">🔥 {event.hotspot}</span>}
         <span className="event-arrow">↗</span>
         <div className="scan-line" />
       </Link>
@@ -85,6 +86,9 @@ function EventCard({
     </article>
   )
 }
+
+// Hotspot events are pulled out of their category and shown first.
+const hotspotEvents = events.filter((event) => event.hotspot)
 
 export default function HomePage() {
   // Once the script reveal lands, the text gives way to the gold Shourya logo.
@@ -202,9 +206,24 @@ export default function HomePage() {
 
         <section id="events" className="events-section">
 
+          {hotspotEvents.length > 0 && (
+            <section id="hotspot" className="category-block category-block--hot">
+              <div className="category-heading">
+                <span>🔥</span>
+                <h3>Hotspot</h3>
+                <p>Selling fast · Limited passes</p>
+              </div>
+              <div className="events-grid">
+                {hotspotEvents.map((event, index) => (
+                  <EventCard event={event} index={index} key={event.slug} />
+                ))}
+              </div>
+            </section>
+          )}
+
           {categories.map((category) => {
             const categoryEvents = events.filter(
-              (event) => event.category === category,
+              (event) => event.category === category && !event.hotspot,
             )
             return (
               <section

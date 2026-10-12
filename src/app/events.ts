@@ -45,6 +45,8 @@ export type FestivalEvent = {
   hideCriteria?: boolean
   // Walk-in events show their details only, with no register buttons.
   noRegistration?: boolean
+  // Shown in the Hotspot block above all categories (with this badge) instead of under its category.
+  hotspot?: string
   // Overrides the walk-in entry text shown in the facts.
   entry?: string
   // Events registered for in person on campus: no online button, shown in the facts instead.
@@ -217,6 +219,7 @@ export const events: FestivalEvent[] = [
     challenges: ["Traditional wear", "Bring your dandiya sticks", "Dance till the last beat"],
     registerAt: "On campus at MVSR",
     feeLabel: "Entry fee",
+    hotspot: "Selling fast · Limited passes",
   },
   {
     slug: "standup-comedy",
