@@ -113,3 +113,33 @@ export function eventTabTitle(eventName: string, reservedTitles: string[]) {
     const reserved = reservedTitles.some((title) => title.toLowerCase() === cleaned.toLowerCase());
     return reserved ? `${cleaned} (event)` : cleaned;
 }
+
+// A tab name compared the way organizers see it: case, spaces and punctuation don't matter.
+function tabKey(title: string) {
+    return title.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function editDistance(a: string, b: string) {
+    let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+        const current = [i];
+        for (let j = 1; j <= b.length; j++)
+            current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        previous = current;
+    }
+    return previous[b.length];
+}
+
+// Finds the tab a wanted worksheet was renamed to in the spreadsheet, so organizers can rename tabs
+// freely: the same name ignoring case and punctuation ("Build Lab — Product Design Challenge" ->
+// "BUILD-LAB PRODUCT DESIGN CHALLENGE"), or, for longer names, one or two typos away. Only an
+// unclaimed tab that is the single closest match is used; otherwise null (the tab gets created).
+export function findRenamedTab(wanted: string, existingTitles: string[], claimed: Set<string>) {
+    const key = tabKey(wanted);
+    const free = existingTitles.filter((title) => !claimed.has(title));
+    const same = free.filter((title) => tabKey(title) === key);
+    if (same.length === 1) return same[0];
+    if (same.length > 1 || key.length < 12) return null;
+    const near = free.filter((title) => editDistance(tabKey(title), key) <= 2);
+    return near.length === 1 ? near[0] : null;
+}

@@ -16,6 +16,7 @@ import {
 import {
     coalesceUpdates,
     eventTabTitle,
+    findRenamedTab,
     headersArePrefix,
     isTransientSheetsFailure,
     planSheetRows,
@@ -182,6 +183,12 @@ function eventTab(eventName: string): SheetDefinition & { eventName: string } {
 
 // Tabs known to exist with the right header row; refreshed by every full reconciliation.
 const preparedTabs = new Set<string>();
+// Wanted tab title -> the title organizers renamed it to in the spreadsheet.
+const tabAliases = new Map<string, string>();
+
+function sheetTitle(definition: SheetDefinition) {
+    return tabAliases.get(definition.title) ?? definition.title;
+}
 
 const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
 const batchSize = Math.max(1, Number(process.env.SHEETS_BATCH_SIZE ?? 100));
@@ -232,6 +239,7 @@ function getSheetsClient() {
 export function setSheetsClientForTests(client: sheets_v4.Sheets | null) {
     sheetsClient = client;
     preparedTabs.clear();
+    tabAliases.clear();
 }
 
 function columnName(columnNumber: number) {
@@ -274,10 +282,27 @@ async function prepareWorksheets(tabs: SheetDefinition[]) {
         spreadsheetId,
         fields: "sheets(properties(sheetId,title))",
     });
-    const existingTitles = new Set(
-        (spreadsheet.data.sheets ?? []).map((sheet) => sheet.properties?.title ?? ""),
+    const titles = (spreadsheet.data.sheets ?? []).map((sheet) => sheet.properties?.title ?? "");
+    const existingTitles = new Set(titles);
+    // Follow tabs that were renamed in the spreadsheet instead of creating a second copy.
+    const claimed = new Set(
+        titles.filter(
+            (title) =>
+                sharedTitles.includes(title) ||
+                tabs.some((definition) => definition.title === title) ||
+                [...tabAliases.values()].includes(title),
+        ),
     );
-    const missingSheets = tabs.filter((definition) => !existingTitles.has(definition.title));
+    for (const definition of tabs) {
+        tabAliases.delete(definition.title);
+        if (existingTitles.has(definition.title)) continue;
+        const renamed = findRenamedTab(definition.title, titles, claimed);
+        if (renamed) {
+            tabAliases.set(definition.title, renamed);
+            claimed.add(renamed);
+        }
+    }
+    const missingSheets = tabs.filter((definition) => !existingTitles.has(sheetTitle(definition)));
 
     if (missingSheets.length > 0) {
         await sheetsApi.spreadsheets.batchUpdate({
@@ -292,7 +317,7 @@ async function prepareWorksheets(tabs: SheetDefinition[]) {
 
     const headerRanges = tabs.map(
         (definition) =>
-            `${quoteSheet(definition.title)}!A1:${columnName(definition.headers.length)}1`,
+            `${quoteSheet(sheetTitle(definition))}!A1:${columnName(definition.headers.length)}1`,
     );
     const headerResult = await sheetsApi.spreadsheets.values.batchGet({
         spreadsheetId,
@@ -317,7 +342,7 @@ async function prepareWorksheets(tabs: SheetDefinition[]) {
                 return;
             }
             throw new Error(
-                `Worksheet ${definition.title} has unexpected headers. Expected: ${definition.headers.join(", ")}`,
+                `Worksheet ${sheetTitle(definition)} has unexpected headers. Expected: ${definition.headers.join(", ")}`,
             );
         }
     });
@@ -335,7 +360,7 @@ async function readRows(definitionsToRead: SheetDefinition[]) {
     const sheetsApi = getSheetsClient();
     const ranges = definitionsToRead.map(
         (definition) =>
-            `${quoteSheet(definition.title)}!A1:${columnName(definition.headers.length)}`,
+            `${quoteSheet(sheetTitle(definition))}!A1:${columnName(definition.headers.length)}`,
     );
     const response = await sheetsApi.spreadsheets.values.batchGet({
         spreadsheetId,
@@ -387,7 +412,7 @@ async function sendSheetBatch(items: CoalescedItem[]) {
         const lastColumn = columnName(definition.headers.length);
         updates.push(
             ...plan.updates.map(({ rowNumber, values }) => ({
-                range: `${quoteSheet(definition.title)}!A${rowNumber}:${lastColumn}${rowNumber}`,
+                range: `${quoteSheet(sheetTitle(definition))}!A${rowNumber}:${lastColumn}${rowNumber}`,
                 values: [values],
             })),
         );
@@ -406,7 +431,7 @@ async function sendSheetBatch(items: CoalescedItem[]) {
     for (const { definition, rows } of appendRows.values()) {
         await sheetsApi.spreadsheets.values.append({
             spreadsheetId,
-            range: `${quoteSheet(definition.title)}!A:${columnName(definition.headers.length)}`,
+            range: `${quoteSheet(sheetTitle(definition))}!A:${columnName(definition.headers.length)}`,
             valueInputOption: "RAW",
             insertDataOption: "INSERT_ROWS",
             requestBody: { values: rows },
@@ -528,6 +553,9 @@ export async function processOutboxBatch() {
         lastWorkerError = null;
         return claimedItems.length;
     } catch (error) {
+        // A tab may have been renamed or deleted meanwhile; look the tabs up again on the retry.
+        preparedTabs.clear();
+        tabAliases.clear();
         await failBatch(claimedItems, error);
         return 0;
     }

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     coalesceUpdates,
     eventTabTitle,
+    findRenamedTab,
     headersArePrefix,
     isTransientSheetsFailure,
     planSheetRows,
@@ -112,3 +113,27 @@ describe("eventTabTitle", () => {
         expect(eventTabTitle("registrations", shared)).toBe("registrations (event)");
     });
 });
+
+describe("findRenamedTab", () => {
+    const tabs = [
+        "Events", "Registrations", "CSE-HACKATHON", "NOCODE VIBEATHON",
+        "BUILD-LAB PRODUCT DESIGN CHALLENGE", "GITHUB+SYSTEM DESGIN WORKSHOP", "STANDUP COMEDY",
+    ];
+    const none = new Set<string>();
+
+    test("follows tabs renamed with different case or punctuation", () => {
+        expect(findRenamedTab("Build Lab — Product Design Challenge", tabs, none)).toBe("BUILD-LAB PRODUCT DESIGN CHALLENGE");
+        expect(findRenamedTab("Standup Comedy", tabs, none)).toBe("STANDUP COMEDY");
+    });
+
+    test("tolerates a small typo in a longer tab name", () => {
+        expect(findRenamedTab("GitHub + System Design Workshop", tabs, none)).toBe("GITHUB+SYSTEM DESGIN WORKSHOP");
+    });
+
+    test("never picks a different event's tab or one already in use", () => {
+        expect(findRenamedTab("Standup Comedy — Group Pass", tabs, none)).toBeNull();
+        expect(findRenamedTab("Standup Comedy", tabs, new Set(["STANDUP COMEDY"]))).toBeNull();
+        expect(findRenamedTab("Sangamam", tabs, none)).toBeNull();
+    });
+});
+
