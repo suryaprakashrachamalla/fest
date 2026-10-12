@@ -80,7 +80,7 @@ export const events: FestivalEvent[] = [
     team: "2–3 members",
     duration: "24 hours",
     date: "16 & 17 · Day 1 & 2",
-    time: "10 AM – 1 PM next day",
+    time: "10 AM – 10 AM next day",
     venue: "CSE Labs 2, 3, 4, 5",
     food: "Provided · No extra charge",
     fee: "₹399 / head",
