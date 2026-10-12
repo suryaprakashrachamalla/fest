@@ -4,6 +4,19 @@ import Header from "../components/Header"
 import RegistrationModal from "../components/RegistrationModal"
 import { events } from "../events"
 
+// A leading "Worth" is shown smaller than the amount after it, e.g. "Worth ₹50,000+".
+function withSmallWorth(value: string) {
+  const match = /^Worth\s+(.*)$/i.exec(value)
+  return match ? (
+    <>
+      <small className="event-hero-prize-lead">Worth</small>
+      {match[1]}
+    </>
+  ) : (
+    value
+  )
+}
+
 export default function EventPage() {
   const { slug } = useParams()
   const event = events.find((item) => item.slug === slug)
@@ -51,7 +64,7 @@ export default function EventPage() {
             {(event.heroPrize ?? event.prize) && (
               <div className="event-hero-prize">
                 <span>{event.heroPrize ? "Total prize pool worth" : "Prize pool"}</span>
-                <strong>{event.heroPrize ?? event.prize}</strong>
+                <strong>{withSmallWorth(event.heroPrize ?? event.prize ?? "")}</strong>
               </div>
             )}
             {event.heroFee && event.fee && (

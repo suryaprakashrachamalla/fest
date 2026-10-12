@@ -1813,6 +1813,11 @@ input {
   letter-spacing: 0.01em;
 }
 
+.event-hero-prize-lead {
+  margin-right: 0.3em;
+  font-size: 0.55em;
+}
+
 .event-hero-title h1 {
   max-width: 1200px;
   margin: 0;
