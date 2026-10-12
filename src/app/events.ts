@@ -250,6 +250,7 @@ export const events: FestivalEvent[] = [
     slug: "standup-comedy",
     coordinators: [{ name: "Poorvi", phone: "8341836096" }],
     name: "STANDUP COMEDY",
+    hotspot: "Live · Venkat Blaze",
     category: "Fun",
     number: "07",
     description:
