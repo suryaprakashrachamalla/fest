@@ -48,7 +48,7 @@ const events = [
         name: "Standup Comedy",
         slug: "standup-comedy",
         description: "Telugu stand-up comedy night with Venkat Blaze.",
-        feePaise: 49_900,
+        feePaise: 29_900,
         feeMode: "FLAT" as const,
         minTeamSize: 1,
         maxTeamSize: 1,
