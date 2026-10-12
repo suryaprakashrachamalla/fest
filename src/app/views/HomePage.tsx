@@ -164,7 +164,7 @@ export default function HomePage() {
               </span>
             </div>
 
-            <p className="festival-label">Tech Fest @MVSR</p>
+            <p className="festival-label">Tech Fest @MVSREC</p>
             <img className="festival-date" src={publicUrl("/festival-date.webp")} alt="16th & 17th October 2026" />
 
             <a className="hero-register" href={publicUrl("/#technical")}>
