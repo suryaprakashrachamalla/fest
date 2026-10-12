@@ -750,6 +750,27 @@ export async function reconcileSpreadsheet(retryFailed = false) {
     return lastReconciliation;
 }
 
+// Reads every event's own tab from the spreadsheet, for the super admin overview. Returns, per event
+// name, the tab title read and its rows (header row first); null rows mean the tab doesn't exist yet.
+export async function readEventTabs(eventNames: string[]) {
+    if (!hasConfiguration())
+        throw Object.assign(new Error("Google Sheets isn't configured, so the overview can't be read from it"), {
+            status: 503,
+        });
+    const tabs = eventNames.map(eventTab);
+    const sheetsApi = getSheetsClient();
+    const meta = await sheetsApi.spreadsheets.get({ spreadsheetId, fields: "sheets.properties.title" });
+    const existing = new Set((meta.data.sheets ?? []).map((sheet) => sheet.properties?.title ?? ""));
+    const present = tabs.filter((tab) => existing.has(sheetTitle(tab)));
+    const values = present.length ? await readRows(present) : [];
+    const rowsByTitle = new Map(present.map((tab, i) => [tab.title, (values[i]?.values ?? []) as unknown[][]]));
+    return tabs.map((tab) => ({
+        eventName: tab.eventName,
+        tab: sheetTitle(tab),
+        rows: rowsByTitle.get(tab.title) ?? null,
+    }));
+}
+
 export async function getSyncStatus() {
     const [counts, failureAggregate, lastFailure, lastSuccess] = await Promise.all([
         prisma.spreadsheetSyncOutbox.groupBy({

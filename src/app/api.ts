@@ -313,21 +313,25 @@ export async function paymentQrUrl() {
   }
 }
 
-// Super admin overview: per-event registrations, participants and money collected.
+// Super admin overview, read from each event's tab in the Google Sheet: accepted (approved) teams only.
 export interface EventOverviewRow {
   eventId: string
   name: string
-  slug: string
-  registrations: number
-  participants: number
-  paidRegistrations: number
-  paidParticipants: number
-  collectedPaise: number
-  awaitingReviewPaise: number
+  tab: string
+  tabFound: boolean
+  approvedTeams: number
+  approvedParticipants: number
+  approvedAmountPaise: number
+  totalRows: number
+  databaseApprovedTeams: number
+  matchesDatabase: boolean
 }
 export interface EventOverview {
+  source: "google-sheets"
+  readAt: string
   events: EventOverviewRow[]
-  totals: Omit<EventOverviewRow, "eventId" | "name" | "slug">
+  totals: { approvedTeams: number; approvedParticipants: number; approvedAmountPaise: number }
+  allMatchDatabase: boolean
 }
 
 export const admin = {

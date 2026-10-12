@@ -74,54 +74,56 @@ function SuperAdminOverview() {
         </button>
       </div>
       <p className="account-muted">
-        Visible to super admins only. Paid counts teams whose payment is verified (including approved and ticketed).
+        Super admins only. Read from each event&apos;s tab in the Google Sheet, counting accepted (approved) registrations only.
+        {data && ` Read ${formatDate(data.readAt)}.`}
       </p>
       {error && <div className="modal-error-banner">{error}</div>}
       {!data && !error && <p className="account-muted">Loading…</p>}
       {data && (
         <>
           <div className="admin-overview-totals">
-            <div><small>Teams registered</small><strong>{data.totals.registrations}</strong></div>
-            <div><small>Participants</small><strong>{data.totals.participants}</strong></div>
-            <div><small>Paid teams</small><strong>{data.totals.paidRegistrations}</strong></div>
-            <div><small>Collected</small><strong>{rupees(data.totals.collectedPaise)}</strong></div>
-            <div><small>Awaiting review</small><strong>{rupees(data.totals.awaitingReviewPaise)}</strong></div>
+            <div><small>Accepted teams</small><strong>{data.totals.approvedTeams}</strong></div>
+            <div><small>Accepted participants</small><strong>{data.totals.approvedParticipants}</strong></div>
+            <div><small>Accepted amount</small><strong>{rupees(data.totals.approvedAmountPaise)}</strong></div>
           </div>
+          {!data.allMatchDatabase && (
+            <div className="modal-error-banner">
+              Some event tabs don&apos;t match the database yet (marked ⚠). The sheet usually catches up within a minute; tap Refresh,
+              or use Retry sync below if it persists.
+            </div>
+          )}
           <div className="admin-overview-table">
             <table>
               <thead>
                 <tr>
-                  <th>Event</th>
-                  <th>Teams</th>
+                  <th>Event (sheet tab)</th>
+                  <th>Accepted teams</th>
                   <th>Participants</th>
-                  <th>Paid teams</th>
-                  <th>Paid participants</th>
-                  <th>Collected</th>
-                  <th>Awaiting review</th>
+                  <th>Amount</th>
+                  <th>Matches database</th>
                 </tr>
               </thead>
               <tbody>
                 {data.events.map((row) => (
                   <tr key={row.eventId}>
-                    <td>{row.name}</td>
-                    <td>{row.registrations}</td>
-                    <td>{row.participants}</td>
-                    <td>{row.paidRegistrations}</td>
-                    <td>{row.paidParticipants}</td>
-                    <td>{rupees(row.collectedPaise)}</td>
-                    <td>{rupees(row.awaitingReviewPaise)}</td>
+                    <td>
+                      {row.name}
+                      {!row.tabFound && <em className="admin-overview-note"> · no tab yet</em>}
+                    </td>
+                    <td>{row.approvedTeams}</td>
+                    <td>{row.approvedParticipants}</td>
+                    <td>{rupees(row.approvedAmountPaise)}</td>
+                    <td>{row.matchesDatabase ? "✓" : `⚠ database has ${row.databaseApprovedTeams}`}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
                   <td>Total</td>
-                  <td>{data.totals.registrations}</td>
-                  <td>{data.totals.participants}</td>
-                  <td>{data.totals.paidRegistrations}</td>
-                  <td>{data.totals.paidParticipants}</td>
-                  <td>{rupees(data.totals.collectedPaise)}</td>
-                  <td>{rupees(data.totals.awaitingReviewPaise)}</td>
+                  <td>{data.totals.approvedTeams}</td>
+                  <td>{data.totals.approvedParticipants}</td>
+                  <td>{rupees(data.totals.approvedAmountPaise)}</td>
+                  <td>{data.allMatchDatabase ? "✓" : "⚠"}</td>
                 </tr>
               </tfoot>
             </table>

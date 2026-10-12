@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { prisma } from "./lib/prisma.ts";
-import type { RegistrationStatus } from "./generated/prisma/client.ts";
+import { readEventTabs } from "./ExcelSyncService.ts";
 
 // Super admins are the accounts configured as ADMIN_SUPER_EMAIL, ADMIN_SUPER2_EMAIL, ...
 export function superAdminEmails(env: NodeJS.ProcessEnv = process.env) {
@@ -23,77 +23,64 @@ export function requireSuperAdmin(req: Request, res: Response, next: NextFunctio
     next();
 }
 
-// Paid means the organizers have verified the payment (it may since have been approved and ticketed).
-const PAID: RegistrationStatus[] = ["PAYMENT_VERIFIED", "APPROVED", "TICKET_ISSUED"];
+export type TabSummary = { approvedTeams: number; approvedParticipants: number; approvedAmountPaise: number; totalRows: number };
 
-type EventTotals = {
-    eventId: string;
-    name: string;
-    slug: string;
-    registrations: number;
-    participants: number;
-    paidRegistrations: number;
-    paidParticipants: number;
-    collectedPaise: number;
-    awaitingReviewPaise: number;
-    byStatus: Partial<Record<RegistrationStatus, number>>;
-};
+// Counts the accepted registrations in one event tab: rows whose approvalStatus is APPROVED (this
+// includes teams whose tickets were already issued). Columns are found by their header names.
+export function summarizeEventTab(rows: unknown[][]): TabSummary {
+    const [header = [], ...data] = rows;
+    const col = (name: string) => header.findIndex((cell) => String(cell).trim() === name);
+    const [approval, size, fee] = [col("approvalStatus"), col("teamSize"), col("registrationFee")];
+    const summary: TabSummary = { approvedTeams: 0, approvedParticipants: 0, approvedAmountPaise: 0, totalRows: 0 };
+    for (const row of data) {
+        if (!row || row.every((cell) => cell === "" || cell === null || cell === undefined)) continue;
+        summary.totalRows++;
+        if (approval < 0 || String(row[approval] ?? "").trim().toUpperCase() !== "APPROVED") continue;
+        summary.approvedTeams++;
+        summary.approvedParticipants += Number(row[size]) || 0;
+        summary.approvedAmountPaise += Math.round((Number(String(row[fee] ?? "").replace(/[^0-9.]/g, "")) || 0) * 100);
+    }
+    return summary;
+}
 
-// Per-event registration counts and money, plus overall totals, for the super admin overview.
+// Super admin overview, read strictly from each event's tab in the Google Sheet: accepted teams,
+// participants and fees per event, with the database's approved count alongside as a cross-check.
 export async function eventOverview() {
-    const [events, groups] = await Promise.all([
-        prisma.event.findMany({ select: { id: true, name: true, slug: true }, orderBy: { createdAt: "asc" } }),
+    const events = await prisma.event.findMany({ select: { id: true, name: true }, orderBy: { createdAt: "asc" } });
+    const [tabs, dbApproved] = await Promise.all([
+        readEventTabs(events.map((e) => e.name)),
         prisma.registration.groupBy({
-            by: ["eventId", "status"],
+            by: ["eventId"],
+            where: { status: { in: ["APPROVED", "TICKET_ISSUED"] } },
             _count: { _all: true },
-            _sum: { teamSize: true, amountPaise: true },
         }),
     ]);
-    const rows = new Map<string, EventTotals>(
-        events.map((e) => [
-            e.id,
-            {
-                eventId: e.id,
-                name: e.name,
-                slug: e.slug,
-                registrations: 0,
-                participants: 0,
-                paidRegistrations: 0,
-                paidParticipants: 0,
-                collectedPaise: 0,
-                awaitingReviewPaise: 0,
-                byStatus: {},
-            },
-        ]),
-    );
-    for (const g of groups) {
-        const row = rows.get(g.eventId);
-        if (!row) continue;
-        const count = g._count._all;
-        const people = g._sum.teamSize ?? 0;
-        const amount = g._sum.amountPaise ?? 0;
-        row.registrations += count;
-        row.participants += people;
-        row.byStatus[g.status] = count;
-        if (PAID.includes(g.status)) {
-            row.paidRegistrations += count;
-            row.paidParticipants += people;
-            row.collectedPaise += amount;
-        }
-        if (g.status === "PAYMENT_REVIEW") row.awaitingReviewPaise += amount;
-    }
-    const list = [...rows.values()];
-    const sum = (key: "registrations" | "participants" | "paidRegistrations" | "paidParticipants" | "collectedPaise" | "awaitingReviewPaise") =>
-        list.reduce((total, row) => total + row[key], 0);
+    const dbCount = new Map(dbApproved.map((g) => [g.eventId, g._count._all]));
+    const rows = events.map((event, i) => {
+        const tab = tabs[i];
+        const summary = tab.rows ? summarizeEventTab(tab.rows) : { approvedTeams: 0, approvedParticipants: 0, approvedAmountPaise: 0, totalRows: 0 };
+        const databaseApprovedTeams = dbCount.get(event.id) ?? 0;
+        return {
+            eventId: event.id,
+            name: event.name,
+            tab: tab.tab,
+            tabFound: tab.rows !== null,
+            ...summary,
+            databaseApprovedTeams,
+            matchesDatabase: summary.approvedTeams === databaseApprovedTeams,
+        };
+    });
+    const sum = (key: "approvedTeams" | "approvedParticipants" | "approvedAmountPaise") =>
+        rows.reduce((total, row) => total + row[key], 0);
     return {
-        events: list,
+        source: "google-sheets" as const,
+        readAt: new Date().toISOString(),
+        events: rows,
         totals: {
-            registrations: sum("registrations"),
-            participants: sum("participants"),
-            paidRegistrations: sum("paidRegistrations"),
-            paidParticipants: sum("paidParticipants"),
-            collectedPaise: sum("collectedPaise"),
-            awaitingReviewPaise: sum("awaitingReviewPaise"),
+            approvedTeams: sum("approvedTeams"),
+            approvedParticipants: sum("approvedParticipants"),
+            approvedAmountPaise: sum("approvedAmountPaise"),
         },
+        allMatchDatabase: rows.every((row) => row.matchesDatabase),
     };
 }
