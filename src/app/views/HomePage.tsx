@@ -3,12 +3,12 @@ import { Link } from "react-router"
 import Footer from "../components/Footer"
 import Header from "../components/Header"
 import GallerySection from "../components/GallerySection"
-import HotspotSpotlight from "../components/HotspotSpotlight"
 import ScriptReveal from "../components/ScriptReveal"
 import ContactIcon from "../components/ContactIcon"
 import { socialLinks } from "../contacts"
 import { categories, events } from "../events"
 import { publicUrl } from "../publicUrl"
+import useHotspotSpotlight from "../useHotspotSpotlight"
 
 const registrationDate = new Date("2026-10-10T00:00:00+05:30").getTime()
 
@@ -94,11 +94,11 @@ const hotspotEvents = events.filter((event) => event.hotspot)
 export default function HomePage() {
   // Once the script reveal lands, the text gives way to the gold Shourya logo.
   const [showLogo, setShowLogo] = useState(false)
+  const spotlight = useHotspotSpotlight(showLogo, "hotspot")
 
   return (
     <div className="festival-site">
       <Header />
-      <HotspotSpotlight events={hotspotEvents} />
 
       <main>
         <section className="hero">
@@ -210,7 +210,7 @@ export default function HomePage() {
         <section id="events" className="events-section">
 
           {hotspotEvents.length > 0 && (
-            <section id="hotspot" className="category-block category-block--hot">
+            <section id="hotspot" className={`category-block category-block--hot ${spotlight}`}>
               <div className="category-heading">
                 <span>🔥</span>
                 <h3>Hotspot</h3>
