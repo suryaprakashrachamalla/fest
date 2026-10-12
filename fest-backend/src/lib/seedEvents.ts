@@ -26,10 +26,10 @@ const events = [
         isPublished: true,
     },
     {
-        name: "GitHub Workshop",
+        name: "GitHub + System Design Workshop",
         slug: "github-workshop",
-        description: "Hands-on workshop on repositories, branches, pull requests and open-source collaboration.",
-        feePaise: 15_000,
+        description: "Hands-on workshop on repositories, branches, pull requests, open-source collaboration and system design fundamentals.",
+        feePaise: 9_900,
         feeMode: "PER_HEAD" as const,
         minTeamSize: 1,
         maxTeamSize: 1,
