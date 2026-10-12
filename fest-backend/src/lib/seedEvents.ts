@@ -18,8 +18,8 @@ const events = [
         name: "NOCODE VIBEATHON",
         slug: "no-code-vibathon",
         description: "Build and ship an idea with no-code and AI tools.",
-        // ₹300 per participant: 1 member pays ₹300, 2 members pay ₹600.
-        feePaise: 30_000,
+        // ₹149 per participant: 1 member pays ₹149, 2 members pay ₹298.
+        feePaise: 14_900,
         feeMode: "PER_HEAD" as const,
         minTeamSize: 1,
         maxTeamSize: 2,
