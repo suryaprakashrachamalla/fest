@@ -100,7 +100,7 @@ input {
 .main-nav {
   display: flex;
   align-items: center;
-  gap: clamp(8px, 0.9vw, 14px);
+  gap: clamp(6px, 0.6vw, 12px);
   /* Centered across the whole header, independent of the logo width. */
   position: absolute;
   top: 50%;
@@ -130,6 +130,12 @@ input {
   transition: color 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
+/* Eight section links plus the account links: keep the pills compact so the centered nav clears Log in / Sign up. */
+.main-nav a,
+.account-nav a {
+  padding-inline: clamp(10px, 0.9vw, 18px);
+}
+
 .main-nav a:hover,
 .account-nav a:hover,
 .pill-link:hover {
@@ -144,7 +150,7 @@ input {
 .account-nav {
   display: flex;
   align-items: center;
-  gap: clamp(8px, 0.9vw, 14px);
+  gap: clamp(6px, 0.6vw, 12px);
   margin-left: auto;
 }
 
@@ -2101,52 +2107,169 @@ input {
   line-height: 1.7;
 }
 
-.portal-form-wrap form {
+/* Log in / sign up form: filled fields and a high-contrast button on the charcoal panel. */
+.portal-form {
   display: flex;
   flex-direction: column;
-  margin-top: 60px;
+  gap: 20px;
+  width: 100%;
+  max-width: 460px;
+  margin-top: 44px;
 }
 
-.portal-form-wrap label {
-  margin-bottom: 10px;
+.portal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.portal-field label {
+  color: #e8ddc4;
   font-family: "DM Mono", monospace;
-  font-size: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.portal-form-wrap input {
-  padding: 20px 0;
-  color: #fff;
+.portal-field input {
+  width: 100%;
+  min-height: 52px;
+  padding: 14px 16px;
+  border: 1.5px solid rgb(232 221 196 / 28%);
+  border-radius: 12px;
   outline: none;
-  border: 0;
-  border-bottom: 1px solid #555;
-  background: transparent;
+  color: #fbf8f1;
+  caret-color: #e8ddc4;
+  font-family: inherit;
+  /* 16px keeps phones from zooming into the field. */
+  font-size: 16px;
+  background: rgb(255 255 255 / 6%);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
-.portal-form-wrap input:focus {
+.portal-field input::placeholder {
+  color: rgb(251 248 241 / 42%);
+}
+
+.portal-field input:hover {
+  border-color: rgb(232 221 196 / 45%);
+}
+
+.portal-field input:focus {
   border-color: #e8ddc4;
+  background: rgb(255 255 255 / 9%);
+  box-shadow: 0 0 0 3px rgb(232 221 196 / 22%);
 }
 
-.portal-form-wrap button {
+.portal-field input[aria-invalid="true"] {
+  border-color: #ff8a8a;
+}
+
+.portal-field input[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 3px rgb(255 138 138 / 22%);
+}
+
+/* Browser autofill keeps the dark field and light text. */
+.portal-field input:-webkit-autofill {
+  -webkit-text-fill-color: #fbf8f1;
+  box-shadow: 0 0 0 1000px #2a2826 inset;
+  transition: background-color 9999s ease 0s;
+}
+
+.portal-field-error,
+.portal-field-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.portal-field-error {
+  color: #ffb4b4;
+  font-weight: 600;
+}
+
+.portal-field-error::before {
+  content: "⚠ ";
+}
+
+.portal-field-hint {
+  color: rgb(251 248 241 / 60%);
+}
+
+.portal-error {
+  padding: 12px 14px;
+  border: 1.5px solid #ff8a8a;
+  border-left-width: 4px;
+  border-radius: 10px;
+  color: #ffd6d6;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  background: rgb(255 92 92 / 12%);
+}
+
+.portal-submit {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-top: 24px;
-  padding: 18px 22px;
+  gap: 12px;
+  min-height: 54px;
+  margin-top: 6px;
+  padding: 14px 22px;
   border: 0;
+  border-radius: 12px;
   cursor: pointer;
+  color: #111;
   font-family: "DM Mono", monospace;
-  font-size: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   background: #e8ddc4;
+  transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 
-.portal-form-wrap input + label {
-  margin-top: 26px;
+.portal-submit:hover:not(:disabled) {
+  background: #f6ecd3;
+  box-shadow: 0 8px 22px rgb(232 221 196 / 22%);
+  transform: translateY(-1px);
 }
 
-.portal-form-wrap button:disabled {
-  cursor: wait;
-  opacity: 0.7;
+.portal-submit:focus-visible {
+  outline: 3px solid #fbf8f1;
+  outline-offset: 3px;
+}
+
+.portal-submit:disabled {
+  cursor: progress;
+  color: #3a3833;
+  background: #cfc6b1;
+}
+
+.portal-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgb(17 17 17 / 25%);
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: portal-spin 0.8s linear infinite;
+}
+
+@keyframes portal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.portal-form-wrap .portal-switch {
+  margin-top: 4px;
+  color: rgb(251 248 241 / 70%);
+  font-size: 14px;
+}
+
+.portal-form-wrap .portal-switch a {
+  font-weight: 600;
 }
 
 .portal-notice {
@@ -4556,4 +4679,332 @@ html {
 
 .team-checkin-list li.is-done .team-checkin-status {
   color: #34d399;
+}
+
+/* Official social links at the top of the home page hero, just under the header. */
+.hero-social {
+  position: absolute;
+  z-index: 3;
+  top: clamp(84px, 11vh, 104px);
+  right: clamp(22px, 4vw, 64px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.hero-social a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 999px;
+  color: #f4f1e8;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgb(18 16 26 / 60%);
+  backdrop-filter: blur(10px);
+  transition: color 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.hero-social a:hover,
+.hero-social a:focus-visible {
+  color: #0a0a0a;
+  border-color: #e8ddc4;
+  background: #e8ddc4;
+}
+
+.hero-social svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Festival coordinators in the Get in touch section: tap to call. */
+.contact-phones {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  margin: -16px 0 40px;
+}
+
+.contact-phone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 14px;
+  color: #fff;
+  text-align: left;
+  text-decoration: none;
+  background: rgb(255 255 255 / 4%);
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.contact-phone:hover,
+.contact-phone:focus-visible {
+  border-color: #e8ddc4;
+  background: rgb(232 221 196 / 10%);
+}
+
+.contact-phone-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #0a0a0a;
+  background: #e8ddc4;
+}
+
+.contact-phone-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.contact-phone strong {
+  display: block;
+  font-size: 15px;
+}
+
+.contact-phone em {
+  display: block;
+  color: rgb(255 255 255 / 75%);
+  font-family: "DM Mono", monospace;
+  font-size: 14px;
+  font-style: normal;
+}
+
+/* Section links leave a little space above the heading they land on. */
+.category-block,
+#gallery {
+  scroll-margin-top: 24px;
+}
+
+/* Phone navigation: a Menu button opens every section and account link. */
+.menu-toggle,
+.mobile-menu {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .menu-toggle {
+    position: absolute;
+    top: 50%;
+    right: 18px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 8px 16px;
+    border: 1px solid rgb(232 221 196 / 60%);
+    border-radius: 999px;
+    color: #f4f1e8;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    background: rgb(18 16 26 / 70%);
+    backdrop-filter: blur(10px);
+    transform: translateY(-50%);
+    cursor: pointer;
+  }
+
+  .menu-toggle[aria-expanded="true"] {
+    color: #0a0a0a;
+    background: #e8ddc4;
+  }
+
+  .mobile-menu {
+    position: absolute;
+    top: 100%;
+    left: 12px;
+    right: 12px;
+    z-index: 60;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 14px;
+    border: 1px solid rgb(255 255 255 / 16%);
+    border-radius: 18px;
+    background: rgb(12 11 16 / 96%);
+    box-shadow: 0 18px 40px rgb(0 0 0 / 45%);
+  }
+
+  .mobile-menu a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px;
+    border: 1px solid rgb(255 255 255 / 18%);
+    border-radius: 999px;
+    color: #f4f1e8;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+
+  .mobile-menu a:hover,
+  .mobile-menu a:focus-visible {
+    color: #0a0a0a;
+    border-color: #e8ddc4;
+    background: #e8ddc4;
+  }
+
+  .mobile-menu-account {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-column: 1 / -1;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgb(255 255 255 / 12%);
+  }
+
+  .mobile-menu-account a:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .hero-social {
+    left: 16px;
+    right: 16px;
+    justify-content: center;
+  }
+
+  .contact-phones {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
+}
+
+/* Organizer registration cards: what to check before approving, in bold and with text labels. */
+.admin-row-head {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.admin-row-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 14px;
+}
+
+.admin-row-event {
+  color: #fbf8f1;
+  font-size: clamp(17px, 2vw, 20px);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.admin-row-id {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.admin-row-title {
+  color: #d6d0c2;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.admin-row-facts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-row-facts > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 4%);
+}
+
+.admin-row-facts small {
+  color: #9a9a9a;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-row-facts strong {
+  color: #fbf8f1;
+  font-size: 15px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.admin-fact--ok {
+  border-color: rgb(16 185 129 / 55%) !important;
+}
+
+.admin-fact--ok strong {
+  color: #6ee7b7;
+}
+
+.admin-fact--pending {
+  border-color: rgb(251 191 36 / 50%) !important;
+}
+
+.admin-fact--pending strong {
+  color: #fcd34d;
+}
+
+.admin-fact--bad {
+  border-color: rgb(239 68 68 / 55%) !important;
+}
+
+.admin-fact--bad strong {
+  color: #fca5a5;
+}
+
+.admin-row-note {
+  padding: 8px 10px;
+  border-left: 3px solid #fbbf24;
+  border-radius: 6px;
+  color: #fde68a;
+  font-size: 13px;
+  line-height: 1.4;
+  background: rgb(251 191 36 / 8%);
+}
+
+.admin-row-toggle {
+  color: #9a9a9a;
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .admin-row-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-row-facts > span:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-row-head {
+    align-items: stretch;
+  }
+
+  .admin-row-top {
+    flex-direction: column;
+    align-items: center;
+  }
 }

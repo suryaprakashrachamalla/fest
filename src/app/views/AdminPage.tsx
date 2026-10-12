@@ -10,7 +10,9 @@ import {
   STATUS_LABELS,
   admin,
   apiConfigured,
+  feeBreakdown,
   getStoredUser,
+  registrationTitle,
   rupees,
   signOut,
 } from "../api"
@@ -170,6 +172,21 @@ function AdminRegistration({
   const pendingProof = registration.paymentProofs.find((p) => p.status === "PENDING")
   const ticketed = registration.status === "APPROVED" || registration.status === "TICKET_ISSUED"
   const membersIn = registration.participants.filter((p) => p.checkedInAt).length
+  // Fee model from the event; the total shown is the amount the server stored at registration.
+  const fee = feeBreakdown(registration.event, registration.teamSize)
+  const latestProof = registration.paymentProofs[0]
+  const payment = !latestProof
+    ? { tone: "pending", label: "— Not submitted" }
+    : latestProof.status === "VERIFIED"
+      ? { tone: "ok", label: "✓ Verified" }
+      : latestProof.status === "REJECTED"
+        ? { tone: "bad", label: "✗ Rejected" }
+        : { tone: "pending", label: "⏳ Under review" }
+  const approval = ticketed
+    ? { tone: "ok", label: registration.status === "TICKET_ISSUED" ? "✓ Approved · tickets sent" : "✓ Approved" }
+    : registration.status === "REJECTED"
+      ? { tone: "bad", label: "✗ Rejected" }
+      : { tone: "pending", label: "⏳ Pending" }
 
   async function act(label: string, action: () => Promise<unknown>) {
     setBusy(true)
@@ -199,10 +216,42 @@ function AdminRegistration({
   return (
     <article className="account-card admin-row">
       <button type="button" className="admin-row-head" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span className="receipt-pid">{registration.code}</span>
-        <strong>{registration.teamName}</strong>
-        <span className="account-muted">{registration.event.name} · {registration.teamSize} {registration.teamSize === 1 ? "member" : "members"} · {rupees(registration.amountPaise)}</span>
-        <span className={`status-pill status-pill--${registration.status.toLowerCase()}`}>{STATUS_LABELS[registration.status]}</span>
+        <span className="admin-row-top">
+          <strong className="admin-row-event">{registration.event.name}</strong>
+          <strong className="admin-row-id receipt-pid">{registration.code}</strong>
+        </span>
+        <span className="admin-row-title">
+          {registration.teamName ? `Team ${registration.teamName}` : `${registrationTitle(registration)} · individual`}
+        </span>
+        <span className="admin-row-facts">
+          <span>
+            <small>Participants</small>
+            <strong>{registration.teamSize}</strong>
+          </span>
+          <span>
+            <small>{fee.perParticipant ? "Fee per participant" : "Flat fee"}</small>
+            <strong>{rupees(fee.unit)}</strong>
+          </span>
+          <span>
+            <small>Total</small>
+            <strong>{rupees(registration.amountPaise)}</strong>
+          </span>
+          <span className={`admin-fact admin-fact--${payment.tone}`}>
+            <small>Payment</small>
+            <strong>{payment.label}</strong>
+          </span>
+          <span className={`admin-fact admin-fact--${approval.tone}`}>
+            <small>Approval</small>
+            <strong>{approval.label}</strong>
+          </span>
+        </span>
+        {fee.total !== registration.amountPaise && (
+          <span className="admin-row-note">
+            Charged {rupees(registration.amountPaise)} at registration; the current fee for {registration.teamSize} would be{" "}
+            {rupees(fee.total)}.
+          </span>
+        )}
+        <span className="admin-row-toggle" aria-hidden="true">{open ? "Hide details ▲" : "Show details ▼"}</span>
       </button>
 
       {open && (
@@ -305,7 +354,7 @@ function AdminRegistration({
                   async () => {
                     await admin.approve(registration.id)
                     onNotice(
-                      `${registration.teamName} (${registration.code}) approved. Entry QR emails are going to ${registration.participants
+                      `${registrationTitle(registration)} (${registration.code}) approved. Entry QR emails are going to ${registration.participants
                         .map((p) => p.name)
                         .join(", ")}. Find the team under "Ticket issued" once they're sent.`,
                     )
@@ -313,7 +362,7 @@ function AdminRegistration({
                     window.setTimeout(onChanged, 8000)
                   },
                 )}>
-                Approve payment
+                {busy ? "Approving…" : "Approve payment"}
               </button>
             )}
             {pendingProof && (

@@ -4,6 +4,8 @@ import Footer from "../components/Footer"
 import Header from "../components/Header"
 import GallerySection from "../components/GallerySection"
 import ScriptReveal from "../components/ScriptReveal"
+import ContactIcon from "../components/ContactIcon"
+import { socialLinks } from "../contacts"
 import { categories, events } from "../events"
 import { publicUrl } from "../publicUrl"
 
@@ -133,6 +135,20 @@ export default function HomePage() {
               </span>
             ))}
           </div>
+
+          <nav className="hero-social" aria-label="Official social media">
+            {socialLinks.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
+                aria-label={`${link.label}: ${link.handle}`}
+              >
+                <ContactIcon icon={link.icon} />
+                <span>{link.icon === "instagram" ? link.handle : link.label}</span>
+              </a>
+            ))}
+          </nav>
 
           <div
             className="hero-type hero-type--registration festival-lockup"

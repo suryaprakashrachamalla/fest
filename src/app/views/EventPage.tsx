@@ -54,6 +54,12 @@ export default function EventPage() {
                 <strong>{event.heroPrize ?? event.prize}</strong>
               </div>
             )}
+            {event.heroFee && event.fee && (
+              <div className="event-hero-prize">
+                <span>{event.feeLabel ?? "Fee"}</span>
+                <strong>{event.fee}</strong>
+              </div>
+            )}
           </div>
           <span className="event-hero-number">{event.number}</span>
         </section>

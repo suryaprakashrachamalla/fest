@@ -18,6 +18,8 @@ export type FestivalEvent = {
   fee?: string
   // Label for the fee row, e.g. "Entry fee"; defaults to "Fee".
   feeLabel?: string
+  // Also show the fee in the event page hero (for events without a prize pool).
+  heroFee?: boolean
   // Shown as a Food row in the event facts.
   food?: string
   // Total prize pool, shown in the hero and the facts list.
@@ -76,7 +78,7 @@ export const events: FestivalEvent[] = [
       "An intense product sprint where teams turn bold ideas into working prototypes. Problem statements will be provided on the spot, with mentor checkpoints along the way and a final jury pitch.",
     format: "Build + pitch",
     team: "2–3 members",
-    duration: "27 hours",
+    duration: "24 hours",
     date: "16 & 17 · Day 1 & 2",
     time: "10 AM – 1 PM next day",
     venue: "CSE Labs 2, 3, 4, 5",
@@ -116,7 +118,7 @@ export const events: FestivalEvent[] = [
     date: "16 · Day 1",
     time: "10 AM – 4 PM",
     venue: "CS-11, 12 (2 classrooms)",
-    fee: "₹300 / team",
+    fee: "₹300 / head",
     prize: "₹15,000",
     accent: "#ff5c35",
     image: codeImage,
@@ -199,15 +201,17 @@ export const events: FestivalEvent[] = [
     name: "DANDIYA NIGHT",
     category: "Cultural",
     number: "06",
-    tagline: "Grab your sticks. The campus becomes one big garba circle.",
+    tagline: "Shouryanga Parvam · Grab your sticks. The campus becomes one big garba circle.",
     description:
-      "An open evening of dandiya and garba under the festival lights. Come dressed in colour, join the circle, and dance with your friends till the last beat. Open only to MVSR College students, with registration done on campus at college.",
+      "Shouryanga Parvam brings an open evening of dandiya and garba under the festival lights. Come dressed in colour, join the circle, and dance with your friends till the last beat. Open only to MVSR College students, with registration done on campus at college.",
     format: "Open dance night",
     team: "MVSR College students only",
     teamLabel: "Open to",
     duration: "3 hours",
     date: "17 · Day 2",
-    time: "6 PM – 9 PM",
+    time: "3:30 PM onwards",
+    fee: "₹299",
+    heroFee: true,
     accent: "#ff9f1c",
     image: dandiyaImage,
     hideCriteria: true,

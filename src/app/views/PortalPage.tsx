@@ -11,18 +11,28 @@ function PortalForm() {
   const [email, setEmail] = useState((state as { email?: string } | null)?.email ?? "")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  // Per-field problems, shown under each input.
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "email" | "password", string>>>({})
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState(false)
   const justSignedUp = !isSignup && (state as { created?: boolean } | null)?.created === true
   const user = getStoredUser()
 
+  // Editing a field clears its message; the rest stay until the next submit.
+  function clearFieldError(field: keyof typeof fieldErrors) {
+    if (fieldErrors[field]) setFieldErrors((current) => ({ ...current, [field]: undefined }))
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError("")
-    if (isSignup && name.trim().length < 2) return setError("Enter your full name.")
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError("Enter a valid email address.")
-    if (isSignup && password.length < 10) return setError("Use a password with at least 10 characters.")
-    if (!password) return setError("Enter your password.")
+    const problems: typeof fieldErrors = {}
+    if (isSignup && name.trim().length < 2) problems.name = "Enter your full name."
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) problems.email = "Enter a valid email address."
+    if (!password) problems.password = "Enter your password."
+    else if (isSignup && password.length < 10) problems.password = "Use at least 10 characters."
+    setFieldErrors(problems)
+    if (Object.keys(problems).length) return
     setBusy(true)
     try {
       if (isSignup) {
@@ -83,34 +93,64 @@ function PortalForm() {
             </Link>
           </>
         ) : (
-          <form onSubmit={handleSubmit} noValidate>
+          <form className="portal-form" onSubmit={handleSubmit} noValidate aria-busy={busy}>
             {justSignedUp && <div className="success-message portal-notice">Account created. Log in with your new password.</div>}
-            {error && <div className="modal-error-banner portal-notice">{error}</div>}
-            {isSignup && (
-              <>
-                <label htmlFor="portal-name">Full name</label>
-                <input id="portal-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={100} />
-              </>
+            {error && (
+              <div className="portal-error" role="alert">
+                {error}
+              </div>
             )}
-            <label htmlFor="portal-email">Email address</label>
-            <input
-              id="portal-email"
-              type="email"
-              placeholder="you@campus.edu"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-            <label htmlFor="portal-password">{isSignup ? "Password (min 10 characters)" : "Password"}</label>
-            <input
-              id="portal-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={isSignup ? "new-password" : "current-password"}
-            />
-            <button type="submit" disabled={busy}>
-              {busy ? "Please wait…" : isSignup ? "Create account" : "Log in"} <span>↗</span>
+            {isSignup && (
+              <div className="portal-field">
+                <label htmlFor="portal-name">Full name</label>
+                <input
+                  id="portal-name"
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); clearFieldError("name") }}
+                  autoComplete="name"
+                  maxLength={100}
+                  placeholder="Your full name"
+                  aria-invalid={Boolean(fieldErrors.name)}
+                  aria-describedby={fieldErrors.name ? "portal-name-error" : undefined}
+                />
+                {fieldErrors.name && <p id="portal-name-error" className="portal-field-error">{fieldErrors.name}</p>}
+              </div>
+            )}
+            <div className="portal-field">
+              <label htmlFor="portal-email">Email address</label>
+              <input
+                id="portal-email"
+                type="email"
+                placeholder="you@campus.edu"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); clearFieldError("email") }}
+                autoComplete="email"
+                aria-invalid={Boolean(fieldErrors.email)}
+                aria-describedby={fieldErrors.email ? "portal-email-error" : undefined}
+              />
+              {fieldErrors.email && <p id="portal-email-error" className="portal-field-error">{fieldErrors.email}</p>}
+            </div>
+            <div className="portal-field">
+              <label htmlFor="portal-password">Password</label>
+              <input
+                id="portal-password"
+                type="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); clearFieldError("password") }}
+                autoComplete={isSignup ? "new-password" : "current-password"}
+                placeholder={isSignup ? "At least 10 characters" : "Your password"}
+                aria-invalid={Boolean(fieldErrors.password)}
+                aria-describedby={fieldErrors.password ? "portal-password-error" : isSignup ? "portal-password-hint" : undefined}
+              />
+              {fieldErrors.password ? (
+                <p id="portal-password-error" className="portal-field-error">{fieldErrors.password}</p>
+              ) : (
+                isSignup && <p id="portal-password-hint" className="portal-field-hint">Use at least 10 characters.</p>
+              )}
+            </div>
+            <button type="submit" className="portal-submit" disabled={busy}>
+              <span>{busy ? (isSignup ? "Creating account…" : "Logging in…") : isSignup ? "Create account" : "Log in"}</span>
+              {busy ? <span className="portal-spinner" aria-hidden="true" /> : <span aria-hidden="true">↗</span>}
             </button>
             <p className="portal-switch">
               {isSignup ? "Already have an account? " : "New here? "}

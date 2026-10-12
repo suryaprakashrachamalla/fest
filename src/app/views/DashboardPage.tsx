@@ -5,6 +5,7 @@ import {
   type Registration,
   type User,
   PARTICIPANT_STATUS_LABELS,
+  registrationTitle,
   apiConfigured,
   getStoredUser,
   myRegistrations,
@@ -149,7 +150,7 @@ function RegistrationCard({ registration, onChanged }: { registration: Registrat
       <div className="account-card-head">
         <div>
           <p className="eyebrow">{registration.event.name}</p>
-          <h2>{registration.teamName}</h2>
+          <h2>{registrationTitle(registration)}</h2>
           <p className="account-reg-id">
             Registration ID <strong className="receipt-pid">{registration.code}</strong>
           </p>

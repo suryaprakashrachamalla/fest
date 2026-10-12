@@ -403,7 +403,7 @@ export default function TicketScanner({
                 {scan.participant.rollNumber && (
                   <div className="receipt-row"><span>Roll number</span><strong>{scan.participant.rollNumber}</strong></div>
                 )}
-                <div className="receipt-row"><span>Team</span><strong>{scan.registration.teamName}</strong></div>
+                <div className="receipt-row"><span>Team</span><strong>{scan.registration.teamName ?? "Individual registration"}</strong></div>
                 <div className="receipt-row"><span>Registration</span><strong>{STATUS_LABELS[scan.registration.status]}</strong></div>
                 <div className="receipt-row">
                   <span>Check-in</span>
@@ -428,7 +428,7 @@ export default function TicketScanner({
           )}
           {team && (
             <>
-              <p className="ticket-name">{team.registration.teamName}</p>
+              <p className="ticket-name">{team.registration.teamName ?? team.members[0]?.name ?? "Individual registration"}</p>
               <p className="ticket-event">{team.event.name}</p>
               <div className="success-receipt-box account-receipt">
                 <div className="receipt-row"><span>Registration ID</span><strong>{team.registration.code}</strong></div>

@@ -99,19 +99,20 @@ export async function createRegistration(
     body: { teamName?: unknown; college?: unknown; phone?: unknown; participants?: unknown },
 ) {
     const { teamName, college, phone, participants: input } = body;
-    if (
-        typeof teamName !== "string" ||
-        teamName.trim().length < 2 ||
-        teamName.trim().length > 100 ||
-        !Array.isArray(input)
-    )
-        throw badRequest("teamName and participants are required");
+    if (!Array.isArray(input)) throw badRequest("participants are required");
     if (typeof college !== "string" || college.trim().length < 2 || college.trim().length > 150)
         throw badRequest("College name is required");
     const normalizedPhone = normalizePhone(phone);
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event || !event.isPublished)
         throw Object.assign(new Error("Event not found"), { status: 404 });
+    // Individual events (one person per registration) have no team; any team name sent is ignored.
+    const individual = event.maxTeamSize === 1;
+    if (
+        !individual &&
+        (typeof teamName !== "string" || teamName.trim().length < 2 || teamName.trim().length > 100)
+    )
+        throw badRequest("A team name between 2 and 100 characters is required");
     const participants = validateParticipants(
         input as ParticipantInput[],
         college.trim(),
@@ -129,7 +130,7 @@ export async function createRegistration(
                         code: generateRegistrationCode(),
                         userId,
                         eventId,
-                        teamName: teamName.trim(),
+                        teamName: individual ? null : (teamName as string).trim(),
                         teamSize: participants.length,
                         college: college.trim(),
                         phone: normalizedPhone,

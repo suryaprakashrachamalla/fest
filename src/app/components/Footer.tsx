@@ -1,4 +1,8 @@
 import { Link } from "react-router"
+import ContactIcon from "./ContactIcon"
+import { displayPhone, festivalContacts, socialLinks, telHref } from "../contacts"
+
+const instagram = socialLinks.find((link) => link.icon === "instagram")!
 
 const details = [
   {
@@ -61,31 +65,28 @@ export default function Footer() {
         <div className="contact-banner-inner">
           <h2 className="contact-banner-title">GET IN TOUCH</h2>
           <p className="contact-banner-subtitle">
-            Have questions or need assistance? Reach out to us via our official emails.
+            Have questions or need assistance? Call a festival coordinator or reach out via our official emails.
           </p>
+
+          <div className="contact-phones" aria-label="Festival coordinators">
+            {festivalContacts.map((contact) => (
+              <a key={contact.phone} className="contact-phone" href={telHref(contact.phone)}>
+                <span className="contact-phone-icon">
+                  <ContactIcon icon="phone" />
+                </span>
+                <span>
+                  <strong>{contact.name}</strong>
+                  <em>{displayPhone(contact.phone)}</em>
+                </span>
+              </a>
+            ))}
+          </div>
 
           <div className="contact-banner-grid">
             <div className="contact-banner-social">
-              <a
-                href="https://www.instagram.com/shourya_cse?obrf=MXQ3ZGg3YWRpN3ptZA=="
-                target="_blank"
-                rel="noreferrer"
-                className="contact-social-link"
-              >
+              <a href={instagram.href} target="_blank" rel="noreferrer" className="contact-social-link">
                 <span className="contact-social-icon-box">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="contact-instagram-icon"
-                  >
-                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-                  </svg>
+                  <ContactIcon icon="instagram" className="contact-instagram-icon" />
                 </span>
                 <span className="contact-social-name">Instagram</span>
               </a>

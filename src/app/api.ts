@@ -42,7 +42,7 @@ export interface BackendEvent {
 // A team found by its registration ID at the entrance (when a QR can't be scanned).
 export interface TeamCheckIn {
   admission: "APPROVED" | "NOT_APPROVED"
-  registration: { id: string; code: string; teamName: string; teamSize: number; college: string; status: RegistrationStatus }
+  registration: { id: string; code: string; teamName: string | null; teamSize: number; college: string; status: RegistrationStatus }
   event: { name: string; slug: string }
   members: {
     id: string
@@ -82,7 +82,7 @@ export interface TicketScan {
     checkedInAt: string | null
     checkedInBy: string | null
   }
-  registration: { id: string; code: string; teamName: string; teamSize: number; college: string; status: RegistrationStatus }
+  registration: { id: string; code: string; teamName: string | null; teamSize: number; college: string; status: RegistrationStatus }
   event: { name: string; slug: string }
   teammates: { id: string; name: string; checkedInAt: string | null }[]
 }
@@ -100,7 +100,8 @@ export interface PaymentProof {
 export interface Registration {
   id: string
   code: string
-  teamName: string
+  // Null for individual events (one person per registration).
+  teamName: string | null
   teamSize: number
   college: string
   phone: string
@@ -140,7 +141,8 @@ export interface AuditEntry {
 }
 
 export interface NewRegistration {
-  teamName: string
+  // Left out for individual events.
+  teamName?: string
   college: string
   phone: string
   participants: { name: string; email: string; rollNumber?: string }[]
@@ -378,6 +380,25 @@ export const PARTICIPANT_STATUS_LABELS: Record<RegistrationStatus, string> = {
   ...STATUS_LABELS,
   PAYMENT_REVIEW: "Waiting for approval",
   PAYMENT_VERIFIED: "Waiting for approval",
+}
+
+// Team name, or the registrant's name for individual registrations.
+export function registrationTitle(registration: { teamName: string | null; participants?: { name: string }[] }) {
+  return registration.teamName ?? registration.participants?.[0]?.name ?? "Individual registration"
+}
+
+// Fee per participant (PER_HEAD) or flat fee, with the amount that applies to `teamSize`.
+export function feeBreakdown(event: Pick<BackendEvent, "feePaise" | "feeMode">, teamSize: number) {
+  const total = event.feeMode === "PER_HEAD" ? event.feePaise * teamSize : event.feePaise
+  return {
+    perParticipant: event.feeMode === "PER_HEAD",
+    unit: event.feePaise,
+    total,
+    label:
+      event.feeMode === "PER_HEAD"
+        ? `${rupees(event.feePaise)} per participant × ${teamSize}`
+        : `Flat fee for ${teamSize === 1 ? "1 participant" : `the team of ${teamSize}`}`,
+  }
 }
 
 export function rupees(paise: number) {

@@ -5,6 +5,7 @@ import {
   type BackendEvent,
   type Registration,
   PARTICIPANT_STATUS_LABELS,
+  registrationTitle,
   createRegistration,
   feeFor,
   findEventBySlug,
@@ -153,7 +154,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
   }
 
   function validateForm() {
-    if (teamName.trim().length < 2) return "Enter your team name."
+    if (!individual && teamName.trim().length < 2) return "Enter your team name."
     if (!collegeType) return "Choose your college: MVSR or Other college."
     if (!mvsrTeam && college.trim().length < 2) return "Enter your college name."
     if (!mvsrTeam && isMvsr(college)) return "You're from MVSR: choose the MVSR option above so each member can add their roll number."
@@ -184,7 +185,8 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
     let registration: Registration
     try {
       registration = await createRegistration(backendEvent.id, {
-        teamName: teamName.trim(),
+        // Individual events (workshops, shows) register one person without a team name.
+        ...(individual ? {} : { teamName: teamName.trim() }),
         college: collegeName,
         phone: phone.trim(),
         participants: students.slice(0, teamSize).map((s) => ({
@@ -214,6 +216,8 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
   }
 
   const fee = backendEvent ? feeFor(backendEvent, teamSize) : 0
+  // One person per registration: no team name or team size to choose.
+  const individual = backendEvent?.maxTeamSize === 1
   const sizes = backendEvent
     ? Array.from({ length: backendEvent.maxTeamSize - backendEvent.minTeamSize + 1 }, (_, i) => backendEvent.minTeamSize + i)
     : []
@@ -308,8 +312,8 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                   <strong className="receipt-pid">{existing.code}</strong>
                 </div>
                 <div className="receipt-row">
-                  <span>Team</span>
-                  <strong>{existing.teamName}</strong>
+                  <span>{existing.teamName ? "Team" : "Participant"}</span>
+                  <strong>{registrationTitle(existing)}</strong>
                 </div>
                 <div className="receipt-row">
                   <span>Status</span>
@@ -332,12 +336,14 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                 </p>
               )}
 
-              <p className="form-section-title">Team details</p>
+              <p className="form-section-title">{individual ? "Registration details" : "Team details"}</p>
               <div className="form-grid-2">
-                <div className="form-field">
-                  <label htmlFor="team-name">Team name *</label>
-                  <input id="team-name" value={teamName} onChange={(e) => setTeamName(e.target.value)} maxLength={100} />
-                </div>
+                {!individual && (
+                  <div className="form-field">
+                    <label htmlFor="team-name">Team name *</label>
+                    <input id="team-name" value={teamName} onChange={(e) => setTeamName(e.target.value)} maxLength={100} />
+                  </div>
+                )}
                 <div className="form-field">
                   <label htmlFor="event-name">Event</label>
                   <input id="event-name" value={backendEvent.name} readOnly />
@@ -497,8 +503,8 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                   <strong className="receipt-pid">{result.registration.code}</strong>
                 </div>
                 <div className="receipt-row">
-                  <span>Team</span>
-                  <strong>{result.registration.teamName}</strong>
+                  <span>{result.registration.teamName ? "Team" : "Participant"}</span>
+                  <strong>{registrationTitle(result.registration)}</strong>
                 </div>
                 <div className="receipt-row">
                   <span>Status</span>

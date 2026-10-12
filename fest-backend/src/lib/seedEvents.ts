@@ -7,7 +7,7 @@ const events = [
     {
         name: "Hackathon",
         slug: "hackathon",
-        description: "27-hour team hackathon. Domains: Cybersecurity, Defence, AI / ML, Autonomous Systems & Robotics.",
+        description: "24-hour team hackathon. Domains: Cybersecurity, Defence, AI / ML, Autonomous Systems & Robotics.",
         feePaise: 39_900,
         feeMode: "PER_HEAD" as const,
         minTeamSize: 2,
@@ -18,8 +18,9 @@ const events = [
         name: "NOCODE VIBEATHON",
         slug: "no-code-vibathon",
         description: "Build and ship an idea with no-code and AI tools.",
+        // ₹300 per participant: 1 member pays ₹300, 2 members pay ₹600.
         feePaise: 30_000,
-        feeMode: "FLAT" as const,
+        feeMode: "PER_HEAD" as const,
         minTeamSize: 1,
         maxTeamSize: 2,
         isPublished: true,
