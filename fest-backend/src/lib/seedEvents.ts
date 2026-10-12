@@ -5,9 +5,9 @@ import { addOutbox } from "./outbox.ts";
 // Re-running is safe: events are matched by slug and updated in place.
 const events = [
     {
-        name: "Hackathon",
+        name: "CSE-HACKATHON",
         slug: "hackathon",
-        description: "24-hour team hackathon. Domains: Cybersecurity, Defence, AI / ML, Autonomous Systems & Robotics.",
+        description: "CSE-HACKATHON: a 24-hour team event. Domains: Cybersecurity, Defence, AI / ML, Autonomous Systems & Robotics.",
         feePaise: 39_900,
         feeMode: "PER_HEAD" as const,
         minTeamSize: 2,

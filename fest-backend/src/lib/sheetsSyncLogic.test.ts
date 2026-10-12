@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import {
     coalesceUpdates,
+    eventTabTitle,
     headersArePrefix,
     isTransientSheetsFailure,
     planSheetRows,
@@ -92,5 +93,22 @@ describe("worksheet header upgrades", () => {
         expect(headersArePrefix(["name", "participantId"], headers)).toBe(false);
         expect(headersArePrefix([], headers)).toBe(false);
         expect(headersArePrefix(headers, headers)).toBe(false);
+    });
+});
+
+describe("eventTabTitle", () => {
+    const shared = ["Events", "Registrations", "Participants", "PaymentProofs", "Users"];
+
+    test("uses the event name as the tab name", () => {
+        expect(eventTabTitle("CSE-HACKATHON", shared)).toBe("CSE-HACKATHON");
+        expect(eventTabTitle("NOCODE VIBEATHON", shared)).toBe("NOCODE VIBEATHON");
+    });
+
+    test("drops characters Sheets does not allow in tab names", () => {
+        expect(eventTabTitle("AI/ML: Build [Lab]?", shared)).toBe("AI ML Build Lab");
+    });
+
+    test("never reuses a shared tab", () => {
+        expect(eventTabTitle("registrations", shared)).toBe("registrations (event)");
     });
 });

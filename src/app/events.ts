@@ -70,7 +70,7 @@ const recreationImage =
 export const events: FestivalEvent[] = [
   {
     slug: "hackathon",
-    name: "HACKATHON",
+    name: "CSE-HACKATHON",
     category: "Technical",
     number: "01",
     tagline: "Build the impossible before the clock runs out.",
@@ -87,7 +87,7 @@ export const events: FestivalEvent[] = [
     heroPrize: "₹4L+",
     accent: "#e8ddc4",
     image: techImage,
-    criteria: { label: "Hackathon domains", title: ["Pick your domain.", "We'll bring the arena."] },
+    criteria: { label: "CSE-HACKATHON domains", title: ["Pick your domain.", "We'll bring the arena."] },
     challenges: [
       "Cybersecurity",
       "Defence",

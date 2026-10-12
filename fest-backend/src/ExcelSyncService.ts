@@ -13,7 +13,13 @@ import {
     registrationSheetRow,
     registrationSyncInclude,
 } from "./lib/registrationSync.ts";
-import { coalesceUpdates, headersArePrefix, isTransientSheetsFailure, planSheetRows } from "./lib/sheetsSyncLogic.ts";
+import {
+    coalesceUpdates,
+    eventTabTitle,
+    headersArePrefix,
+    isTransientSheetsFailure,
+    planSheetRows,
+} from "./lib/sheetsSyncLogic.ts";
 
 type SheetDefinition = {
     title: string;
@@ -92,6 +98,8 @@ const definitions: SheetDefinition[] = [
             "checkedIn",
             "checkedInAt",
             "updatedAt",
+            // Added with the per-event tabs; older sheets get it appended automatically.
+            "rollNumbers",
         ],
     },
     {
@@ -138,6 +146,43 @@ const definitions: SheetDefinition[] = [
     },
 ];
 
+// Each event also gets its own tab (named after the event) listing just its registrations, one row
+// per registration. Rows come from the same REGISTRATION outbox items as the Registrations tab.
+const eventTabHeaders = [
+    "registrationId",
+    "teamName",
+    "teamSize",
+    "participantNames",
+    "emails",
+    "rollNumbers",
+    "phone",
+    "college",
+    "registrationFee",
+    "utr",
+    "paymentStatus",
+    "approvalStatus",
+    "ticketStatus",
+    "emailStatus",
+    "checkedIn",
+    "checkedInAt",
+    "registeredAt",
+    "updatedAt",
+];
+const sharedTitles = definitions.map((definition) => definition.title);
+
+function eventTab(eventName: string): SheetDefinition & { eventName: string } {
+    return {
+        title: eventTabTitle(eventName, sharedTitles),
+        entityType: "REGISTRATION",
+        idColumn: "registrationId",
+        headers: eventTabHeaders,
+        eventName,
+    };
+}
+
+// Tabs known to exist with the right header row; refreshed by every full reconciliation.
+const preparedTabs = new Set<string>();
+
 const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
 const batchSize = Math.max(1, Number(process.env.SHEETS_BATCH_SIZE ?? 100));
 const pollIntervalMs = Math.max(1000, Number(process.env.SHEETS_POLL_INTERVAL_MS ?? 5000));
@@ -183,6 +228,12 @@ function getSheetsClient() {
     return sheetsClient;
 }
 
+// Tests use an in-memory spreadsheet instead of Google's API.
+export function setSheetsClientForTests(client: sheets_v4.Sheets | null) {
+    sheetsClient = client;
+    preparedTabs.clear();
+}
+
 function columnName(columnNumber: number) {
     let current = columnNumber;
     let result = "";
@@ -216,7 +267,8 @@ function rowsMatch(expected: unknown[], actual: unknown[]) {
     return expected.every((value, index) => comparableCell(value) === comparableCell(actual[index]));
 }
 
-async function initializeWorksheets() {
+// Creates any missing tabs and writes or extends their header rows.
+async function prepareWorksheets(tabs: SheetDefinition[]) {
     const sheetsApi = getSheetsClient();
     const spreadsheet = await sheetsApi.spreadsheets.get({
         spreadsheetId,
@@ -225,7 +277,7 @@ async function initializeWorksheets() {
     const existingTitles = new Set(
         (spreadsheet.data.sheets ?? []).map((sheet) => sheet.properties?.title ?? ""),
     );
-    const missingSheets = definitions.filter((definition) => !existingTitles.has(definition.title));
+    const missingSheets = tabs.filter((definition) => !existingTitles.has(definition.title));
 
     if (missingSheets.length > 0) {
         await sheetsApi.spreadsheets.batchUpdate({
@@ -238,7 +290,7 @@ async function initializeWorksheets() {
         });
     }
 
-    const headerRanges = definitions.map(
+    const headerRanges = tabs.map(
         (definition) =>
             `${quoteSheet(definition.title)}!A1:${columnName(definition.headers.length)}1`,
     );
@@ -249,7 +301,7 @@ async function initializeWorksheets() {
     });
     const headerWrites: sheets_v4.Schema$ValueRange[] = [];
 
-    definitions.forEach((definition, index) => {
+    tabs.forEach((definition, index) => {
         const values = headerResult.data.valueRanges?.[index]?.values?.[0] ?? [];
         if (values.length === 0 || values.every((value) => value === "")) {
             headerWrites.push({
@@ -276,6 +328,7 @@ async function initializeWorksheets() {
             requestBody: { valueInputOption: "RAW", data: headerWrites },
         });
     }
+    for (const definition of tabs) preparedTabs.add(definition.title);
 }
 
 async function readRows(definitionsToRead: SheetDefinition[]) {
@@ -298,16 +351,33 @@ async function sendSheetBatch(items: CoalescedItem[]) {
     );
     if (itemsForSheet.length === 0) return;
 
-    const touchedDefinitions = definitions.filter((definition) =>
-        itemsForSheet.some((item) => item.entityType === definition.entityType),
+    // Registration changes also land in their event's own tab.
+    const eventNames = new Set(
+        itemsForSheet
+            .filter((item) => item.entityType === "REGISTRATION" && typeof item.payload.event === "string")
+            .map((item) => item.payload.event as string),
     );
+    const eventTabs = [...eventNames].map(eventTab);
+    const unpreparedTabs = eventTabs.filter((tab) => !preparedTabs.has(tab.title));
+    if (unpreparedTabs.length > 0) await prepareWorksheets(unpreparedTabs);
+
+    const touchedDefinitions: Array<SheetDefinition & { eventName?: string }> = [
+        ...definitions.filter((definition) =>
+            itemsForSheet.some((item) => item.entityType === definition.entityType),
+        ),
+        ...eventTabs,
+    ];
     const currentRows = await readRows(touchedDefinitions);
     const updates: sheets_v4.Schema$ValueRange[] = [];
     const appendRows = new Map<string, { definition: SheetDefinition; rows: unknown[][] }>();
 
     touchedDefinitions.forEach((definition, definitionIndex) => {
         const rows = currentRows[definitionIndex]?.values ?? [];
-        const sheetItems = itemsForSheet.filter((item) => item.entityType === definition.entityType);
+        const sheetItems = itemsForSheet.filter(
+            (item) =>
+                item.entityType === definition.entityType &&
+                (definition.eventName === undefined || item.payload.event === definition.eventName),
+        );
         const plan = planSheetRows(
             definition.idColumn,
             definition.headers,
@@ -537,8 +607,6 @@ export async function reconcileSpreadsheet(retryFailed = false) {
             status: 503,
         });
     }
-    await initializeWorksheets();
-
     const [users, events, registrations, participants, proofs] = await Promise.all([
         prisma.user.findMany({
             where: { role: "USER" },
@@ -563,13 +631,18 @@ export async function reconcileSpreadsheet(retryFailed = false) {
         }),
     ]);
     const expectedRows = buildDatabaseRows(users, events, registrations, participants, proofs);
-    const currentRanges = await readRows(definitions);
+    // One tab per event, even before its first registration.
+    const eventTabs = [...new Set(events.map((event) => event.name))].map(eventTab);
+    const allTabs: Array<SheetDefinition & { eventName?: string }> = [...definitions, ...eventTabs];
+    await prepareWorksheets(allTabs);
+    const currentRanges = await readRows(allTabs);
     const outboxRows: { entityType: SpreadsheetEntityType; entityId: string; payload: Prisma.InputJsonValue }[] = [];
+    const queuedKeys = new Set<string>();
     let missing = 0;
     let stale = 0;
     let duplicateRows = 0;
 
-    definitions.forEach((definition, sheetIndex) => {
+    allTabs.forEach((definition, sheetIndex) => {
         const actualRows = currentRanges[sheetIndex]?.values ?? [];
         const idIndex = definition.headers.indexOf(definition.idColumn);
         const actualById = new Map<string, unknown[]>();
@@ -582,8 +655,21 @@ export async function reconcileSpreadsheet(retryFailed = false) {
         }
         duplicateRows += duplicates.size;
 
-        const wantedRows = expectedRows.get(definition.entityType) ?? [];
+        const wantedRows = (expectedRows.get(definition.entityType) ?? []).filter(
+            (payload) => definition.eventName === undefined || payload.event === definition.eventName,
+        );
         const wantedIds = new Set<string>();
+        // A registration missing from both the Registrations tab and its event tab is queued once.
+        const queue = (id: string, payload: Record<string, unknown>) => {
+            const key = `${definition.entityType}:${id}`;
+            if (queuedKeys.has(key)) return;
+            queuedKeys.add(key);
+            outboxRows.push({
+                entityType: definition.entityType,
+                entityId: id,
+                payload: payload as Prisma.InputJsonValue,
+            });
+        };
         for (const payload of wantedRows) {
             const id = String(payload[definition.idColumn] ?? "");
             wantedIds.add(id);
@@ -592,18 +678,10 @@ export async function reconcileSpreadsheet(retryFailed = false) {
             const wantedCells = toCells(definition, payload);
             if (!existingRow) {
                 missing += 1;
-                outboxRows.push({
-                    entityType: definition.entityType,
-                    entityId: id,
-                    payload: payload as Prisma.InputJsonValue,
-                });
+                queue(id, payload);
             } else if (!rowsMatch(wantedCells, existingRow)) {
                 stale += 1;
-                outboxRows.push({
-                    entityType: definition.entityType,
-                    entityId: id,
-                    payload: payload as Prisma.InputJsonValue,
-                });
+                queue(id, payload);
             }
         }
         for (const id of actualById.keys()) {

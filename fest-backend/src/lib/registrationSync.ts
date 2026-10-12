@@ -92,6 +92,8 @@ export function registrationSheetRow(reg: RegistrationForSheet) {
         checkedIn: membersIn ? `${membersIn}/${reg.participants.length} entered` : reg.entered,
         checkedInAt: reg.enteredAt?.toISOString() ?? "",
         updatedAt: reg.updatedAt.toISOString(),
+        // MVSR members enter roll numbers; other colleges leave them blank.
+        rollNumbers: reg.participants.map((p) => p.rollNumber ?? "").filter(Boolean).join(", "),
     };
 }
 

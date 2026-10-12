@@ -105,3 +105,11 @@ export function headersArePrefix(actual: unknown[], expected: string[]) {
     while (filled.length && filled[filled.length - 1] === "") filled.pop();
     return filled.length > 0 && filled.length < expected.length && filled.every((cell, i) => cell === expected[i]);
 }
+
+// Worksheet name for an event's own tab: the event name without characters Sheets rejects, kept
+// apart from the shared tabs (an event called "Events" gets "Events (event)").
+export function eventTabTitle(eventName: string, reservedTitles: string[]) {
+    const cleaned = eventName.replace(/[[\]*?/\:]/g, " ").replace(/\s+/g, " ").trim().slice(0, 90) || "Event";
+    const reserved = reservedTitles.some((title) => title.toLowerCase() === cleaned.toLowerCase());
+    return reserved ? `${cleaned} (event)` : cleaned;
+}

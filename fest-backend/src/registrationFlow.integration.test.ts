@@ -207,7 +207,7 @@ integrationTest("the Registrations sheet row has the expected columns", async ()
         "teamName", "teamSize", "registrationFee", "paymentMethod", "utr", "paymentStatus",
         "approvalStatus", "status", "rejectionReason", "paymentVerifiedBy", "paymentVerifiedAt",
         "approvedBy", "approvedAt", "rejectedBy", "registeredAt", "lumaGuestId", "ticketStatus",
-        "emailStatus", "checkedIn", "checkedInAt", "updatedAt",
+        "emailStatus", "checkedIn", "checkedInAt", "updatedAt", "rollNumbers",
     ]);
     expect(row.registrationFee).toBe("798.00");
     expect(row.paymentStatus).toBe("NOT_SUBMITTED");

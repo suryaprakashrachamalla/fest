@@ -52,9 +52,9 @@ const faqs = [
       "No. Only one team member needs to register on behalf of the team and provide the complete details of every participating member.",
   },
   {
-    question: "Is food provided for the 24-hour Hackathon?",
+    question: "Is food provided for the 24-hour CSE-HACKATHON?",
     answer:
-      "Yes. Food will be provided to registered Hackathon participants throughout the 24-hour event, and there is no additional fee for it.",
+      "Yes. Food will be provided to registered CSE-HACKATHON participants throughout the 24-hour event, and there is no additional fee for it.",
   },
 ]
 

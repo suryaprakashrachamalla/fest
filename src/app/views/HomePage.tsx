@@ -185,7 +185,7 @@ export default function HomePage() {
             </p>
             <div style={{ display: "flex", gap: "12px", alignItems: "center", marginTop: "14px", flexWrap: "wrap" }}>
               <Link to="/events/hackathon" className="pill-button pill-button--gold" style={{ padding: "10px 22px", fontSize: "14px" }}>
-                Register for Hackathon ↗
+                Register for CSE-HACKATHON ↗
               </Link>
               <Link to="/events/no-code-vibathon" className="pill-button pill-button--outline" style={{ padding: "10px 22px", fontSize: "14px" }}>
                 NOCODE VIBEATHON ↗
