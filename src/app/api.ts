@@ -313,7 +313,26 @@ export async function paymentQrUrl() {
   }
 }
 
+// Super admin overview: per-event registrations, participants and money collected.
+export interface EventOverviewRow {
+  eventId: string
+  name: string
+  slug: string
+  registrations: number
+  participants: number
+  paidRegistrations: number
+  paidParticipants: number
+  collectedPaise: number
+  awaitingReviewPaise: number
+}
+export interface EventOverview {
+  events: EventOverviewRow[]
+  totals: Omit<EventOverviewRow, "eventId" | "name" | "slug">
+}
+
 export const admin = {
+  // Only super admins may read this; other organizers get a 403.
+  overview: () => request<EventOverview>("/admin/overview"),
   registrations: (status?: RegistrationStatus) =>
     request<Registration[]>(`/admin/registrations${status ? `?status=${status}` : ""}`),
   verifyProof: (proofId: string) => request(`/admin/payment-proofs/${proofId}/verify`, { method: "PATCH" }),

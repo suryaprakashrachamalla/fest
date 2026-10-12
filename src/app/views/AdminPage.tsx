@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router"
 import {
   ApiError,
   type AuditEntry,
+  type EventOverview,
   type PaymentQr,
   type Registration,
   type RegistrationStatus,
@@ -35,6 +36,94 @@ function formatDate(value: string | null) {
 }
 
 // Organizers upload the real UPI QR here; the active one is shown to everyone who registers.
+// Totals per event for super admins. Hidden for other organizers, whom the server refuses.
+function SuperAdminOverview() {
+  const [data, setData] = useState<EventOverview | null>(null)
+  const [hidden, setHidden] = useState(false)
+  const [error, setError] = useState("")
+
+  const load = useCallback(async () => {
+    setError("")
+    try {
+      setData(await admin.overview())
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) setHidden(true)
+      else setError(err instanceof Error ? err.message : "Couldn't load the overview")
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  if (hidden) return null
+  return (
+    <section className="account-card admin-overview">
+      <div className="admin-overview-head">
+        <h2>Overview</h2>
+        <button type="button" className="pill-button pill-button--outline account-signout" onClick={() => void load()}>
+          Refresh
+        </button>
+      </div>
+      <p className="account-muted">
+        Visible to super admins only. Paid counts teams whose payment is verified (including approved and ticketed).
+      </p>
+      {error && <div className="modal-error-banner">{error}</div>}
+      {!data && !error && <p className="account-muted">Loading…</p>}
+      {data && (
+        <>
+          <div className="admin-overview-totals">
+            <div><small>Teams registered</small><strong>{data.totals.registrations}</strong></div>
+            <div><small>Participants</small><strong>{data.totals.participants}</strong></div>
+            <div><small>Paid teams</small><strong>{data.totals.paidRegistrations}</strong></div>
+            <div><small>Collected</small><strong>{rupees(data.totals.collectedPaise)}</strong></div>
+            <div><small>Awaiting review</small><strong>{rupees(data.totals.awaitingReviewPaise)}</strong></div>
+          </div>
+          <div className="admin-overview-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Teams</th>
+                  <th>Participants</th>
+                  <th>Paid teams</th>
+                  <th>Paid participants</th>
+                  <th>Collected</th>
+                  <th>Awaiting review</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.events.map((row) => (
+                  <tr key={row.eventId}>
+                    <td>{row.name}</td>
+                    <td>{row.registrations}</td>
+                    <td>{row.participants}</td>
+                    <td>{row.paidRegistrations}</td>
+                    <td>{row.paidParticipants}</td>
+                    <td>{rupees(row.collectedPaise)}</td>
+                    <td>{rupees(row.awaitingReviewPaise)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Total</td>
+                  <td>{data.totals.registrations}</td>
+                  <td>{data.totals.participants}</td>
+                  <td>{data.totals.paidRegistrations}</td>
+                  <td>{data.totals.paidParticipants}</td>
+                  <td>{rupees(data.totals.collectedPaise)}</td>
+                  <td>{rupees(data.totals.awaitingReviewPaise)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
 function PaymentQrManager() {
   const [qrs, setQrs] = useState<PaymentQr[] | null>(null)
   const [images, setImages] = useState<Record<string, string>>({})
@@ -500,6 +589,7 @@ export default function AdminPage() {
         ) : (
           <>
             <h1 className="account-title">Organizer dashboard</h1>
+            <SuperAdminOverview />
             <TicketScanner initialCode={scannedTicket} onInitialCodeHandled={clearScannedTicket} onSessionExpired={expireSession} />
             <PaymentQrManager />
             <h2 className="account-subtitle">Registrations</h2>

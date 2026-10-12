@@ -4,7 +4,7 @@ import { prisma } from "./prisma.ts";
 // Each admin's name, email and password come from ADMIN_<KEY>_NAME/_EMAIL/_PASSWORD, e.g.
 // ADMIN_SUPER2_EMAIL or ADMIN_VOLUNTEER7_PASSWORD. Every admin has the same permissions.
 const VOLUNTEER_COUNT = 10;
-const admins = ["SUPER", "SUPER2", ...Array.from({ length: VOLUNTEER_COUNT }, (_, i) => `VOLUNTEER${i + 1}`)].map(
+const admins = ["SUPER", "SUPER2", "SUPER3", ...Array.from({ length: VOLUNTEER_COUNT }, (_, i) => `VOLUNTEER${i + 1}`)].map(
     (key) => ({
         username: `admin${key[0]}${key.slice(1).toLowerCase()}`,
         name: `ADMIN_${key}_NAME`,

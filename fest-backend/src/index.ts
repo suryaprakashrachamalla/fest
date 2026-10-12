@@ -21,6 +21,7 @@ import {
 } from "./ExcelSyncService.ts";
 import * as luma from "./LumaSyncService.ts";
 import * as tickets from "./TicketService.ts";
+import { eventOverview, requireSuperAdmin } from "./OverviewService.ts";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -434,6 +435,14 @@ app.post(
         tickets.sendTicketsSoon();
         ok(res, result, "Ticket email queued");
     },
+);
+
+// Per-event registrations, participants and money collected: super admins only.
+app.get(
+    "/admin/overview",
+    admin,
+    requireSuperAdmin,
+    async (_req: express.Request, res: express.Response) => ok(res, await eventOverview()),
 );
 
 app.get("/health", (_req, res) => ok(res, { status: "ok" }, "Service is healthy"));
