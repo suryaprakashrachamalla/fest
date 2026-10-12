@@ -35,7 +35,7 @@ export default function EventPage() {
   // Walk-in and on-campus events have no online registration.
   const hasOnlineRegistration = !isWalkIn && !event.registerAt
   // Only events that need 2+ members register as a team.
-  const isTeamEvent = /^[2-9]/.test(event.team)
+  const isTeamEvent = /^[2-9]/.test(event.team ?? "")
   const criteria = event.criteria ?? { label: "What matters", title: ["Bring the idea.", "We'll bring the arena."] }
 
   return (
@@ -175,7 +175,7 @@ export default function EventPage() {
               ...(event.prize ? [["Prize pool", event.prize]] : []),
               ...(event.prizes ?? []),
               ["Format", event.format],
-              [event.teamLabel ?? "Team", event.team],
+              ...(event.team ? [[event.teamLabel ?? "Team", event.team]] : []),
               ["Date", event.date],
               ["Time", event.time],
               ...(event.venue ? [["Venue", event.venue]] : []),

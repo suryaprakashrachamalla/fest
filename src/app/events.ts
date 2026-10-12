@@ -10,7 +10,8 @@ export type FestivalEvent = {
   tagline?: string
   description: string
   format: string
-  team: string
+  // Omitted for events with no team format; the Team row is then hidden.
+  team?: string
   duration: string
   date: string
   time: string
@@ -198,7 +199,6 @@ export const events: FestivalEvent[] = [
     description:
       "An evening of songs with your favourite people. Sing together, enjoy the vibe, share some love, and fill every pause with the most brain-rotted conversations. No stage, no pressure, just good music, great company, and memories worth yapping about.",
     format: "Live performance",
-    team: "Solo or group",
     duration: "1.5 hours",
     date: "17 · Day 2",
     time: "11:30 AM – 1 PM",
