@@ -225,7 +225,7 @@ export const events: FestivalEvent[] = [
     number: "07",
     description:
       "An afternoon of pure Telugu comedy about engineering life. Mid exams, sem results, endless one-side batting, girlfriend drama, trips that never leave the group chat, and amma's phone calls. Every joke lands in Telugu, so grab your gang and get ready to laugh till your stomach hurts.",
-    format: "Open mic",
+    format: "Standup comedy",
     team: "Individual",
     duration: "1 hr 15 min",
     date: "17 · Day 2",
