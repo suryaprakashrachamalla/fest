@@ -275,7 +275,7 @@ export default function DashboardPage() {
         ) : (
           <>
             <h1 className="account-title">Hi, {user.name.split(" ")[0]}</h1>
-            <p className="account-muted">Your registrations for MVSR Sangamam 2026.</p>
+            <p className="account-muted">Your registrations for SHOURYA 2026.</p>
             {user.role === "ADMIN" && (
               <Link to={ADMIN_PATH} className="pill-button pill-button--gold" style={{ marginTop: 14 }}>
                 Open organizer dashboard

@@ -46,6 +46,17 @@ jobs:
       - name: Add SPA fallback
         run: cp dist/index.html dist/404.html
 
+      # Real pages get their own copy so they answer 200, not 404 (link previews and search engines
+      # treat a 404 as a missing page). GitHub Pages serves /events/hackathon from events/hackathon.html.
+      - name: Add page copies for real routes
+        run: |
+          mkdir -p dist/events
+          for page in login signup dashboard; do cp dist/index.html "dist/$page.html"; done
+          for slug in $(grep -oE 'slug: "[a-z0-9-]+"' src/app/events.ts | cut -d'"' -f2); do
+            cp dist/index.html "dist/events/$slug.html"
+          done
+          ls dist dist/events
+
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
