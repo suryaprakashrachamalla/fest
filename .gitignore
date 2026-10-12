@@ -22,3 +22,6 @@ logs/
 /.opencode-skills/
 .DS_Store
 cloudflared.exe
+
+# Personal Claude Code settings (not shared)
+.claude/settings.local.json
