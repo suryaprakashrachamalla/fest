@@ -383,15 +383,16 @@ async function sendSheetBatch(items: CoalescedItem[]) {
             .map((item) => item.payload.event as string),
     );
     const eventTabs = [...eventNames].map(eventTab);
-    const unpreparedTabs = eventTabs.filter((tab) => !preparedTabs.has(tab.title));
-    if (unpreparedTabs.length > 0) await prepareWorksheets(unpreparedTabs);
-
     const touchedDefinitions: Array<SheetDefinition & { eventName?: string }> = [
         ...definitions.filter((definition) =>
             itemsForSheet.some((item) => item.entityType === definition.entityType),
         ),
         ...eventTabs,
     ];
+    // Shared tabs too: after a failed batch (e.g. a tab renamed or deleted in the spreadsheet) every
+    // tab is looked up again, followed if renamed, or recreated.
+    const unpreparedTabs = touchedDefinitions.filter((tab) => !preparedTabs.has(tab.title));
+    if (unpreparedTabs.length > 0) await prepareWorksheets(unpreparedTabs);
     const currentRows = await readRows(touchedDefinitions);
     const updates: sheets_v4.Schema$ValueRange[] = [];
     const appendRows = new Map<string, { definition: SheetDefinition; rows: unknown[][] }>();
@@ -523,11 +524,13 @@ async function finishBatch(items: OutboxItem[]) {
 
 async function failBatch(items: OutboxItem[], error: unknown) {
     const message = error instanceof Error ? error.message.slice(0, 1000) : "Unknown Sheets error";
-    const shouldRetry = transientFailure(error);
     const latestAttempt = Math.max(...items.map((item) => item.attempts + 1));
-    const nextAttemptAt = shouldRetry
-        ? new Date(Date.now() + retryDelay(latestAttempt))
-        : null;
+    // Every failure is retried: errors Google calls permanent (a missing tab, unexpected headers)
+    // are usually fixed in the spreadsheet, so those wait at least the longest retry interval.
+    const delay = transientFailure(error)
+        ? retryDelay(latestAttempt)
+        : Math.max(retryMaxMs, retryDelay(latestAttempt));
+    const nextAttemptAt = new Date(Date.now() + delay);
     await prisma.spreadsheetSyncOutbox.updateMany({
         where: { id: { in: items.map((item) => item.id) }, status: "PROCESSING" },
         data: {
@@ -721,6 +724,12 @@ export async function reconcileSpreadsheet(retryFailed = false) {
         if (retryFailed) {
             await tx.spreadsheetSyncOutbox.updateMany({
                 where: { status: "FAILED" },
+                data: { status: "PENDING", nextAttemptAt: new Date(), processedAt: null },
+            });
+        } else {
+            // Failures from before every failure got a retry time would otherwise never run again.
+            await tx.spreadsheetSyncOutbox.updateMany({
+                where: { status: "FAILED", nextAttemptAt: null },
                 data: { status: "PENDING", nextAttemptAt: new Date(), processedAt: null },
             });
         }

@@ -10,6 +10,9 @@ const integrationTest = process.env.RUN_DB_INTEGRATION_TESTS === "true" ? test :
 process.env.GOOGLE_SPREADSHEET_ID ??= "in-memory-test-sheet";
 process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ??= "sheets-test@example.com";
 process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ??= "not-a-real-key";
+// Short retry waits so a failed batch can be retried within the test.
+process.env.SHEETS_RETRY_BASE_MS = "500";
+process.env.SHEETS_RETRY_MAX_MS = "600";
 const sync = await import("./ExcelSyncService.ts");
 
 const runId = crypto.randomUUID().slice(0, 8);
@@ -166,4 +169,42 @@ integrationTest("a full check after the event tabs exist finds nothing to fix", 
     await drainOutbox();
     const result = await sync.reconcileSpreadsheet();
     expect(result.queued).toBe(0);
+});
+
+integrationTest("a shared tab deleted from the spreadsheet is recreated and the failed update still arrives", async () => {
+    const reg = await prisma.registration.findFirstOrThrow({ where: { eventId: ids.soloEvent } });
+    tabs.delete("Registrations");
+    await prisma.$transaction(async (tx) => {
+        await tx.registration.update({ where: { id: reg.id }, data: { status: "APPROVED", approvedAt: new Date() } });
+        await queueRegistrationSync(tx, reg.id);
+    });
+
+    // The first attempt fails on the missing tab ("Unable to parse range") but is kept for a retry.
+    expect(await sync.processOutboxBatch()).toBe(0);
+    const failed = await prisma.spreadsheetSyncOutbox.findFirstOrThrow({ where: { entityId: reg.code, status: "FAILED" } });
+    expect(failed.lastError).toMatch(/Unable to parse range/);
+    expect(failed.nextAttemptAt).not.toBeNull();
+
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    await drainOutbox();
+    expect(rowsOf("Registrations")[0][0]).toBe("registrationId");
+    const row = rowsOf("Registrations").find((r) => r[0] === reg.code);
+    expect(row?.[13]).toBe("APPROVED");
+    expect(rowsOf(names.solo)[1][11]).toBe("APPROVED");
+});
+
+integrationTest("an update stuck without a retry time (from older versions) is picked up by the next full check", async () => {
+    const reg = await prisma.registration.findFirstOrThrow({ where: { eventId: ids.lateEvent } });
+    await prisma.$transaction(async (tx) => {
+        await tx.registration.update({ where: { id: reg.id }, data: { status: "REJECTED" } });
+        await queueRegistrationSync(tx, reg.id);
+    });
+    await prisma.spreadsheetSyncOutbox.updateMany({
+        where: { entityId: reg.code, status: "PENDING" },
+        data: { status: "FAILED", nextAttemptAt: null, attempts: 1, lastError: "Unable to parse range: 'Registrations'!A1:AC" },
+    });
+
+    await sync.reconcileSpreadsheet();
+    await drainOutbox();
+    expect(rowsOf(names.late)[1][11]).toBe("REJECTED");
 });
