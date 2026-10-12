@@ -31,6 +31,14 @@ const FILTERS: { label: string; status?: RegistrationStatus }[] = [
   { label: "All" },
 ]
 
+
+// 2 -> "2nd", 3 -> "3rd", 11 -> "11th"
+function ordinal(n: number) {
+  const tens = n % 100
+  const suffix = tens >= 11 && tens <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"
+  return `${n}${suffix}`
+}
+
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : ""
 }
@@ -264,13 +272,16 @@ function AdminRegistration({
   // Fee model from the event; the total shown is the amount the server stored at registration.
   const fee = feeBreakdown(registration.event, registration.teamSize)
   const latestProof = registration.paymentProofs[0]
+  // Proofs come newest first, so the latest is attempt N; a pending one after a rejection is a re-check.
+  const attempts = registration.paymentProofs.length
+  const reverify = latestProof?.status === "PENDING" && attempts > 1
   const payment = !latestProof
     ? { tone: "pending", label: "— Not submitted" }
     : latestProof.status === "VERIFIED"
       ? { tone: "ok", label: "✓ Verified" }
       : latestProof.status === "REJECTED"
         ? { tone: "bad", label: "✗ Rejected" }
-        : { tone: "pending", label: "⏳ Under review" }
+        : { tone: "pending", label: reverify ? `⏳ ${ordinal(attempts)} verification` : "⏳ Under review" }
   const approval = ticketed
     ? { tone: "ok", label: registration.status === "TICKET_ISSUED" ? "✓ Approved · tickets sent" : "✓ Approved" }
     : registration.status === "REJECTED"
@@ -308,6 +319,7 @@ function AdminRegistration({
         <span className="admin-row-top">
           <strong className="admin-row-event">{registration.event.name}</strong>
           <strong className="admin-row-id receipt-pid">{registration.code}</strong>
+          {reverify && <span className="admin-reverify-badge">🔁 {ordinal(attempts)} verification · resubmitted</span>}
         </span>
         <span className="admin-row-title">
           {registration.teamName ? `Team ${registration.teamName}` : `${registrationTitle(registration)} · individual`}
@@ -397,9 +409,15 @@ function AdminRegistration({
 
           <p className="form-section-title">Payment proofs</p>
           {registration.paymentProofs.length === 0 && <p className="account-muted">No payment submitted yet.</p>}
-          {registration.paymentProofs.map((proof) => (
-            <div key={proof.id} className="admin-proof">
+          {registration.paymentProofs.map((proof, index) => (
+            <div key={proof.id} className={`admin-proof ${index === 0 && reverify ? "admin-proof--reverify" : ""}`}>
               <div>
+                {attempts > 1 && (
+                  <span className="admin-proof-attempt">
+                    Attempt {attempts - index}
+                    {index === 0 && reverify ? " · resubmitted after rejection" : ""}
+                  </span>
+                )}
                 <strong>{proof.paymentMethod} · UTR {proof.utr}</strong>
                 <span className="account-muted">
                   {proof.status} · submitted {formatDate(proof.submittedAt)}

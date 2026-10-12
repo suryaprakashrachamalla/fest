@@ -110,6 +110,14 @@ export async function submitProof(
             new Error("Upload a valid PNG or JPEG image no larger than 5 MB"),
             { status: 400 },
         );
+    // A rejected UTR may come back only on the registration it was rejected for (e.g. with a
+    // clearer screenshot); live UTRs are kept unique by the database.
+    const rejectedElsewhere = await prisma.paymentProof.findFirst({
+        where: { utr: utrValue.trim(), status: "REJECTED", registrationId: { not: registrationId } },
+        select: { id: true },
+    });
+    if (rejectedElsewhere)
+        throw Object.assign(new Error("This UTR has already been submitted"), { status: 409 });
     try {
         return await prisma.$transaction(async (tx) => {
             const proof = await tx.paymentProof.create({

@@ -172,7 +172,9 @@ model Participant {
 model PaymentProof {
   id                 String             @id @default(uuid())
   registrationId     String
-  utr                String             @unique
+  // Unique among proofs that aren't rejected (partial index "PaymentProof_utr_active_key" in the
+  // migrations), so a participant can resubmit the same UTR with a clearer screenshot after a rejection.
+  utr                String
   paymentMethod      String             @default("UPI")
   screenshotBytes    Bytes
   screenshotMimeType String

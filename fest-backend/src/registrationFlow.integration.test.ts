@@ -156,6 +156,15 @@ integrationTest("payment rejection allows a resubmission, then verification and 
     await payments.reviewProof(await pendingProofId(reg.id), ids.admin, "reject", "Amount does not match");
     expect(await status(reg.id)).toBe("PAYMENT_REJECTED");
 
+    // The rejected UTR can't be claimed by another registration...
+    const other = await registrations.createRegistration(await newUser("flow2"), ids.event, team("flow2"));
+    await expectError(payments.submitProof(other.id, other.userId, `UTR${runId}B1`, png()), 409, /UTR has already been submitted/);
+    // ...but its own team may resubmit it, e.g. with a clearer screenshot, for a second review.
+    await payments.submitProof(reg.id, userId, `UTR${runId}B1`, png());
+    expect(await status(reg.id)).toBe("PAYMENT_REVIEW");
+    await expectError(payments.submitProof(other.id, other.userId, `UTR${runId}B1`, png()), 409, /UTR has already been submitted/);
+    await payments.reviewProof(await pendingProofId(reg.id), ids.admin, "reject", "Screenshot still unreadable");
+
     await payments.submitProof(reg.id, userId, `UTR${runId}B2`, png());
     expect(await status(reg.id)).toBe("PAYMENT_REVIEW");
     const verified = await payments.reviewProof(await pendingProofId(reg.id), ids.admin, "verify");
@@ -172,6 +181,8 @@ integrationTest("payment rejection allows a resubmission, then verification and 
     const actions = (await registrations.getAuditHistory(reg.id)).map((a) => a.action);
     expect(actions).toEqual([
         "REGISTERED",
+        "PAYMENT_SUBMITTED",
+        "PAYMENT_REJECTED",
         "PAYMENT_SUBMITTED",
         "PAYMENT_REJECTED",
         "PAYMENT_SUBMITTED",

@@ -167,8 +167,11 @@ function RegistrationCard({ registration, onChanged }: { registration: Registrat
           ))}
         </ol>
       )}
+      {registration.status === "PAYMENT_REVIEW" && registration.paymentProofs.length > 1 && (
+        <p className="account-muted">Your new payment proof was sent to the organisers for a second check.</p>
+      )}
       {registration.status === "PAYMENT_REJECTED" && latestProof?.rejectionReason && (
-        <div className="modal-error-banner">Payment rejected: {latestProof.rejectionReason}. Please submit a new payment proof.</div>
+        <div className="modal-error-banner">Payment rejected: {latestProof.rejectionReason}. Upload your UTR and payment screenshot again below and we&apos;ll check it again.</div>
       )}
       {rejected && (
         <div className="modal-error-banner">
