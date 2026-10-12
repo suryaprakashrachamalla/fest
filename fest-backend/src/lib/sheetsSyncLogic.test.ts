@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     coalesceUpdates,
     eventTabTitle,
+    findRemovableRows,
     findRenamedTab,
     headersArePrefix,
     isTransientSheetsFailure,
@@ -137,3 +138,28 @@ describe("findRenamedTab", () => {
     });
 });
 
+
+describe("findRemovableRows", () => {
+    const header = ["id", "name", "status"];
+
+    test("removes exact copies of a row, keeping the first", () => {
+        const rows = [header, ["A", "Ana", "OK"], ["B", "Bo", "OK"], ["A", "Ana", "OK"], ["A", "Ana", "OK"]];
+        expect(findRemovableRows(rows, 0, 3)).toEqual([5, 4]);
+    });
+
+    test("keeps rows with the same ID but different content", () => {
+        const rows = [header, ["A", "Ana", "OK"], ["A", "Ana", "CHANGED"]];
+        expect(findRemovableRows(rows, 0, 3)).toEqual([]);
+    });
+
+    test("removes a row written shifted to the right when the ID already has a proper row", () => {
+        const rows = [header, ["A", "Ana", "OK"], ["", "", "", "A", "Ana", "OK"], ["", "", "", "Z", "Zed", "OK"]];
+        // Z has no proper row yet, so its shifted copy stays until the sync writes Z at column A.
+        expect(findRemovableRows(rows, 0, 3)).toEqual([3]);
+    });
+
+    test("leaves blank rows and organizers' notes alone", () => {
+        const rows = [header, ["A", "Ana", "OK"], [], ["", "", ""], ["", "remember to call A"], ["Note", "for the desk"], ["", "A"]];
+        expect(findRemovableRows(rows, 0, 3)).toEqual([]);
+    });
+});

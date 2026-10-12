@@ -16,6 +16,7 @@ import {
 import {
     coalesceUpdates,
     eventTabTitle,
+    findRemovableRows,
     findRenamedTab,
     headersArePrefix,
     isTransientSheetsFailure,
@@ -356,18 +357,67 @@ async function prepareWorksheets(tabs: SheetDefinition[]) {
     for (const definition of tabs) preparedTabs.add(definition.title);
 }
 
+// Whole tabs, every column: rows written out of place must be seen to be cleaned up, and new rows
+// go below the last row that has anything in it.
 async function readRows(definitionsToRead: SheetDefinition[]) {
     const sheetsApi = getSheetsClient();
-    const ranges = definitionsToRead.map(
-        (definition) =>
-            `${quoteSheet(sheetTitle(definition))}!A1:${columnName(definition.headers.length)}`,
-    );
     const response = await sheetsApi.spreadsheets.values.batchGet({
         spreadsheetId,
-        ranges,
+        ranges: definitionsToRead.map((definition) => quoteSheet(sheetTitle(definition))),
         valueRenderOption: "UNFORMATTED_VALUE",
     });
     return response.data.valueRanges ?? [];
+}
+
+// Tab title -> its numeric sheet ID and current number of grid rows.
+async function tabLayout() {
+    const spreadsheet = await getSheetsClient().spreadsheets.get({
+        spreadsheetId,
+        fields: "sheets(properties(sheetId,title,gridProperties(rowCount)))",
+    });
+    return new Map(
+        (spreadsheet.data.sheets ?? []).map((sheet) => [
+            sheet.properties?.title ?? "",
+            { sheetId: sheet.properties?.sheetId ?? 0, rowCount: sheet.properties?.gridProperties?.rowCount ?? 0 },
+        ]),
+    );
+}
+
+// Removes duplicate and misplaced rows the sync wrote earlier (see findRemovableRows). Returns
+// how many rows were removed; the caller re-reads the tabs when that is not zero.
+async function removeStrayRows(tabs: SheetDefinition[], valueRanges: sheets_v4.Schema$ValueRange[]) {
+    const layout = await tabLayout();
+    const requests: sheets_v4.Schema$Request[] = [];
+    tabs.forEach((definition, index) => {
+        const rows = valueRanges[index]?.values ?? [];
+        const sheetId = layout.get(sheetTitle(definition))?.sheetId;
+        if (sheetId === undefined) return;
+        const idIndex = definition.headers.indexOf(definition.idColumn);
+        for (const rowNumber of findRemovableRows(rows, idIndex, definition.headers.length)) {
+            requests.push({
+                deleteDimension: {
+                    range: { sheetId, dimension: "ROWS", startIndex: rowNumber - 1, endIndex: rowNumber },
+                },
+            });
+        }
+    });
+    if (requests.length > 0) {
+        await getSheetsClient().spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
+        console.log(`Google Sheets: removed ${requests.length} duplicate or misplaced row(s)`);
+    }
+    return requests.length;
+}
+
+// One writer at a time across every running backend (two run side by side during a deploy), so
+// rows are never placed or removed from a stale view of the sheet.
+async function withSheetWriteLock<T>(work: () => Promise<T>) {
+    return prisma.$transaction(
+        async (tx) => {
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('google-sheets-writer', 0))`;
+            return work();
+        },
+        { maxWait: 120_000, timeout: 600_000 },
+    );
 }
 
 async function sendSheetBatch(items: CoalescedItem[]) {
@@ -393,9 +443,10 @@ async function sendSheetBatch(items: CoalescedItem[]) {
     // tab is looked up again, followed if renamed, or recreated.
     const unpreparedTabs = touchedDefinitions.filter((tab) => !preparedTabs.has(tab.title));
     if (unpreparedTabs.length > 0) await prepareWorksheets(unpreparedTabs);
-    const currentRows = await readRows(touchedDefinitions);
+    let currentRows = await readRows(touchedDefinitions);
+    if (await removeStrayRows(touchedDefinitions, currentRows)) currentRows = await readRows(touchedDefinitions);
     const updates: sheets_v4.Schema$ValueRange[] = [];
-    const appendRows = new Map<string, { definition: SheetDefinition; rows: unknown[][] }>();
+    const appendRows = new Map<string, { definition: SheetDefinition; rows: unknown[][]; firstRow: number }>();
 
     touchedDefinitions.forEach((definition, definitionIndex) => {
         const rows = currentRows[definitionIndex]?.values ?? [];
@@ -417,25 +468,37 @@ async function sendSheetBatch(items: CoalescedItem[]) {
                 values: [values],
             })),
         );
+        // New rows go right below the last used row, starting at column A. (Sheets' own "append"
+        // guesses where the table ends and has placed rows several columns to the right.)
         if (plan.appendRows.length > 0)
-            appendRows.set(definition.title, { definition, rows: plan.appendRows });
+            appendRows.set(definition.title, { definition, rows: plan.appendRows, firstRow: Math.max(rows.length, 1) + 1 });
     });
 
     const sheetsApi = getSheetsClient();
+    if (appendRows.size > 0) {
+        const layout = await tabLayout();
+        const growRequests: sheets_v4.Schema$Request[] = [];
+        for (const { definition, rows, firstRow } of appendRows.values()) {
+            const lastRow = firstRow + rows.length - 1;
+            const tab = layout.get(sheetTitle(definition));
+            if (tab && tab.rowCount < lastRow) {
+                growRequests.push({
+                    appendDimension: { sheetId: tab.sheetId, dimension: "ROWS", length: lastRow - tab.rowCount },
+                });
+            }
+            updates.push({
+                range: `${quoteSheet(sheetTitle(definition))}!A${firstRow}:${columnName(definition.headers.length)}${lastRow}`,
+                values: rows,
+            });
+        }
+        if (growRequests.length > 0) {
+            await sheetsApi.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests: growRequests } });
+        }
+    }
     if (updates.length > 0) {
         await sheetsApi.spreadsheets.values.batchUpdate({
             spreadsheetId,
             requestBody: { valueInputOption: "RAW", data: updates },
-        });
-    }
-
-    for (const { definition, rows } of appendRows.values()) {
-        await sheetsApi.spreadsheets.values.append({
-            spreadsheetId,
-            range: `${quoteSheet(sheetTitle(definition))}!A:${columnName(definition.headers.length)}`,
-            valueInputOption: "RAW",
-            insertDataOption: "INSERT_ROWS",
-            requestBody: { values: rows },
         });
     }
 }
@@ -551,7 +614,7 @@ export async function processOutboxBatch() {
 
     const coalescedItems = coalesceClaimedItems(claimedItems);
     try {
-        await sendSheetBatch(coalescedItems);
+        await withSheetWriteLock(() => sendSheetBatch(coalescedItems));
         await finishBatch(claimedItems);
         lastWorkerError = null;
         return claimedItems.length;
@@ -665,8 +728,11 @@ export async function reconcileSpreadsheet(retryFailed = false) {
     // One tab per event, even before its first registration.
     const eventTabs = [...new Set(events.map((event) => event.name))].map(eventTab);
     const allTabs: Array<SheetDefinition & { eventName?: string }> = [...definitions, ...eventTabs];
-    await prepareWorksheets(allTabs);
-    const currentRanges = await readRows(allTabs);
+    const currentRanges = await withSheetWriteLock(async () => {
+        await prepareWorksheets(allTabs);
+        const ranges = await readRows(allTabs);
+        return (await removeStrayRows(allTabs, ranges)) ? readRows(allTabs) : ranges;
+    });
     const outboxRows: { entityType: SpreadsheetEntityType; entityId: string; payload: Prisma.InputJsonValue }[] = [];
     const queuedKeys = new Set<string>();
     let missing = 0;

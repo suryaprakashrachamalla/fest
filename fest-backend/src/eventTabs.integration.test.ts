@@ -19,23 +19,50 @@ const runId = crypto.randomUUID().slice(0, 8);
 const ids = { teamEvent: "", soloEvent: "", lateEvent: "", users: [] as string[] };
 const names = { team: `Tab Team ${runId}`, solo: `Tab Solo ${runId}`, late: `Tab Late ${runId}` };
 
-// Just enough of the Sheets API for the sync: tabs, header rows, ranged reads, row updates, appends.
+// Just enough of the Sheets API for the sync: tabs with IDs and a limited number of grid rows (new
+// tabs start small, like a real grid they must be extended before writing below it), header rows,
+// whole-tab and ranged reads, row writes, row deletion. Missing tabs fail like Google's API does.
 const tabs = new Map<string, unknown[][]>();
+const grids = new Map<string, { sheetId: number; rowCount: number }>();
+let nextSheetId = 100;
+function gridOf(title: string) {
+    if (!grids.has(title)) grids.set(title, { sheetId: nextSheetId++, rowCount: 6 });
+    return grids.get(title)!;
+}
+function titleOfSheet(sheetId: number) {
+    return [...tabs.keys()].find((title) => gridOf(title).sheetId === sheetId)!;
+}
 function parseRange(range: string) {
-    const match = range.match(/^'((?:[^']|'')+)'!([A-Z]+)(\d+)?(?::([A-Z]+)(\d+)?)?$/);
+    const match = range.match(/^'((?:[^']|'')+)'(?:!([A-Z]+)(\d+)?(?::([A-Z]+)(\d+)?)?)?$/);
     if (!match) throw Object.assign(new Error(`Unable to parse range: ${range}`), { code: 400 });
     const title = match[1].replace(/''/g, "'");
     if (!tabs.has(title)) throw Object.assign(new Error(`Unable to parse range: ${range}`), { code: 400 });
-    return { grid: tabs.get(title)!, startRow: match[3] ? Number(match[3]) : 1, endRow: match[5] ? Number(match[5]) : undefined };
+    return { title, grid: tabs.get(title)!, startRow: match[3] ? Number(match[3]) : 1, endRow: match[5] ? Number(match[5]) : undefined };
 }
 const fakeSheets = {
     spreadsheets: {
-        get: async () => ({ data: { sheets: [...tabs.keys()].map((title) => ({ properties: { title } })) } }),
+        get: async () => ({
+            data: {
+                sheets: [...tabs.keys()].map((title) => ({
+                    properties: { title, sheetId: gridOf(title).sheetId, gridProperties: { rowCount: gridOf(title).rowCount } },
+                })),
+            },
+        }),
         batchUpdate: async ({ requestBody }: { requestBody: sheets_v4.Schema$BatchUpdateSpreadsheetRequest }) => {
             for (const request of requestBody.requests ?? []) {
-                const title = request.addSheet?.properties?.title;
-                if (!title || tabs.has(title)) throw Object.assign(new Error("bad addSheet"), { code: 400 });
-                tabs.set(title, []);
+                if (request.addSheet) {
+                    const title = request.addSheet.properties?.title;
+                    if (!title || tabs.has(title)) throw Object.assign(new Error("bad addSheet"), { code: 400 });
+                    tabs.set(title, []);
+                    gridOf(title);
+                } else if (request.appendDimension) {
+                    gridOf(titleOfSheet(request.appendDimension.sheetId!)).rowCount += request.appendDimension.length!;
+                } else if (request.deleteDimension) {
+                    const { sheetId, startIndex, endIndex } = request.deleteDimension.range!;
+                    const title = titleOfSheet(sheetId!);
+                    tabs.get(title)!.splice(startIndex!, endIndex! - startIndex!);
+                    gridOf(title).rowCount -= endIndex! - startIndex!;
+                } else throw Object.assign(new Error("unsupported request"), { code: 400 });
             }
             return { data: {} };
         },
@@ -44,19 +71,21 @@ const fakeSheets = {
                 data: {
                     valueRanges: ranges.map((range) => {
                         const { grid, startRow, endRow } = parseRange(range);
-                        return { values: grid.slice(startRow - 1, endRow ?? grid.length).map((row) => [...row]) };
+                        const rows = grid.slice(startRow - 1, endRow ?? grid.length).map((row) => [...(row ?? [])]);
+                        // Like the real API: trailing empty rows are left out.
+                        while (rows.length && rows[rows.length - 1].every((cell) => cell === "" || cell == null)) rows.pop();
+                        return { values: rows };
                     }),
                 },
             }),
             batchUpdate: async ({ requestBody }: { requestBody: sheets_v4.Schema$BatchUpdateValuesRequest }) => {
                 for (const write of requestBody.data ?? []) {
-                    const { grid, startRow } = parseRange(write.range!);
+                    const { title, grid, startRow } = parseRange(write.range!);
+                    const lastRow = startRow + (write.values ?? []).length - 1;
+                    if (lastRow > gridOf(title).rowCount)
+                        throw Object.assign(new Error(`Range (${write.range}) exceeds grid limits`), { code: 400 });
                     (write.values ?? []).forEach((row, index) => (grid[startRow - 1 + index] = [...row]));
                 }
-                return { data: {} };
-            },
-            append: async ({ range, requestBody }: { range: string; requestBody: sheets_v4.Schema$ValueRange }) => {
-                parseRange(range).grid.push(...(requestBody.values ?? []).map((row) => [...row]));
                 return { data: {} };
             },
         },
@@ -174,6 +203,7 @@ integrationTest("a full check after the event tabs exist finds nothing to fix", 
 integrationTest("a shared tab deleted from the spreadsheet is recreated and the failed update still arrives", async () => {
     const reg = await prisma.registration.findFirstOrThrow({ where: { eventId: ids.soloEvent } });
     tabs.delete("Registrations");
+    grids.delete("Registrations");
     await prisma.$transaction(async (tx) => {
         await tx.registration.update({ where: { id: reg.id }, data: { status: "APPROVED", approvedAt: new Date() } });
         await queueRegistrationSync(tx, reg.id);
@@ -207,4 +237,37 @@ integrationTest("an update stuck without a retry time (from older versions) is p
     await sync.reconcileSpreadsheet();
     await drainOutbox();
     expect(rowsOf(names.late)[1][11]).toBe("REJECTED");
+});
+
+integrationTest("duplicate and shifted rows the sync wrote are removed; other rows are left alone", async () => {
+    const registrationsBefore = rowsOf("Registrations").length;
+    const participantsBefore = rowsOf("Participants").length;
+    const [, firstReg] = rowsOf("Registrations");
+    const [, firstMember] = rowsOf("Participants");
+    // What was found in the real sheet: an exact copy of a row, and a copy written 8 columns to the right.
+    rowsOf("Registrations").push([...firstReg]);
+    rowsOf("Participants").push([...Array(8).fill(""), ...firstMember]);
+    // An organizer's own note below the data (no ID) must stay.
+    rowsOf("Participants").push(["", "Note: call the team lead before Day 1"]);
+    gridOf("Registrations").rowCount = rowsOf("Registrations").length;
+    gridOf("Participants").rowCount = rowsOf("Participants").length;
+
+    await sync.reconcileSpreadsheet();
+    await drainOutbox();
+
+    expect(rowsOf("Registrations").length).toBe(registrationsBefore);
+    expect(codesIn("Registrations").filter((code) => code === firstReg[0]).length).toBe(1);
+    expect(rowsOf("Participants").length).toBe(participantsBefore + 1);
+    expect(rowsOf("Participants").at(-1)).toEqual(["", "Note: call the team lead before Day 1"]);
+    expect(rowsOf("Participants").some((row) => row[0] === "" && row[8] === firstMember[0])).toBe(false);
+});
+
+integrationTest("new rows are written at column A right below the last row, growing the grid when needed", async () => {
+    const before = rowsOf(names.solo).length;
+    const extra = await register(ids.soloEvent, "grow", 1);
+    gridOf(names.solo).rowCount = before; // full grid: the next row must be added first
+    await drainOutbox();
+
+    expect(rowsOf(names.solo).length).toBe(before + 1);
+    expect(rowsOf(names.solo).at(-1)?.[0]).toBe(extra.code);
 });

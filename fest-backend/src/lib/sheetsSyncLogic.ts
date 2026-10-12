@@ -143,3 +143,43 @@ export function findRenamedTab(wanted: string, existingTitles: string[], claimed
     const near = free.filter((title) => editDistance(tabKey(title), key) <= 2);
     return near.length === 1 ? near[0] : null;
 }
+
+function trimmedCells(row: unknown[]) {
+    const cells = row.map((cell) => (cell === undefined || cell === null ? "" : String(cell)));
+    while (cells.length && cells[cells.length - 1] === "") cells.pop();
+    return cells;
+}
+
+// Rows the sync wrote by mistake and can remove without losing anything, as 1-based row numbers,
+// highest first (so deleting them in order keeps the others in place):
+// - exact copies of an earlier row with the same ID (every cell equal; the first copy stays);
+// - rows written shifted to the right (ID column empty, the synced columns further along) whose ID
+//   already has a correctly placed row (and most of its columns filled, unlike a typed note).
+// Rows with the same ID but different content are left alone; so are rows without a known ID.
+export function findRemovableRows(rows: unknown[][], idIndex: number, columnCount: number) {
+    const placed = new Map<string, string>();
+    const remove: number[] = [];
+    rows.forEach((row, index) => {
+        if (index === 0) return;
+        const cells = trimmedCells(row);
+        const id = cells[idIndex] ?? "";
+        if (!id) return;
+        const content = JSON.stringify(cells);
+        if (!placed.has(id)) placed.set(id, content);
+        else if (placed.get(id) === content) remove.push(index + 1);
+    });
+    rows.forEach((row, index) => {
+        if (index === 0) return;
+        const cells = trimmedCells(row);
+        if (cells[idIndex]) return;
+        const start = cells.findIndex((cell) => cell !== "");
+        if (start <= 0) return;
+        const shifted = cells.slice(start);
+        const id = shifted[idIndex] ?? "";
+        // A real shifted copy fills most columns; a note that merely mentions an ID does not.
+        const filled = shifted.filter((cell) => cell !== "").length;
+        if (id && placed.has(id) && shifted.length <= columnCount && filled >= Math.ceil(columnCount / 2))
+            remove.push(index + 1);
+    });
+    return remove.sort((left, right) => right - left);
+}
