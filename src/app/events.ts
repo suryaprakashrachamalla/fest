@@ -169,7 +169,7 @@ export const events: FestivalEvent[] = [
     time: "10 AM – 5 PM",
     venue: "CSE Seminar Hall\nCS-201, 211, 212, 213 (4 classrooms)",
     fee: "₹150 / head",
-    prize: "₹15,000",
+    prize: "Worth ₹50,000+",
     accent: "#52e5ff",
     image: productDesignImage,
     challenges: ["Problem framing", "Product thinking", "Final concept pitch"],
