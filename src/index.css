@@ -5117,3 +5117,18 @@ html {
     align-items: center;
   }
 }
+
+/* Dandiya pass steps under the Register button: full sentences, so a smaller size than activity names. */
+.event-pass-steps {
+  margin-top: 30px;
+}
+
+.event-pass-steps .event-activities li {
+  font-size: clamp(0.98rem, 1.15vw, 1.1rem);
+  line-height: 1.45;
+}
+
+.event-pass-steps .event-activities span {
+  flex: 0 0 54px;
+  white-space: nowrap;
+}

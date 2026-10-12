@@ -131,6 +131,27 @@ export default function EventPage() {
               </button>
             </div>
             )}
+            {event.registerUrl && (
+              <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
+                <a className="pill-button pill-button--gold" href={event.registerUrl} target="_blank" rel="noopener noreferrer">
+                  Register Now <span>↗</span>
+                </a>
+              </div>
+            )}
+            {event.passSteps && (
+              <div className="event-pass-steps">
+                <p className="eyebrow event-performer-label">{event.passSteps.title}</p>
+                <ol className="event-activities">
+                  {event.passSteps.steps.map((step, index) => (
+                    <li key={step}>
+                      <span>Step {index + 1}</span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+                {event.passSteps.closing && <p className="event-performer-bio">{event.passSteps.closing}</p>}
+              </div>
+            )}
             {event.coordinators && event.coordinators.length > 0 && (
               <div className="event-coordinators">
                 <p className="eyebrow event-performer-label">Event coordinators</p>

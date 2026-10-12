@@ -53,6 +53,10 @@ export type FestivalEvent = {
   entry?: string
   // Events registered for in person on campus: no online button, shown in the facts instead.
   registerAt?: string
+  // External sign-up (e.g. a Google Form) opened by the Register button instead of the site's own form.
+  registerUrl?: string
+  // How to get an entry pass, shown as numbered steps under the Register button.
+  passSteps?: { title: string; steps: string[]; closing?: string }
   // Label for the team row, for events where "Team" doesn't fit (e.g. eligibility).
   teamLabel?: string
 }
@@ -212,7 +216,7 @@ export const events: FestivalEvent[] = [
     number: "06",
     tagline: "Shouryanga Parvam · Grab your sticks. The campus becomes one big garba circle.",
     description:
-      "Shouryanga Parvam brings an open evening of dandiya and garba under the festival lights. Come dressed in colour, join the circle, and dance with your friends till the last beat. Open only to MVSR College students, with registration done on campus at college.",
+      "Shouryanga Parvam brings an open evening of dandiya and garba under the festival lights. Come dressed in colour, join the circle, and dance with your friends till the last beat. Open only to MVSR College students: register through the Google Form, then pay at the offline desk in college to collect your pass.",
     format: "Open dance night",
     team: "MVSR College students only",
     teamLabel: "Open to",
@@ -225,7 +229,19 @@ export const events: FestivalEvent[] = [
     image: dandiyaImage,
     hideCriteria: true,
     challenges: ["Traditional wear", "Bring your dandiya sticks", "Dance till the last beat"],
-    registerAt: "On campus at MVSR",
+    registerAt: "Google Form, then pay at the college desk",
+    registerUrl:
+      "https://docs.google.com/forms/d/e/1FAIpQLSeAGZVfPqNFuv8Q3t8az5Lh0LV9-geybNjO24mSPsbScWIWwg/viewform?usp=publish-editor",
+    passSteps: {
+      title: "🎟️ Process to Get Your Dandiya Event Passes",
+      steps: [
+        "Fill out the Google Form.",
+        "Visit the offline desk in the college and complete the required payment.",
+        "Collect your pass after payment confirmation.",
+        "Bring your pass on the event day for verification and entry. The pass will be verified and stamped by the organizing team.",
+      ],
+      closing: "✨ Complete all the steps and get ready to dance",
+    },
     feeLabel: "Entry fee",
     hotspot: "Selling fast · Limited passes",
   },
