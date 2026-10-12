@@ -67,6 +67,7 @@ model User {
   approvedRegistrations   Registration[] @relation("RegistrationApprover")
   checkedInParticipants   Participant[]  @relation("ParticipantCheckIn")
   auditEntries            AuditLog[]
+  analyticsExclusions     AnalyticsExclusion[] @relation("AnalyticsExclusionCreator")
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
 }
@@ -233,4 +234,27 @@ model SpreadsheetSyncOutbox {
 
   @@index([status, nextAttemptAt, createdAt])
   @@index([entityType, entityId])
+}
+
+// Super-admin rules that keep test data out of the analytics (the overview read from Google
+// Sheets). Nothing is deleted: excluded records stay in the sheet and the database, and are shown
+// separately as test data.
+enum AnalyticsExclusionKind {
+  // One registration, by its registration ID (SG26-...).
+  REGISTRATION
+  // Every registration made by this account (the email it signs in with).
+  ACCOUNT
+}
+
+model AnalyticsExclusion {
+  id          String                 @id @default(uuid())
+  kind        AnalyticsExclusionKind
+  // Registration ID (upper case) or account email (lower case).
+  value       String
+  reason      String
+  createdById String?
+  createdBy   User?                  @relation("AnalyticsExclusionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime               @default(now())
+
+  @@unique([kind, value])
 }

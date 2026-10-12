@@ -12,6 +12,9 @@ export function errorHandler(
         message?: string;
         type?: string;
         name?: string;
+        // Set on errors whose message was written to be shown, even for a 5xx (e.g. "Couldn't read the
+        // Google Sheet right now"); other server errors never reveal their message.
+        expose?: boolean;
     };
     const status =
         value.status ??
@@ -33,9 +36,11 @@ export function errorHandler(
                     ? "CONFLICT"
                     : status === 413
                       ? "UPLOAD_TOO_LARGE"
-                      : "INTERNAL_ERROR";
+                      : status === 503
+                        ? "SERVICE_UNAVAILABLE"
+                        : "INTERNAL_ERROR";
     const message =
-        status >= 500
+        status >= 500 && value.expose !== true
             ? "An unexpected server error occurred"
             : (value.message ?? "Request failed");
     if (status >= 500) console.error("Request failed:", error);

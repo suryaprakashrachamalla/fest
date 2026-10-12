@@ -205,6 +205,7 @@ let sheetsClient: sheets_v4.Sheets | null = null;
 let lastReconciliation: {
     at: string;
     queued: number;
+    refreshed: number;
     missing: number;
     stale: number;
     duplicateRows: number;
@@ -222,7 +223,7 @@ function hasConfiguration() {
 function getSheetsClient() {
     if (!hasConfiguration()) {
         throw Object.assign(new Error("Google Sheets credentials are not configured"), {
-            status: 503,
+            status: 503, expose: true, notConfigured: true,
         });
     }
     if (sheetsClient) return sheetsClient;
@@ -698,7 +699,7 @@ function buildDatabaseRows(
 export async function reconcileSpreadsheet(retryFailed = false) {
     if (!hasConfiguration()) {
         throw Object.assign(new Error("Google Sheets credentials are not configured"), {
-            status: 503,
+            status: 503, expose: true, notConfigured: true,
         });
     }
     const [users, events, registrations, participants, proofs] = await Promise.all([
@@ -807,17 +808,28 @@ export async function reconcileSpreadsheet(retryFailed = false) {
         const newRows = outboxRows.filter(
             (item) => !activeKeys.has(`${item.entityType}:${item.entityId}`),
         );
+        // Updates still waiting to be sent get the current state, so an old snapshot (e.g. one
+        // queued before an event was renamed) is never written over newer data or into an old tab.
+        let refreshed = 0;
+        for (const item of outboxRows.filter((row) => activeKeys.has(`${row.entityType}:${row.entityId}`))) {
+            const updated = await tx.spreadsheetSyncOutbox.updateMany({
+                where: { entityType: item.entityType, entityId: item.entityId, status: { in: ["PENDING", "FAILED"] } },
+                data: { payload: item.payload },
+            });
+            refreshed += updated.count;
+        }
         const created = newRows.length
             ? await tx.spreadsheetSyncOutbox.createMany({
                   data: newRows.map((item) => ({ ...item, operation: "UPSERT" })),
               })
             : { count: 0 };
-        return created.count;
+        return { queued: created.count, refreshed };
     });
 
     lastReconciliation = {
         at: new Date().toISOString(),
-        queued: result,
+        queued: result.queued,
+        refreshed: result.refreshed,
         missing,
         stale,
         duplicateRows,
@@ -830,7 +842,7 @@ export async function reconcileSpreadsheet(retryFailed = false) {
 export async function readEventTabs(eventNames: string[]) {
     if (!hasConfiguration())
         throw Object.assign(new Error("Google Sheets isn't configured, so the overview can't be read from it"), {
-            status: 503,
+            status: 503, expose: true, notConfigured: true,
         });
     const tabs = eventNames.map(eventTab);
     const sheetsApi = getSheetsClient();

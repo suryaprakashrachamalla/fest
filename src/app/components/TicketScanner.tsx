@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react"
-import { ApiError, type TeamCheckIn, type TicketScan, STATUS_LABELS, admin } from "../api"
+import { ApiError, type MemberCheckInResult, type TeamCheckIn, type TicketScan, STATUS_LABELS, admin } from "../api"
 
 // Chrome on Android has a built-in QR reader; other browsers (iPhone Safari) fall back to jsQR.
 type QrDetector = { detect(source: CanvasImageSource): Promise<{ rawValue: string }[]> }
@@ -9,7 +9,7 @@ type QrDetectorClass = new (options: { formats: string[] }) => QrDetector
 // "ready" is a valid, unused ticket waiting for the organizer to tap Authorize entry.
 // "team" is a team found by its registration ID (typed in when a QR won't scan), with the result of
 // the last "Authorize selected" if there was one.
-type TeamResult = { participantId: string; name: string; outcome: "ADMITTED" | "ALREADY_ENTERED" }
+type TeamResult = MemberCheckInResult
 type Outcome =
   | { kind: "team"; team: TeamCheckIn; results?: TeamResult[] }
   | { kind: "ready"; scan: TicketScan; code: string }
@@ -20,6 +20,18 @@ type Outcome =
 const SAME_CODE_COOLDOWN_MS = 4000
 // Short pause after each result so the next attendee can step up.
 const PAUSE_AFTER_RESULT_MS = 1200
+
+const PAYMENT_LABELS: Record<TeamCheckIn["registration"]["paymentStatus"], string> = {
+  NOT_SUBMITTED: "Not submitted",
+  PENDING: "⏳ Being verified",
+  VERIFIED: "✓ Verified",
+  REJECTED: "✗ Rejected",
+}
+const TICKET_EMAIL_LABELS: Record<TeamCheckIn["members"][number]["ticketEmail"], string> = {
+  SENT: "sent",
+  FAILED: "failed",
+  NOT_SENT: "not sent yet",
+}
 
 function time(value: string | null) {
   return value ? new Date(value).toLocaleString("en-IN", { timeStyle: "medium", dateStyle: "medium" }) : ""
@@ -67,6 +79,10 @@ export default function TicketScanner({
   const [manual, setManual] = useState("")
   // Members ticked in a team found by registration ID.
   const [selected, setSelected] = useState<string[]>([])
+  // Authorizing more than one person asks for confirmation first.
+  const [confirming, setConfirming] = useState(false)
+  // A team authorization whose answer never arrived: sending it again (same request ID) is safe.
+  const [unanswered, setUnanswered] = useState<{ ids: string[]; requestId: string } | null>(null)
   const resultRef = useRef<HTMLDivElement>(null)
 
   // Each new result is brought into view, so volunteers on phones never have to scroll.
@@ -257,6 +273,8 @@ export default function TicketScanner({
       const team = await admin.lookupTeam(code)
       awaiting.current = true // camera scanning pauses while a team is open
       setSelected([])
+      setConfirming(false)
+      setUnanswered(null)
       setOutcome({ kind: "team", team })
     } catch (err) {
       awaiting.current = false
@@ -267,22 +285,36 @@ export default function TicketScanner({
     }
   }
 
-  async function authorizeSelected() {
-    if (outcome?.kind !== "team" || selected.length === 0 || inFlight.current) return
+  // Records the entry of the given members. Only the server's answer changes what is shown; a lost
+  // answer keeps the team open with "Try again", which resends the same request ID so nobody is
+  // admitted twice.
+  async function authorizeMembers(ids: string[], requestId = newScanId()) {
+    if (outcome?.kind !== "team" || ids.length === 0 || inFlight.current) return
     inFlight.current = true
     setBusy(true)
+    setConfirming(false)
+    setUnanswered(null)
     try {
-      const { results, team } = await admin.checkInMembers(outcome.team.registration.id, selected)
+      const { results, team } = await admin.checkInMembers(outcome.team.registration.id, ids, requestId)
       setSelected([])
       setOutcome({ kind: "team", team, results })
       navigator.vibrate?.(120)
     } catch (err) {
-      awaiting.current = false
-      teamRequestFailed(err)
+      const status = err instanceof ApiError ? err.status : -1
+      if (status === 0 || status === -1 || status >= 500) setUnanswered({ ids, requestId })
+      else {
+        awaiting.current = false
+        teamRequestFailed(err)
+      }
     } finally {
       inFlight.current = false
       setBusy(false)
     }
+  }
+
+  function authorizeSelected() {
+    if (selected.length > 1 && !confirming) setConfirming(true)
+    else void authorizeMembers(selected)
   }
 
   // Clears the last result and gets ready for the next attendee (starting the camera if it's off).
@@ -297,6 +329,8 @@ export default function TicketScanner({
   function closeTeam() {
     awaiting.current = false
     setSelected([])
+    setConfirming(false)
+    setUnanswered(null)
     setOutcome(null)
   }
 
@@ -315,6 +349,12 @@ export default function TicketScanner({
   const notEntered = team ? team.members.filter((m) => !m.checkedInAt) : []
   const admitted = outcome?.kind === "team" ? (outcome.results ?? []).filter((r) => r.outcome === "ADMITTED") : []
   const alreadyIn = outcome?.kind === "team" ? (outcome.results ?? []).filter((r) => r.outcome === "ALREADY_ENTERED") : []
+  const failedIn = outcome?.kind === "team" ? (outcome.results ?? []).filter((r) => r.outcome === "FAILED") : []
+  const names = (ids: string[]) =>
+    ids
+      .map((id) => team?.members.find((m) => m.id === id)?.name ?? "")
+      .filter(Boolean)
+      .join(", ")
   const headline = !outcome
     ? null
     : outcome.kind === "team"
@@ -322,8 +362,22 @@ export default function TicketScanner({
         ? {
             tone: "denied",
             title: "ENTRY DENIED — NOT APPROVED",
-            detail: `This registration is "${STATUS_LABELS[outcome.team.registration.status]}", so its members can't enter.`,
+            detail: `${outcome.team.eligibility.reason}, so its members can't enter.`,
           }
+        : failedIn.length
+          ? {
+              tone: "denied",
+              title: admitted.length ? "PARTLY AUTHORIZED" : "NOT AUTHORIZED",
+              detail: [
+                admitted.length
+                  ? `Checked in: ${admitted.map((r) => r.name).join(", ")} (give ${admitted.length} band${admitted.length === 1 ? "" : "s"}).`
+                  : "",
+                `Not recorded: ${failedIn.map((r) => r.name).join(", ")}. Tap Retry for them.`,
+                alreadyIn.length ? `Already entered before: ${alreadyIn.map((r) => r.name).join(", ")}.` : "",
+              ]
+                .filter(Boolean)
+                .join(" "),
+            }
         : admitted.length
           ? {
               tone: "allowed",
@@ -435,6 +489,14 @@ export default function TicketScanner({
                 <div className="receipt-row"><span>College</span><strong>{team.registration.college}</strong></div>
                 <div className="receipt-row"><span>Registration</span><strong>{STATUS_LABELS[team.registration.status]}</strong></div>
                 <div className="receipt-row">
+                  <span>Payment</span>
+                  <strong>{PAYMENT_LABELS[team.registration.paymentStatus]}</strong>
+                </div>
+                <div className="receipt-row">
+                  <span>Entry</span>
+                  <strong>{team.eligibility.allowed ? "✓ Allowed" : `✗ ${team.eligibility.reason}`}</strong>
+                </div>
+                <div className="receipt-row">
                   <span>Entered</span>
                   <strong>{team.members.length - notEntered.length} of {team.members.length}</strong>
                 </div>
@@ -450,17 +512,25 @@ export default function TicketScanner({
                           type="checkbox"
                           checked={done || ticked}
                           disabled={done || !teamApproved || busy}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setConfirming(false)
                             setSelected((current) =>
                               e.target.checked ? [...current, member.id] : current.filter((id) => id !== member.id),
                             )
-                          }
+                          }}
                         />
                         <span>
                           <strong>{member.name}</strong>
                           <em>{member.rollNumber ? `${member.rollNumber} · ` : ""}{member.email}</em>
+                          <em className="team-checkin-meta">
+                            ID …{member.id.slice(-6)} · QR email {TICKET_EMAIL_LABELS[member.ticketEmail]}
+                          </em>
                           <em className="team-checkin-status">
-                            {done ? `Entered ${time(member.checkedInAt)}${member.checkedInBy ? ` by ${member.checkedInBy}` : ""}` : "Not entered"}
+                            {done
+                              ? `✓ Entered ${time(member.checkedInAt)}${member.checkedInBy ? ` by ${member.checkedInBy}` : ""}`
+                              : failedIn.some((r) => r.participantId === member.id)
+                                ? `✗ Not recorded: ${failedIn.find((r) => r.participantId === member.id)?.message ?? "try again"}`
+                                : "Not entered"}
                           </em>
                         </span>
                       </label>
@@ -468,8 +538,44 @@ export default function TicketScanner({
                   )
                 })}
               </ul>
+              {unanswered && (
+                <div className="team-checkin-alert" role="alert">
+                  <p>
+                    Couldn&apos;t reach the server, so this screen doesn&apos;t know whether {names(unanswered.ids)}{" "}
+                    {unanswered.ids.length === 1 ? "was" : "were"} checked in. Trying again is safe: nobody is admitted twice.
+                  </p>
+                  <button type="button" className="pill-button pill-button--gold" onClick={() => void authorizeMembers(unanswered.ids, unanswered.requestId)} disabled={busy}>
+                    {busy ? "Trying…" : "Try again"}
+                  </button>
+                </div>
+              )}
+              {confirming && (
+                <div className="team-checkin-alert" role="alertdialog" aria-label="Confirm authorization">
+                  <p>
+                    Authorize entry for {selected.length} people: <strong>{names(selected)}</strong>? Give each of them a band.
+                  </p>
+                  <div className="ticket-authorize">
+                    <button type="button" className="pill-button pill-button--gold ticket-admit" onClick={() => void authorizeMembers(selected)} disabled={busy}>
+                      {busy ? "Authorizing…" : `Yes, authorize ${selected.length}`}
+                    </button>
+                    <button type="button" className="pill-button pill-button--outline" onClick={() => setConfirming(false)} disabled={busy}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="ticket-authorize">
-                {teamApproved && notEntered.length > 0 && (
+                {teamApproved && failedIn.length > 0 && !unanswered && (
+                  <button
+                    type="button"
+                    className="pill-button pill-button--gold ticket-admit"
+                    onClick={() => void authorizeMembers(failedIn.map((r) => r.participantId))}
+                    disabled={busy}
+                  >
+                    {busy ? "Retrying…" : `Retry ${failedIn.length === 1 ? failedIn[0].name : `the ${failedIn.length} not recorded`}`}
+                  </button>
+                )}
+                {teamApproved && notEntered.length > 0 && !confirming && (
                   <>
                     <button type="button" className="pill-button pill-button--gold ticket-admit" onClick={authorizeSelected} disabled={busy || selected.length === 0}>
                       {busy ? "Authorizing…" : selected.length ? `Authorize selected (${selected.length})` : "Tick members to authorize"}
@@ -477,6 +583,11 @@ export default function TicketScanner({
                     {selected.length < notEntered.length && (
                       <button type="button" className="pill-button pill-button--outline" onClick={() => setSelected(notEntered.map((m) => m.id))} disabled={busy}>
                         Select everyone not entered ({notEntered.length})
+                      </button>
+                    )}
+                    {selected.length > 0 && (
+                      <button type="button" className="pill-button pill-button--outline" onClick={() => setSelected([])} disabled={busy}>
+                        Clear selection
                       </button>
                     )}
                   </>

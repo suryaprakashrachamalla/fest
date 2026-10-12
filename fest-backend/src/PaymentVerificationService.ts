@@ -210,7 +210,8 @@ export async function getAdminProof(proofId: string) {
         where: { id: proofId },
         select: {
             ...proofSelection,
-            registration: { include: { event: true, participants: true } },
+            // Ticket codes stay out of admin lists: they are only ever needed inside the QR itself.
+            registration: { include: { event: true, participants: { omit: { ticketCode: true, checkInScanId: true } } } },
         },
     });
     if (!proof)
@@ -223,7 +224,7 @@ export async function listPending() {
         include: {
             user: { select: { id: true, name: true, email: true } },
             event: true,
-            participants: true,
+            participants: { omit: { ticketCode: true, checkInScanId: true } },
             paymentProofs: { where: { status: "PENDING" }, select: proofSelection },
         },
         orderBy: { createdAt: "asc" },

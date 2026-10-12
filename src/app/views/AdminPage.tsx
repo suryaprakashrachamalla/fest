@@ -2,8 +2,14 @@ import { FormEvent, useCallback, useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import {
   ApiError,
+  type AnalyticsExclusion,
+  type AnalyticsRecord,
+  type AnalyticsTotals,
   type AuditEntry,
   type EventOverview,
+  type EventOverviewRow,
+  type ExclusionSuggestion,
+  type RecordQuery,
   type PaymentQr,
   type Registration,
   type RegistrationStatus,
@@ -43,20 +49,374 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : ""
 }
 
-// Organizers upload the real UPI QR here; the active one is shown to everyone who registers.
-// Totals per event for super admins. Hidden for other organizers, whom the server refuses.
+const PAYMENT_OPTIONS = [
+  ["", "Any payment"],
+  ["NOT_SUBMITTED", "Not submitted"],
+  ["PENDING", "Under review"],
+  ["VERIFIED", "Verified"],
+  ["REJECTED", "Rejected"],
+]
+const APPROVAL_OPTIONS = [
+  ["", "Any approval"],
+  ["APPROVED", "Approved"],
+  ["PENDING", "Pending"],
+  ["REJECTED", "Rejected"],
+]
+
+function TotalsCards({ totals }: { totals: AnalyticsTotals }) {
+  const cards: [string, string | number][] = [
+    ["Registrations", totals.registrations],
+    ["Accepted teams", totals.approvedTeams],
+    ["Accepted participants", totals.approvedParticipants],
+    ["Accepted amount", rupees(totals.approvedAmountPaise)],
+    ["Payments verified", totals.paymentsVerified],
+    ["Payments under review", totals.paymentsUnderReview],
+    ["Participants entered", totals.participantsEntered],
+  ]
+  return (
+    <div className="admin-overview-totals">
+      {cards.map(([label, value]) => (
+        <div key={label}>
+          <small>{label}</small>
+          <strong>{value}</strong>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function qualityNotes(data: EventOverview) {
+  const notes: string[] = []
+  const q = data.dataQuality
+  if (q.rowsWithoutId) notes.push(`${q.rowsWithoutId} row(s) without a registration ID were skipped`)
+  if (q.duplicateIds.length) notes.push(`repeated rows for ${q.duplicateIds.join(", ")} were counted once`)
+  if (q.rowsWithProblems) notes.push(`${q.rowsWithProblems} row(s) have unreadable cells (counted as 0)`)
+  for (const tab of q.tabsMissingColumns) notes.push(`the "${tab.tab}" tab is missing ${tab.missingColumns.join(", ")}`)
+  return notes
+}
+
+// Super-admin rules that keep test data out of the analytics. Nothing is deleted: excluded records
+// stay in the sheet and the database and are listed under "Test data".
+function ExclusionManager({ onChanged }: { onChanged: () => void }) {
+  const [rules, setRules] = useState<AnalyticsExclusion[] | null>(null)
+  const [suggestions, setSuggestions] = useState<ExclusionSuggestion[]>([])
+  const [kind, setKind] = useState<"REGISTRATION" | "ACCOUNT">("REGISTRATION")
+  const [value, setValue] = useState("")
+  const [reason, setReason] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState("")
+  const [error, setError] = useState("")
+
+  const load = useCallback(async () => {
+    try {
+      const [list, suggested] = await Promise.all([admin.exclusions(), admin.exclusionSuggestions()])
+      setRules(list)
+      setSuggestions(suggested)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't load the test data rules")
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function exclude(k: "REGISTRATION" | "ACCOUNT", v: string, why: string) {
+    setBusy(true)
+    setError("")
+    setNote("")
+    try {
+      await admin.addExclusion(k, v.trim(), why.trim())
+      setNote(`${v.trim()} is now left out of the production numbers.`)
+      setValue("")
+      setReason("")
+      await load()
+      onChanged()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't add the rule")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(rule: AnalyticsExclusion) {
+    if (!window.confirm(`Count ${rule.value} in the production numbers again?`)) return
+    setBusy(true)
+    setError("")
+    setNote("")
+    try {
+      await admin.removeExclusion(rule.id)
+      setNote(`${rule.value} is counted again.`)
+      await load()
+      onChanged()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't remove the rule")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <details className="admin-panel">
+      <summary>Test data rules ({rules?.length ?? 0})</summary>
+      <p className="account-muted">
+        Leave a test registration, or every registration made by a test account, out of the production numbers. Nothing is deleted:
+        those records stay in the Google Sheet and are listed under Records → Test data.
+      </p>
+      <form
+        className="admin-exclusion-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!value.trim() || reason.trim().length < 3) return setError("Enter what to exclude and a reason (at least 3 characters).")
+          void exclude(kind, value, reason)
+        }}
+        noValidate
+      >
+        <div className="form-field">
+          <label htmlFor="exclusion-kind">Exclude</label>
+          <select id="exclusion-kind" value={kind} onChange={(e) => setKind(e.target.value as "REGISTRATION" | "ACCOUNT")}>
+            <option value="REGISTRATION">One registration (by ID)</option>
+            <option value="ACCOUNT">A whole account (by sign-in email)</option>
+          </select>
+        </div>
+        <div className="form-field">
+          <label htmlFor="exclusion-value">{kind === "REGISTRATION" ? "Registration ID" : "Account email"}</label>
+          <input
+            id="exclusion-value"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={kind === "REGISTRATION" ? "SG26-3H8945J2" : "tester@gmail.com"}
+            maxLength={254}
+          />
+        </div>
+        <div className="form-field">
+          <label htmlFor="exclusion-reason">Reason</label>
+          <input id="exclusion-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Test registration by the web team" maxLength={200} />
+        </div>
+        <button type="submit" className="pill-button pill-button--gold" disabled={busy}>
+          {busy ? "Saving…" : "Exclude from analytics"}
+        </button>
+      </form>
+      {note && <p className="success-sync-notice" style={{ justifyContent: "flex-start", margin: "10px 0 0" }}>✓ {note}</p>}
+      {error && <div className="modal-error-banner" style={{ marginTop: 10 }}>{error}</div>}
+
+      {rules && rules.length > 0 && (
+        <ul className="admin-rule-list">
+          {rules.map((rule) => (
+            <li key={rule.id}>
+              <span>
+                <strong>{rule.value}</strong>
+                <em>
+                  {rule.kind === "ACCOUNT" ? `Account · ${rule.registrations} registration${rule.registrations === 1 ? "" : "s"}` : "Registration"} ·{" "}
+                  {rule.reason} · by {rule.createdBy ?? "unknown"}, {formatDate(rule.createdAt)}
+                </em>
+              </span>
+              <button type="button" className="pill-button pill-button--outline account-signout" onClick={() => void remove(rule)} disabled={busy}>
+                Count again
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {suggestions.length > 0 && (
+        <>
+          <p className="form-section-title">Suggested test accounts (review before excluding)</p>
+          <ul className="admin-rule-list">
+            {suggestions.map((suggestion) => (
+              <li key={suggestion.value}>
+                <span>
+                  <strong>
+                    {suggestion.value} <small className={`admin-signal admin-signal--${suggestion.signal}`}>{suggestion.signal} signal</small>
+                  </strong>
+                  <em>
+                    {suggestion.name} · {suggestion.reasons.join("; ")} · {suggestion.registrations.join(", ")}
+                  </em>
+                </span>
+                <button
+                  type="button"
+                  className="pill-button pill-button--outline account-signout"
+                  disabled={busy}
+                  onClick={() =>
+                    window.confirm(`Leave every registration by ${suggestion.value} out of the production numbers?`) &&
+                    void exclude("ACCOUNT", suggestion.value, suggestion.reasons[0])
+                  }
+                >
+                  Exclude account
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </details>
+  )
+}
+
+// The registrations behind the numbers, with the same rules: search, filters, pages and a CSV export.
+function RecordsExplorer({ events, version }: { events: EventOverviewRow[]; version: number }) {
+  const [query, setQuery] = useState<RecordQuery>({ scope: "production", page: 1, pageSize: 25 })
+  const [search, setSearch] = useState("")
+  const [result, setResult] = useState<Awaited<ReturnType<typeof admin.analyticsRecords>> | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    let current = true
+    setLoading(true)
+    setError("")
+    admin
+      .analyticsRecords(query)
+      .then((data) => current && setResult(data))
+      .catch((err) => current && setError(err instanceof Error ? err.message : "Couldn't load the records"))
+      .finally(() => current && setLoading(false))
+    return () => {
+      current = false
+    }
+  }, [query, version])
+
+  const update = (patch: Partial<RecordQuery>) => setQuery((q) => ({ ...q, ...patch, page: patch.page ?? 1 }))
+  const pages = result ? Math.max(1, Math.ceil(result.total / result.pageSize)) : 1
+
+  return (
+    <details className="admin-panel" open>
+      <summary>Records</summary>
+      <form
+        className="admin-record-filters"
+        onSubmit={(e) => {
+          e.preventDefault()
+          update({ q: search.trim() || undefined })
+        }}
+      >
+        <input aria-label="Search records" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Registration ID, name or email" maxLength={100} />
+        <select aria-label="Event" value={query.event ?? ""} onChange={(e) => update({ event: e.target.value || undefined })}>
+          <option value="">All events</option>
+          {events.map((event) => (
+            <option key={event.eventId} value={event.eventId}>{event.name}</option>
+          ))}
+        </select>
+        <select aria-label="Payment" value={query.payment ?? ""} onChange={(e) => update({ payment: e.target.value || undefined })}>
+          {PAYMENT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <select aria-label="Approval" value={query.approval ?? ""} onChange={(e) => update({ approval: e.target.value || undefined })}>
+          {APPROVAL_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <select aria-label="Data" value={query.scope} onChange={(e) => update({ scope: e.target.value as RecordQuery["scope"] })}>
+          <option value="production">Production data</option>
+          <option value="excluded">Test data only</option>
+          <option value="all">Everything</option>
+        </select>
+        <label className="admin-date">From <input type="date" value={query.from ?? ""} onChange={(e) => update({ from: e.target.value || undefined })} /></label>
+        <label className="admin-date">To <input type="date" value={query.to ?? ""} onChange={(e) => update({ to: e.target.value || undefined })} /></label>
+        <button type="submit" className="pill-button pill-button--gold">Search</button>
+        <button
+          type="button"
+          className="pill-button pill-button--outline"
+          disabled={exporting}
+          onClick={async () => {
+            setExporting(true)
+            setError("")
+            try {
+              await admin.downloadRecordsCsv({ ...query, page: undefined, pageSize: undefined })
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Export failed")
+            } finally {
+              setExporting(false)
+            }
+          }}
+        >
+          {exporting ? "Exporting…" : "Export CSV"}
+        </button>
+      </form>
+      {error && <div className="modal-error-banner">{error}</div>}
+      {loading && !result && <p className="account-muted">Loading…</p>}
+      {result && (
+        <>
+          <p className="account-muted">
+            {result.total} record{result.total === 1 ? "" : "s"}
+            {query.scope === "excluded" ? " of test data" : query.scope === "all" ? " (production and test data)" : ""}
+            {loading ? " · updating…" : ""}
+            {result.stale ? " · ⚠ from the last successful read of the sheet" : ""}
+          </p>
+          {result.records.length === 0 ? (
+            <p className="account-muted">No records match.</p>
+          ) : (
+            <div className="admin-overview-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Registration ID</th>
+                    <th>Event</th>
+                    <th>Team / participants</th>
+                    <th>Fee</th>
+                    <th>Payment</th>
+                    <th>Approval</th>
+                    <th>Entered</th>
+                    <th>Registered</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.records.map((record: AnalyticsRecord) => (
+                    <tr key={record.registrationId} className={record.excluded ? "is-test-data" : ""}>
+                      <td>
+                        <strong>{record.registrationId}</strong>
+                        {record.excluded && <em className="admin-test-badge" title={record.exclusionReason ?? ""}>test data</em>}
+                      </td>
+                      <td>{record.event}</td>
+                      <td>
+                        {record.teamName ? `${record.teamName}: ` : ""}
+                        {record.participantNames}
+                        <em className="admin-overview-note"> · {record.emails.join(", ")}</em>
+                      </td>
+                      <td>{rupees(record.registrationFeePaise)}</td>
+                      <td>{record.paymentStatus}</td>
+                      <td>{record.approvalStatus}</td>
+                      <td>{record.membersEntered}/{record.teamSize}</td>
+                      <td>{formatDate(record.registeredAt || null)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {pages > 1 && (
+            <div className="admin-pager">
+              <button type="button" className="pill-button pill-button--outline account-signout" disabled={result.page <= 1 || loading} onClick={() => update({ page: result.page - 1 })}>
+                ← Previous
+              </button>
+              <span>Page {result.page} of {pages}</span>
+              <button type="button" className="pill-button pill-button--outline account-signout" disabled={result.page >= pages || loading} onClick={() => update({ page: result.page + 1 })}>
+                Next →
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </details>
+  )
+}
+
+// Analytics for super admins, read from each event's tab in the Google Sheet. Hidden for other
+// organizers, whom the server refuses.
 function SuperAdminOverview() {
   const [data, setData] = useState<EventOverview | null>(null)
   const [hidden, setHidden] = useState(false)
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  // Bumped when the test data rules change, so the records reload with them.
+  const [version, setVersion] = useState(0)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (refresh = false) => {
     setError("")
+    setLoading(true)
     try {
-      setData(await admin.overview())
+      setData(await admin.overview(refresh))
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) setHidden(true)
       else setError(err instanceof Error ? err.message : "Couldn't load the overview")
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -65,41 +425,54 @@ function SuperAdminOverview() {
   }, [load])
 
   if (hidden) return null
+  const excluded = data?.totals.excluded
+  const notes = data ? qualityNotes(data) : []
   return (
     <section className="account-card admin-overview">
       <div className="admin-overview-head">
-        <h2>Overview</h2>
-        <button type="button" className="pill-button pill-button--outline account-signout" onClick={() => void load()}>
-          Refresh
+        <h2>Analytics</h2>
+        <button type="button" className="pill-button pill-button--outline account-signout" onClick={() => void load(true)} disabled={loading}>
+          {loading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
       <p className="account-muted">
-        Super admins only. Read from each event&apos;s tab in the Google Sheet, counting accepted (approved) registrations only.
+        Super admins only. Read from each event&apos;s tab in the Google Sheet. These are production numbers: test data excluded by the
+        rules below is counted separately, never deleted.
         {data && ` Read ${formatDate(data.readAt)}.`}
       </p>
+      {data?.stale && <div className="modal-error-banner">⚠ {data.staleReason}</div>}
       {error && <div className="modal-error-banner">{error}</div>}
       {!data && !error && <p className="account-muted">Loading…</p>}
       {data && (
         <>
-          <div className="admin-overview-totals">
-            <div><small>Accepted teams</small><strong>{data.totals.approvedTeams}</strong></div>
-            <div><small>Accepted participants</small><strong>{data.totals.approvedParticipants}</strong></div>
-            <div><small>Accepted amount</small><strong>{rupees(data.totals.approvedAmountPaise)}</strong></div>
-          </div>
+          <TotalsCards totals={data.totals.production} />
+          {excluded && excluded.registrations > 0 ? (
+            <p className="admin-overview-excluded">
+              Test data left out: {excluded.registrations} registration{excluded.registrations === 1 ? "" : "s"}, {excluded.participants}{" "}
+              participant{excluded.participants === 1 ? "" : "s"}, {rupees(excluded.approvedAmountPaise)} accepted. Listed under Records → Test data.
+            </p>
+          ) : (
+            <p className="account-muted">No test data is excluded{data.exclusionRules ? "" : " yet (no rules)"}.</p>
+          )}
           {!data.allMatchDatabase && (
             <div className="modal-error-banner">
               Some event tabs don&apos;t match the database yet (marked ⚠). The sheet usually catches up within a minute; tap Refresh,
               or use Retry sync below if it persists.
             </div>
           )}
+          {notes.length > 0 && <div className="admin-quality-note">Sheet check: {notes.join("; ")}.</div>}
           <div className="admin-overview-table">
             <table>
               <thead>
                 <tr>
                   <th>Event (sheet tab)</th>
+                  <th>Registrations</th>
                   <th>Accepted teams</th>
                   <th>Participants</th>
                   <th>Amount</th>
+                  <th>Paid ✓</th>
+                  <th>Entered</th>
+                  <th>Test data</th>
                   <th>Matches database</th>
                 </tr>
               </thead>
@@ -110,9 +483,13 @@ function SuperAdminOverview() {
                       {row.name}
                       {!row.tabFound && <em className="admin-overview-note"> · no tab yet</em>}
                     </td>
-                    <td>{row.approvedTeams}</td>
-                    <td>{row.approvedParticipants}</td>
-                    <td>{rupees(row.approvedAmountPaise)}</td>
+                    <td>{row.production.registrations}</td>
+                    <td>{row.production.approvedTeams}</td>
+                    <td>{row.production.approvedParticipants}</td>
+                    <td>{rupees(row.production.approvedAmountPaise)}</td>
+                    <td>{row.production.paymentsVerified}</td>
+                    <td>{row.production.participantsEntered}</td>
+                    <td>{row.excluded.registrations || "—"}</td>
                     <td>{row.matchesDatabase ? "✓" : `⚠ database has ${row.databaseApprovedTeams}`}</td>
                   </tr>
                 ))}
@@ -120,9 +497,13 @@ function SuperAdminOverview() {
               <tfoot>
                 <tr>
                   <td>Total</td>
-                  <td>{data.totals.approvedTeams}</td>
-                  <td>{data.totals.approvedParticipants}</td>
-                  <td>{rupees(data.totals.approvedAmountPaise)}</td>
+                  <td>{data.totals.production.registrations}</td>
+                  <td>{data.totals.production.approvedTeams}</td>
+                  <td>{data.totals.production.approvedParticipants}</td>
+                  <td>{rupees(data.totals.production.approvedAmountPaise)}</td>
+                  <td>{data.totals.production.paymentsVerified}</td>
+                  <td>{data.totals.production.participantsEntered}</td>
+                  <td>{data.totals.excluded.registrations || "—"}</td>
                   <td>{data.allMatchDatabase ? "✓" : "⚠"}</td>
                 </tr>
               </tfoot>
@@ -130,10 +511,18 @@ function SuperAdminOverview() {
           </div>
         </>
       )}
+      <ExclusionManager
+        onChanged={() => {
+          void load()
+          setVersion((v) => v + 1)
+        }}
+      />
+      <RecordsExplorer events={data?.events ?? []} version={version} />
     </section>
   )
 }
 
+// Organizers upload the real UPI QR here; the active one is shown to everyone who registers.
 function PaymentQrManager() {
   const [qrs, setQrs] = useState<PaymentQr[] | null>(null)
   const [images, setImages] = useState<Record<string, string>>({})
@@ -534,6 +923,8 @@ export default function AdminPage() {
   const [syncNote, setSyncNote] = useState("")
   const [mail, setMail] = useState<Awaited<ReturnType<typeof admin.ticketMailStatus>> | null>(null)
   const [notice, setNotice] = useState("")
+  // Finds a registration in the current list by ID, team, member name, email or phone.
+  const [search, setSearch] = useState("")
   // An entry QR scanned with a phone camera opens /admin?ticket=<code>; it is checked after sign-in.
   const [searchParams, setSearchParams] = useSearchParams()
   const scannedTicket = searchParams.get("ticket")
@@ -541,6 +932,15 @@ export default function AdminPage() {
   const [error, setError] = useState("")
   const [sessionExpired, setSessionExpired] = useState(false)
   const isAdmin = user?.role === "ADMIN"
+  const term = search.trim().toLowerCase()
+  const visibleRows = (rows ?? []).filter(
+    (r) =>
+      !term ||
+      r.code.toLowerCase().includes(term) ||
+      (r.teamName ?? "").toLowerCase().includes(term) ||
+      r.phone.replace(/\s/g, "").includes(term.replace(/\s/g, "")) ||
+      r.participants.some((p) => p.name.toLowerCase().includes(term) || p.email.toLowerCase().includes(term)),
+  )
 
   // The server rejected the sign-in (expired or revoked): show the sign-in form once, with a reason.
   const expireSession = useCallback(() => {
@@ -667,8 +1067,18 @@ export default function AdminPage() {
             {notice && <p className="success-sync-notice" style={{ justifyContent: "flex-start" }}>✓ {notice}</p>}
             {error && <div className="modal-error-banner">{error}</div>}
             {rows === null && !error && <p className="account-muted">Loading…</p>}
+            <input
+              className="admin-search"
+              type="search"
+              aria-label="Find a registration"
+              placeholder="Find a registration: ID, team, member name, email or phone"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              maxLength={100}
+            />
             {rows?.length === 0 && <p className="account-muted">No registrations here.</p>}
-            {rows?.map((registration) => (
+            {rows && rows.length > 0 && visibleRows.length === 0 && <p className="account-muted">No registrations here match "{search.trim()}".</p>}
+            {visibleRows.map((registration) => (
               <AdminRegistration key={registration.id} registration={registration} onChanged={load} onNotice={setNotice} />
             ))}
           </>

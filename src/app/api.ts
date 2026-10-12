@@ -42,7 +42,17 @@ export interface BackendEvent {
 // A team found by its registration ID at the entrance (when a QR can't be scanned).
 export interface TeamCheckIn {
   admission: "APPROVED" | "NOT_APPROVED"
-  registration: { id: string; code: string; teamName: string | null; teamSize: number; college: string; status: RegistrationStatus }
+  // Whether members may enter, and why not (e.g. "Payment is still being verified").
+  eligibility: { allowed: boolean; reason: string }
+  registration: {
+    id: string
+    code: string
+    teamName: string | null
+    teamSize: number
+    college: string
+    status: RegistrationStatus
+    paymentStatus: "NOT_SUBMITTED" | "PENDING" | "VERIFIED" | "REJECTED"
+  }
   event: { name: string; slug: string }
   members: {
     id: string
@@ -50,9 +60,20 @@ export interface TeamCheckIn {
     email: string
     college: string
     rollNumber: string | null
+    // Entry QR email: sent, failed (organizers can resend) or not sent yet.
+    ticketEmail: "SENT" | "FAILED" | "NOT_SENT"
     checkedInAt: string | null
     checkedInBy: string | null
   }[]
+}
+
+// Result of authorizing some members: each one admitted, already in before, or failed (try again).
+export type MemberCheckInOutcome = "ADMITTED" | "ALREADY_ENTERED" | "FAILED"
+export interface MemberCheckInResult {
+  participantId: string
+  name: string
+  outcome: MemberCheckInOutcome
+  message?: string
 }
 
 export interface Participant {
@@ -313,12 +334,27 @@ export async function paymentQrUrl() {
   }
 }
 
-// Super admin overview, read from each event's tab in the Google Sheet: accepted (approved) teams only.
+// Super admin analytics, read from each event's tab in the Google Sheet. "production" leaves out the
+// test data excluded by the super admins' rules; "excluded" is that test data on its own.
+export interface AnalyticsTotals {
+  registrations: number
+  participants: number
+  approvedTeams: number
+  approvedParticipants: number
+  approvedAmountPaise: number
+  paymentsVerified: number
+  paymentsUnderReview: number
+  paymentsRejected: number
+  participantsEntered: number
+}
 export interface EventOverviewRow {
   eventId: string
   name: string
   tab: string
   tabFound: boolean
+  production: AnalyticsTotals
+  excluded: AnalyticsTotals
+  quality: { rows: number; blankRows: number; rowsWithoutId: number; duplicateIds: string[]; missingColumns: string[]; rowsWithProblems: number }
   approvedTeams: number
   approvedParticipants: number
   approvedAmountPaise: number
@@ -329,14 +365,99 @@ export interface EventOverviewRow {
 export interface EventOverview {
   source: "google-sheets"
   readAt: string
+  // True when Google didn't answer and these numbers are from the last successful read.
+  stale: boolean
+  staleReason: string | null
   events: EventOverviewRow[]
-  totals: { approvedTeams: number; approvedParticipants: number; approvedAmountPaise: number }
+  totals: { approvedTeams: number; approvedParticipants: number; approvedAmountPaise: number; production: AnalyticsTotals; excluded: AnalyticsTotals }
   allMatchDatabase: boolean
+  exclusionRules: number
+  dataQuality: {
+    rowsWithoutId: number
+    rowsWithProblems: number
+    duplicateIds: string[]
+    tabsMissingColumns: { tab: string; missingColumns: string[] }[]
+  }
+}
+export interface AnalyticsRecord {
+  registrationId: string
+  eventId: string
+  event: string
+  teamName: string
+  teamSize: number
+  participantNames: string
+  emails: string[]
+  registrationFeePaise: number
+  utr: string
+  paymentStatus: string
+  approvalStatus: string
+  ticketStatus: string
+  membersEntered: number
+  registeredAt: string
+  problems: string[]
+  excluded: boolean
+  exclusionReason: string | null
+}
+export interface RecordQuery {
+  q?: string
+  event?: string
+  payment?: string
+  approval?: string
+  scope?: "production" | "excluded" | "all"
+  from?: string
+  to?: string
+  page?: number
+  pageSize?: number
+}
+export interface AnalyticsExclusion {
+  id: string
+  kind: "REGISTRATION" | "ACCOUNT"
+  value: string
+  reason: string
+  createdBy: string | null
+  createdAt: string
+  registrations: number
+}
+export interface ExclusionSuggestion {
+  kind: "ACCOUNT"
+  value: string
+  name: string
+  registrations: string[]
+  reasons: string[]
+  signal: "strong" | "weak"
+}
+
+function queryString(query: RecordQuery) {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== "") params.set(key, String(value))
+  const text = params.toString()
+  return text ? `?${text}` : ""
 }
 
 export const admin = {
   // Only super admins may read this; other organizers get a 403.
-  overview: () => request<EventOverview>("/admin/overview"),
+  overview: (refresh = false) => request<EventOverview>(`/admin/overview${refresh ? "?refresh=true" : ""}`),
+  analyticsRecords: (query: RecordQuery) =>
+    request<{ readAt: string; stale: boolean; total: number; page: number; pageSize: number; records: AnalyticsRecord[] }>(
+      `/admin/analytics/records${queryString(query)}`,
+    ),
+  // The filtered records as a CSV file (same rules as the dashboard), saved through the browser.
+  downloadRecordsCsv: async (query: RecordQuery) => {
+    const url = await authorizedImageUrl(`/admin/analytics/records.csv${queryString(query)}`, "Couldn't export the records")
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `shourya26-registrations-${new Date().toISOString().slice(0, 10)}.csv`
+    // Attached while clicked: some browsers (Firefox) ignore clicks on detached links.
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  },
+  exclusions: () => request<AnalyticsExclusion[]>("/admin/analytics/exclusions"),
+  addExclusion: (kind: "REGISTRATION" | "ACCOUNT", value: string, reason: string) =>
+    request<AnalyticsExclusion>("/admin/analytics/exclusions", { json: { kind, value, reason } }),
+  removeExclusion: (id: string) => request(`/admin/analytics/exclusions/${id}`, { method: "DELETE" }),
+  exclusionSuggestions: () => request<ExclusionSuggestion[]>("/admin/analytics/suggestions"),
   registrations: (status?: RegistrationStatus) =>
     request<Registration[]>(`/admin/registrations${status ? `?status=${status}` : ""}`),
   verifyProof: (proofId: string) => request(`/admin/payment-proofs/${proofId}/verify`, { method: "PATCH" }),
@@ -360,11 +481,13 @@ export const admin = {
     request<TicketScan>("/admin/tickets/scan", { json: { code, admit, scanId } }),
   // Entrance fallback: find a team by registration ID, then check in the chosen members.
   lookupTeam: (code: string) => request<TeamCheckIn>("/admin/tickets/team", { json: { code } }),
-  checkInMembers: (registrationId: string, participantIds: string[]) =>
-    request<{ results: { participantId: string; name: string; outcome: "ADMITTED" | "ALREADY_ENTERED" }[]; team: TeamCheckIn }>(
-      `/admin/registrations/${registrationId}/check-in-members`,
-      { json: { participantIds } },
-    ),
+  // requestId identifies one press of Authorize: sending it again after a lost answer is safe.
+  checkInMembers: (registrationId: string, participantIds: string[], requestId: string) =>
+    request<{
+      results: MemberCheckInResult[]
+      summary: { admitted: number; alreadyEntered: number; failed: number }
+      team: TeamCheckIn
+    }>(`/admin/registrations/${registrationId}/check-in-members`, { json: { participantIds, requestId } }),
   admitParticipant: (participantId: string) =>
     request<TicketScan>(`/admin/tickets/${participantId}/check-in`, { method: "POST" }),
   ticketMailStatus: () => request<{ configured: boolean; pending: number; failed: number }>("/admin/tickets/mail-status"),

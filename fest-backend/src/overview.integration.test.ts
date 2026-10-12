@@ -1,6 +1,6 @@
 // @ts-ignore Bun provides this module at runtime; the project does not use Bun ambient types.
 import { expect, test } from "bun:test";
-import { requireSuperAdmin, summarizeEventTab, superAdminEmails } from "./OverviewService.ts";
+import { requireSuperAdmin, superAdminEmails } from "./OverviewService.ts";
 
 test("super admins are the ADMIN_SUPER*_EMAIL accounts, case-insensitive", () => {
     const emails = superAdminEmails({
@@ -29,24 +29,4 @@ test("only super admins get past the overview guard", () => {
     process.env.ADMIN_SUPER_EMAIL = previous;
 });
 
-test("an event tab counts only accepted (APPROVED) rows", () => {
-    const header = ["registrationId", "teamName", "teamSize", "registrationFee", "paymentStatus", "approvalStatus"];
-    const summary = summarizeEventTab([
-        header,
-        ["r1", "A", 3, "1197.00", "VERIFIED", "APPROVED"],
-        ["r2", "B", 2, "798.00", "VERIFIED", "approved "],
-        ["r3", "C", 3, "1197.00", "PENDING", "PENDING"],
-        ["r4", "D", 1, "399.00", "REJECTED", "REJECTED"],
-        ["", "", "", "", "", ""],
-    ]);
-    expect(summary).toEqual({ approvedTeams: 2, approvedParticipants: 5, approvedAmountPaise: 199_500, totalRows: 4 });
-});
-
-test("columns are found by header name, whatever their order", () => {
-    const summary = summarizeEventTab([
-        ["approvalStatus", "registrationFee", "teamSize"],
-        ["APPROVED", 149, 2],
-    ]);
-    expect(summary).toEqual({ approvedTeams: 1, approvedParticipants: 2, approvedAmountPaise: 14_900, totalRows: 1 });
-    expect(summarizeEventTab([]).approvedTeams).toBe(0);
-});
+// Reading event tabs and the totals are covered in lib/analytics.test.ts.

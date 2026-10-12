@@ -5326,3 +5326,190 @@ html {
 .admin-proof--reverify {
   box-shadow: inset 0 0 0 1px rgb(255 210 122 / 55%);
 }
+
+/* Entrance: confirmation before authorizing several people, and the "couldn't reach the server" retry. */
+.team-checkin-alert {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #f4c97a;
+  border-radius: 12px;
+  background: rgba(244, 201, 122, 0.1);
+  text-align: left;
+}
+
+.team-checkin-alert p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.team-checkin-list .team-checkin-meta {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+}
+
+/* Super-admin analytics: test data shown apart from the production numbers. */
+.admin-overview-excluded,
+.admin-quality-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px dashed rgb(255 255 255 / 28%);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-quality-note {
+  border-color: rgb(244 201 122 / 55%);
+}
+
+.admin-panel {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(255 255 255 / 12%);
+}
+
+.admin-panel > summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 16px;
+  list-style-position: inside;
+}
+
+.admin-exclusion-form,
+.admin-record-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.admin-exclusion-form .form-field {
+  flex: 1 1 180px;
+  margin: 0;
+}
+
+.admin-exclusion-form select,
+.admin-record-filters select,
+.admin-record-filters input,
+.admin-search {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 5%);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+
+.admin-record-filters input[aria-label="Search records"] {
+  flex: 1 1 220px;
+}
+
+.admin-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.admin-rule-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-rule-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 10px;
+}
+
+.admin-rule-list span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-rule-list em {
+  font-size: 12px;
+  font-style: normal;
+  opacity: 0.75;
+  overflow-wrap: anywhere;
+}
+
+.admin-signal {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.admin-signal--strong {
+  background: rgb(248 113 113 / 22%);
+}
+
+.admin-signal--weak {
+  background: rgb(255 255 255 / 12%);
+}
+
+.admin-panel .admin-overview-table th,
+.admin-panel .admin-overview-table td {
+  text-align: left;
+  font-weight: 500;
+  vertical-align: top;
+}
+
+.admin-panel .admin-overview-table table {
+  min-width: 860px;
+}
+
+.admin-overview-table tr.is-test-data td {
+  opacity: 0.7;
+}
+
+.admin-test-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px dashed currentColor;
+  border-radius: 999px;
+  font-size: 10px;
+  font-style: normal;
+  text-transform: uppercase;
+}
+
+.admin-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.admin-search {
+  width: 100%;
+  margin: 0 0 12px;
+}
+
+@media (max-width: 640px) {
+  .admin-rule-list li {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-record-filters > * {
+    flex: 1 1 100%;
+  }
+}

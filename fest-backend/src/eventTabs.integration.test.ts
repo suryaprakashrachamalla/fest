@@ -1,6 +1,6 @@
 // @ts-ignore Bun provides this module at runtime; the project does not use Bun ambient types.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import type { sheets_v4 } from "googleapis";
+import { createFakeSheets } from "./testing/fakeSheets.ts";
 import { prisma } from "./lib/prisma.ts";
 import { queueRegistrationSync } from "./lib/registrationSync.ts";
 import * as registrations from "./RegistrationsService.ts";
@@ -19,78 +19,7 @@ const runId = crypto.randomUUID().slice(0, 8);
 const ids = { teamEvent: "", soloEvent: "", lateEvent: "", users: [] as string[] };
 const names = { team: `Tab Team ${runId}`, solo: `Tab Solo ${runId}`, late: `Tab Late ${runId}` };
 
-// Just enough of the Sheets API for the sync: tabs with IDs and a limited number of grid rows (new
-// tabs start small, like a real grid they must be extended before writing below it), header rows,
-// whole-tab and ranged reads, row writes, row deletion. Missing tabs fail like Google's API does.
-const tabs = new Map<string, unknown[][]>();
-const grids = new Map<string, { sheetId: number; rowCount: number }>();
-let nextSheetId = 100;
-function gridOf(title: string) {
-    if (!grids.has(title)) grids.set(title, { sheetId: nextSheetId++, rowCount: 6 });
-    return grids.get(title)!;
-}
-function titleOfSheet(sheetId: number) {
-    return [...tabs.keys()].find((title) => gridOf(title).sheetId === sheetId)!;
-}
-function parseRange(range: string) {
-    const match = range.match(/^'((?:[^']|'')+)'(?:!([A-Z]+)(\d+)?(?::([A-Z]+)(\d+)?)?)?$/);
-    if (!match) throw Object.assign(new Error(`Unable to parse range: ${range}`), { code: 400 });
-    const title = match[1].replace(/''/g, "'");
-    if (!tabs.has(title)) throw Object.assign(new Error(`Unable to parse range: ${range}`), { code: 400 });
-    return { title, grid: tabs.get(title)!, startRow: match[3] ? Number(match[3]) : 1, endRow: match[5] ? Number(match[5]) : undefined };
-}
-const fakeSheets = {
-    spreadsheets: {
-        get: async () => ({
-            data: {
-                sheets: [...tabs.keys()].map((title) => ({
-                    properties: { title, sheetId: gridOf(title).sheetId, gridProperties: { rowCount: gridOf(title).rowCount } },
-                })),
-            },
-        }),
-        batchUpdate: async ({ requestBody }: { requestBody: sheets_v4.Schema$BatchUpdateSpreadsheetRequest }) => {
-            for (const request of requestBody.requests ?? []) {
-                if (request.addSheet) {
-                    const title = request.addSheet.properties?.title;
-                    if (!title || tabs.has(title)) throw Object.assign(new Error("bad addSheet"), { code: 400 });
-                    tabs.set(title, []);
-                    gridOf(title);
-                } else if (request.appendDimension) {
-                    gridOf(titleOfSheet(request.appendDimension.sheetId!)).rowCount += request.appendDimension.length!;
-                } else if (request.deleteDimension) {
-                    const { sheetId, startIndex, endIndex } = request.deleteDimension.range!;
-                    const title = titleOfSheet(sheetId!);
-                    tabs.get(title)!.splice(startIndex!, endIndex! - startIndex!);
-                    gridOf(title).rowCount -= endIndex! - startIndex!;
-                } else throw Object.assign(new Error("unsupported request"), { code: 400 });
-            }
-            return { data: {} };
-        },
-        values: {
-            batchGet: async ({ ranges }: { ranges: string[] }) => ({
-                data: {
-                    valueRanges: ranges.map((range) => {
-                        const { grid, startRow, endRow } = parseRange(range);
-                        const rows = grid.slice(startRow - 1, endRow ?? grid.length).map((row) => [...(row ?? [])]);
-                        // Like the real API: trailing empty rows are left out.
-                        while (rows.length && rows[rows.length - 1].every((cell) => cell === "" || cell == null)) rows.pop();
-                        return { values: rows };
-                    }),
-                },
-            }),
-            batchUpdate: async ({ requestBody }: { requestBody: sheets_v4.Schema$BatchUpdateValuesRequest }) => {
-                for (const write of requestBody.data ?? []) {
-                    const { title, grid, startRow } = parseRange(write.range!);
-                    const lastRow = startRow + (write.values ?? []).length - 1;
-                    if (lastRow > gridOf(title).rowCount)
-                        throw Object.assign(new Error(`Range (${write.range}) exceeds grid limits`), { code: 400 });
-                    (write.values ?? []).forEach((row, index) => (grid[startRow - 1 + index] = [...row]));
-                }
-                return { data: {} };
-            },
-        },
-    },
-} as unknown as sheets_v4.Sheets;
+const { client: fakeSheets, tabs, grids, gridOf } = createFakeSheets();
 
 const rowsOf = (title: string) => tabs.get(title) ?? [];
 const codesIn = (title: string) => rowsOf(title).slice(1).map((row) => row[0]);
@@ -270,4 +199,20 @@ integrationTest("new rows are written at column A right below the last row, grow
 
     expect(rowsOf(names.solo).length).toBe(before + 1);
     expect(rowsOf(names.solo).at(-1)?.[0]).toBe(extra.code);
+});
+
+integrationTest("an update queued before an event was renamed goes to the event's current tab", async () => {
+    const reg = await register(ids.teamEvent, "renamed", 1, "Renamed Pair");
+    // The queued snapshot still carries the event's old name (it was queued before a rename).
+    const queued = await prisma.spreadsheetSyncOutbox.findFirstOrThrow({ where: { entityId: reg.code, status: "PENDING" } });
+    await prisma.spreadsheetSyncOutbox.update({
+        where: { id: queued.id },
+        data: { payload: { ...(queued.payload as Record<string, unknown>), event: `Old name ${runId}` } },
+    });
+
+    const result = await sync.reconcileSpreadsheet();
+    expect(result.refreshed).toBeGreaterThanOrEqual(1);
+    await drainOutbox();
+    expect(codesIn(names.team)).toContain(reg.code);
+    expect(tabs.has(`Old name ${runId}`)).toBe(false);
 });

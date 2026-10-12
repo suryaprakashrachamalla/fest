@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import { prisma } from "./lib/prisma.ts";
 import { addOutbox } from "./lib/outbox.ts";
 
-function jwtSecret() {
+// Also called at startup so a missing or short secret stops the server instead of the first sign-in.
+export function jwtSecret() {
     const secret = process.env.JWT_SECRET;
     if (!secret || secret.length < 32)
         throw new Error("JWT_SECRET must contain at least 32 characters");
@@ -92,6 +93,7 @@ export async function signin(email: unknown, password: unknown) {
     if (!user || !(await bcrypt.compare(password, user.passwordHash)))
         throw Object.assign(new Error("Invalid email or password"), { status: 401 });
     const token = jwt.sign({ sub: user.id }, jwtSecret(), {
+        algorithm: "HS256",
         expiresIn: "12h",
         issuer: "fest-registration",
     });
@@ -105,7 +107,7 @@ export async function getUser(id: string) {
 }
 
 export function verifyToken(token: string): { sub: string } {
-    return jwt.verify(token, jwtSecret(), { issuer: "fest-registration" }) as {
+    return jwt.verify(token, jwtSecret(), { issuer: "fest-registration", algorithms: ["HS256"] }) as {
         sub: string;
     };
 }

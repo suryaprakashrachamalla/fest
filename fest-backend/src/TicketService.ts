@@ -45,6 +45,10 @@ export function ticketQrPng(code: string) {
     return QRCode.toBuffer(ticketQrText(code), { type: "png", width: 480, margin: 2, errorCorrectionLevel: "M" });
 }
 
+export function maskEmail(email: string) {
+    return email.replace(/^(.)[^@]*@/, "$1***@");
+}
+
 function escapeHtml(value: string) {
     return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
@@ -272,7 +276,8 @@ export function startTicketMailer() {
         try {
             const result = await sendPendingTicketEmails();
             if (result.sent) console.info(`Tickets: emailed ${result.sent} entry QR code(s)`);
-            for (const failure of result.failed) console.error(`Tickets: email to ${failure.email} failed: ${failure.error}`);
+            // Addresses are masked in logs (a***@gmail.com); the full one is on the member in the admin panel.
+            for (const failure of result.failed) console.error(`Tickets: email to ${maskEmail(failure.email)} failed: ${failure.error}`);
         } catch (error) {
             console.error("Ticket emails failed:", error instanceof Error ? error.message : error);
         } finally {
@@ -437,13 +442,34 @@ export function parseRegistrationCode(raw: unknown) {
 const teamInclude = {
     event: { select: { name: true, slug: true } },
     participants: { orderBy: { createdAt: "asc" }, include: { checkedInBy: { select: { name: true } } } },
+    paymentProofs: { select: { status: true }, orderBy: { submittedAt: "desc" }, take: 1 },
 } as const satisfies Prisma.RegistrationInclude;
 
 type TeamRecord = Prisma.RegistrationGetPayload<{ include: typeof teamInclude }>;
 
+// Why a registration's members may or may not be let in: approved by an organizer, with the
+// payment verified. Anything else is refused at the gate with this reason.
+export function admissionFor(reg: { status: RegistrationStatus; verified: boolean }) {
+    if (TICKETED.includes(reg.status) && reg.verified) return { allowed: true, reason: "Approved and paid" };
+    const reasons: Partial<Record<RegistrationStatus, string>> = {
+        PENDING_PAYMENT: "Payment not submitted yet",
+        PAYMENT_REVIEW: "Payment is still being verified",
+        PAYMENT_VERIFIED: "Payment verified, but the registration isn't approved yet",
+        PAYMENT_REJECTED: "Payment was rejected",
+        REJECTED: "Registration was rejected",
+    };
+    return { allowed: false, reason: reasons[reg.status] ?? "Registration isn't approved" };
+}
+
+function ticketEmailStatus(p: { ticketEmailedAt: Date | null; ticketEmailError: string | null }) {
+    return p.ticketEmailedAt ? "SENT" : p.ticketEmailError ? "FAILED" : "NOT_SENT";
+}
+
 function teamView(reg: TeamRecord) {
+    const eligibility = admissionFor(reg);
     return {
-        admission: TICKETED.includes(reg.status) && reg.verified ? "APPROVED" : "NOT_APPROVED",
+        admission: eligibility.allowed ? "APPROVED" : "NOT_APPROVED",
+        eligibility,
         registration: {
             id: reg.id,
             code: reg.code,
@@ -451,6 +477,7 @@ function teamView(reg: TeamRecord) {
             teamSize: reg.teamSize,
             college: reg.college,
             status: reg.status,
+            paymentStatus: reg.paymentProofs[0]?.status ?? "NOT_SUBMITTED",
         },
         event: reg.event,
         members: reg.participants.map((p) => ({
@@ -459,6 +486,7 @@ function teamView(reg: TeamRecord) {
             email: p.email,
             college: p.college,
             rollNumber: p.rollNumber,
+            ticketEmail: ticketEmailStatus(p),
             checkedInAt: p.checkedInAt,
             checkedInBy: p.checkedInBy?.name ?? null,
         })),
@@ -473,8 +501,13 @@ export async function lookupTeam(raw: unknown) {
     return teamView(reg);
 }
 
-// Checks in the chosen members of one team. Members who already entered are reported, not re-admitted.
-export async function checkInMembers(registrationId: string, participantIds: unknown, adminId: string) {
+export type MemberCheckInOutcome = "ADMITTED" | "ALREADY_ENTERED" | "FAILED";
+
+// Checks in the chosen members of one team, each on its own: one member failing doesn't stop the
+// others, and every member gets an outcome. Members who already entered are reported, never
+// re-admitted. `requestId` identifies one press of "Authorize": retrying that same request after a
+// lost response reports the members it admitted as ADMITTED again instead of "already entered".
+export async function checkInMembers(registrationId: string, participantIds: unknown, adminId: string, requestId?: unknown) {
     if (
         !Array.isArray(participantIds) ||
         participantIds.length === 0 ||
@@ -482,28 +515,52 @@ export async function checkInMembers(registrationId: string, participantIds: unk
         !participantIds.every((id) => typeof id === "string")
     )
         throw httpError(400, "Choose at least one team member to authorize");
+    const request = typeof requestId === "string" && /^[A-Za-z0-9-]{8,64}$/.test(requestId) ? requestId : undefined;
     const reg = await prisma.registration.findUnique({ where: { id: registrationId }, include: teamInclude });
     if (!reg) throw httpError(404, "Registration not found");
-    if (teamView(reg).admission !== "APPROVED")
-        throw httpError(409, "This registration isn't approved, so its members can't enter");
+    const eligibility = admissionFor(reg);
+    if (!eligibility.allowed) throw httpError(409, `${eligibility.reason}, so its members can't enter`);
     const memberIds = new Set(reg.participants.map((p) => p.id));
     const chosen = [...new Set(participantIds as string[])];
     if (!chosen.every((id) => memberIds.has(id))) throw httpError(400, "Those people aren't members of this team");
 
-    const results: { participantId: string; name: string; outcome: "ADMITTED" | "ALREADY_ENTERED" }[] = [];
+    const results: { participantId: string; name: string; outcome: MemberCheckInOutcome; message?: string }[] = [];
     for (const id of chosen) {
-        const name = reg.participants.find((p) => p.id === id)!.name;
+        const member = reg.participants.find((p) => p.id === id)!;
+        if (request && member.checkedInAt && member.checkInScanId === request) {
+            results.push({ participantId: id, name: member.name, outcome: "ADMITTED" });
+            continue;
+        }
         try {
-            await admitParticipant(id, adminId);
-            results.push({ participantId: id, name, outcome: "ADMITTED" });
+            await admitParticipant(id, adminId, request);
+            results.push({ participantId: id, name: member.name, outcome: "ADMITTED" });
         } catch (error) {
-            // The only remaining 409 is "already entered" (approval was checked above).
-            if ((error as { status?: number }).status !== 409) throw error;
-            results.push({ participantId: id, name, outcome: "ALREADY_ENTERED" });
+            const status = (error as { status?: number }).status;
+            if (status === 409) {
+                // Either someone admitted them a moment ago, or the registration changed meanwhile.
+                const now = await prisma.participant.findUnique({ where: { id }, select: { checkedInAt: true, checkInScanId: true } });
+                if (now?.checkedInAt && request && now.checkInScanId === request)
+                    results.push({ participantId: id, name: member.name, outcome: "ADMITTED" });
+                else if (now?.checkedInAt) results.push({ participantId: id, name: member.name, outcome: "ALREADY_ENTERED" });
+                else results.push({ participantId: id, name: member.name, outcome: "FAILED", message: (error as Error).message });
+            } else {
+                console.error(`Check-in of member ${id} failed:`, error instanceof Error ? error.message : error);
+                results.push({
+                    participantId: id,
+                    name: member.name,
+                    outcome: "FAILED",
+                    message: "Couldn't record this entry. Nothing was saved for this person; try again.",
+                });
+            }
         }
     }
     const latest = await prisma.registration.findUniqueOrThrow({ where: { id: registrationId }, include: teamInclude });
-    return { results, team: teamView(latest) };
+    const count = (outcome: MemberCheckInOutcome) => results.filter((r) => r.outcome === outcome).length;
+    return {
+        results,
+        summary: { admitted: count("ADMITTED"), alreadyEntered: count("ALREADY_ENTERED"), failed: count("FAILED") },
+        team: teamView(latest),
+    };
 }
 
 // The member's QR as a PNG for the team's dashboard (owner) or organizers, once approved.
