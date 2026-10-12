@@ -61,7 +61,8 @@ Object.assign(env, { NODE_ENV: "production", HOST: "0.0.0.0", PORT: "3000", TRUS
 const environment = [], secrets = [];
 for (const [name, value] of Object.entries(env)) {
     if (/^(BACKEND_PORT|API_HOST_PORT|POSTGRES_)/.test(name)) continue; // docker-compose only
-    if (secretSet.has(name)) secrets.push({ name, valueFrom: `arn:aws:ssm:${region}:${account}:parameter${paramPath}/${name}`, value });
+    // Every admin password is a secret, however many admin accounts are configured.
+    if (secretSet.has(name) || /^ADMIN_[A-Z0-9]+_PASSWORD$/.test(name)) secrets.push({ name, valueFrom: `arn:aws:ssm:${region}:${account}:parameter${paramPath}/${name}`, value });
     else environment.push({ name, value });
 }
 process.stdout.write(JSON.stringify({
