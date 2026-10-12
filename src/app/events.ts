@@ -104,7 +104,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "no-code-vibathon",
-    name: "NO CODE VIBATHON",
+    name: "NOCODE VIBEATHON",
     category: "Technical",
     number: "02",
     tagline: "Ship a real idea without writing a line of code.",

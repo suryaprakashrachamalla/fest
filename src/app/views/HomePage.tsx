@@ -172,7 +172,7 @@ export default function HomePage() {
                 Register for Hackathon ↗
               </Link>
               <Link to="/events/no-code-vibathon" className="pill-button pill-button--outline" style={{ padding: "10px 22px", fontSize: "14px" }}>
-                No Code Vibathon ↗
+                NOCODE VIBEATHON ↗
               </Link>
             </div>
             <a href="#events" style={{ marginTop: "10px" }}>

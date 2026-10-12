@@ -15,7 +15,7 @@ const events = [
         isPublished: true,
     },
     {
-        name: "No Code Vibathon",
+        name: "NOCODE VIBEATHON",
         slug: "no-code-vibathon",
         description: "Build and ship an idea with no-code and AI tools.",
         feePaise: 30_000,
