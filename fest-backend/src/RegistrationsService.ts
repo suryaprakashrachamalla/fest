@@ -273,13 +273,14 @@ export async function getMyRegistrations(userId: string) {
     });
 }
 
-export async function listAdminRegistrations(statusFilter?: unknown) {
+// `eventIds` limits the list to those events (an event admin's events); organizers see every event.
+export async function listAdminRegistrations(statusFilter?: unknown, eventIds?: string[]) {
     const status =
         typeof statusFilter === "string" && STATUSES.includes(statusFilter as RegistrationStatus)
             ? (statusFilter as RegistrationStatus)
             : undefined;
     return prisma.registration.findMany({
-        where: status ? { status } : undefined,
+        where: { ...(status ? { status } : {}), ...(eventIds ? { eventId: { in: eventIds } } : {}) },
         include: {
             event: true,
             user: { select: { id: true, name: true, email: true } },
@@ -438,4 +439,18 @@ export async function getAuditHistory(id: string) {
         include: { actor: { select: { id: true, name: true, role: true } } },
         orderBy: { createdAt: "asc" },
     });
+}
+
+// Event admins may only act on registrations of their own events. 404 if it doesn't exist, 403 if
+// it belongs to another event.
+export async function assertRegistrationInEvents(registrationId: string, eventIds: string[]) {
+    const reg = await prisma.registration.findUnique({ where: { id: registrationId }, select: { eventId: true } });
+    if (!reg) throw Object.assign(new Error("Registration not found"), { status: 404 });
+    if (!eventIds.includes(reg.eventId)) throw Object.assign(new Error("You can only manage your own events"), { status: 403 });
+}
+
+export async function assertProofInEvents(proofId: string, eventIds: string[]) {
+    const proof = await prisma.paymentProof.findUnique({ where: { id: proofId }, select: { registration: { select: { eventId: true } } } });
+    if (!proof) throw Object.assign(new Error("Payment proof not found"), { status: 404 });
+    if (!eventIds.includes(proof.registration.eventId)) throw Object.assign(new Error("You can only manage your own events"), { status: 403 });
 }

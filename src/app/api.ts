@@ -481,6 +481,20 @@ async function downloadCsv(path: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
+// Approvals for an event admin's own events; the server refuses registrations of other events.
+export const eventAdmin = {
+  registrations: () => request<Registration[]>("/event-admin/registrations"),
+  approve: (registrationId: string) =>
+    request<{ alreadyApproved: boolean }>(`/event-admin/registrations/${registrationId}/approve`, { method: "PATCH" }),
+  reject: (registrationId: string, reason: string) =>
+    request(`/event-admin/registrations/${registrationId}/reject`, { method: "PATCH", json: { reason } }),
+  rejectProof: (proofId: string, reason: string) =>
+    request(`/event-admin/payment-proofs/${proofId}/reject`, { method: "PATCH", json: { reason } }),
+  audit: (registrationId: string) => request<AuditEntry[]>(`/event-admin/registrations/${registrationId}/audit`),
+  screenshotUrl: (proofId: string) =>
+    authorizedImageUrl(`/event-admin/payment-proofs/${proofId}/screenshot`, "Couldn't load the payment screenshot"),
+}
+
 export const admin = {
   // Only super admins may read this; other organizers get a 403.
   overview: (refresh = false) => request<EventOverview>(`/admin/overview${refresh ? "?refresh=true" : ""}`),

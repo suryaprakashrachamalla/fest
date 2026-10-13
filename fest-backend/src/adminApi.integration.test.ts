@@ -600,3 +600,52 @@ describe("event analytics viewer (normal account, chosen events only)", () => {
         expect(data.events.some((e: any) => e.eventId === ids.soloEvent)).toBe(true);
     });
 });
+
+describe("event admin approvals (own events only)", () => {
+    integrationTest("approves a registration of their event, and the organizers see the same result", async () => {
+        const pending = await register("evpending", "owner-evpending", ids.soloEvent, 1, false);
+        const list = (await call("GET", "/event-admin/registrations", "viewer")).body.data;
+        expect(list.every((r: any) => [ids.soloEvent, ids.emptyEvent].includes(r.event.id))).toBe(true);
+        expect(list.some((r: any) => r.id === pending.id)).toBe(true);
+        expect(list.some((r: any) => r.id === ids.regs.trio.id)).toBe(false);
+
+        const approved = await call("PATCH", `/event-admin/registrations/${pending.id}/approve`, "viewer");
+        expect(approved.status).toBe(200);
+        const row = await prisma.registration.findUniqueOrThrow({ where: { id: pending.id } });
+        expect(row.status).toBe("APPROVED");
+        expect(row.approvedById).toBe(ids.users.viewer);
+        // The same registration, approved, in the organizers' list.
+        const global = (await call("GET", "/admin/registrations", "super")).body.data.find((r: any) => r.id === pending.id);
+        expect(global.status).toBe("APPROVED");
+        expect(global.approvedBy.name).toBe("viewer person");
+    });
+
+    integrationTest("can't approve, reject or open anything from another event", async () => {
+        const other = ids.regs.review; // a CSE team-event registration awaiting review
+        const proof = await prisma.paymentProof.findFirstOrThrow({ where: { registrationId: other.id } });
+        expect((await call("PATCH", `/event-admin/registrations/${other.id}/approve`, "viewer")).status).toBe(403);
+        expect((await call("PATCH", `/event-admin/registrations/${other.id}/reject`, "viewer", { reason: "not mine" })).status).toBe(403);
+        expect((await call("PATCH", `/event-admin/payment-proofs/${proof.id}/reject`, "viewer", { reason: "not mine" })).status).toBe(403);
+        expect((await call("GET", `/event-admin/payment-proofs/${proof.id}/screenshot`, "viewer")).status).toBe(403);
+        expect((await call("GET", `/event-admin/registrations/${other.id}/audit`, "viewer")).status).toBe(403);
+        expect((await call("PATCH", "/event-admin/registrations/00000000-0000-0000-0000-000000000000/approve", "viewer")).status).toBe(404);
+        expect((await prisma.registration.findUniqueOrThrow({ where: { id: other.id } })).status).toBe("PAYMENT_REVIEW");
+    });
+
+    integrationTest("rejects a payment of their event, views its screenshot and history", async () => {
+        const pending = await register("evreject", "owner-evreject", ids.soloEvent, 1, false);
+        const proof = await prisma.paymentProof.findFirstOrThrow({ where: { registrationId: pending.id } });
+        expect((await call("GET", `/event-admin/payment-proofs/${proof.id}/screenshot`, "viewer")).status).toBe(200);
+        expect((await call("PATCH", `/event-admin/payment-proofs/${proof.id}/reject`, "viewer", { reason: "Amount doesn't match" })).status).toBe(200);
+        expect((await prisma.registration.findUniqueOrThrow({ where: { id: pending.id } })).status).toBe("PAYMENT_REJECTED");
+        const history = (await call("GET", `/event-admin/registrations/${pending.id}/audit`, "viewer")).body.data;
+        expect(history.some((e: any) => e.action === "PAYMENT_REJECTED" && e.actor.name === "viewer person")).toBe(true);
+    });
+
+    integrationTest("accounts without a grant can't use event-admin endpoints", async () => {
+        expect((await call("GET", "/event-admin/registrations", "alice")).status).toBe(403);
+        expect((await call("GET", "/event-admin/registrations", "volunteer")).status).toBe(403);
+        expect((await call("GET", "/event-admin/registrations", null)).status).toBe(401);
+        expect((await call("PATCH", `/event-admin/registrations/${ids.regs.solo.id}/approve`, "alice")).status).toBe(403);
+    });
+});

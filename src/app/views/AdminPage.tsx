@@ -653,11 +653,20 @@ function ticketSummary(registration: Registration) {
   return sent ? `Emailed ${sent}/${total}, sending the rest…` : "Waiting to be emailed"
 }
 
-function AdminRegistration({
+// What a card can do: organizers use the organizer API; event admins use their own, limited to
+// their events (and can't resend tickets).
+export type RegistrationActions = Pick<typeof admin, "approve" | "reject" | "rejectProof" | "audit" | "screenshotUrl"> & {
+  resendTickets?: typeof admin.resendTickets
+}
+const ORGANIZER_ACTIONS: RegistrationActions = admin
+
+export function AdminRegistration({
   registration,
   onChanged,
   onNotice,
+  actions = ORGANIZER_ACTIONS,
 }: {
+  actions?: RegistrationActions
   registration: Registration
   onChanged: () => void
   // Page-level message that stays visible after the team moves to another filter.
@@ -843,7 +852,7 @@ function AdminRegistration({
                   className="pill-button pill-button--outline"
                   onClick={async () => {
                     try {
-                      const url = await admin.screenshotUrl(proof.id)
+                      const url = await actions.screenshotUrl(proof.id)
                       setScreenshots((s) => ({ ...s, [proof.id]: url }))
                     } catch (err) {
                       setError(err instanceof Error ? err.message : "Couldn't load screenshot")
@@ -868,7 +877,7 @@ function AdminRegistration({
                 onClick={() => act(
                   `Approved. Each of the ${registration.participants.length} members is being emailed their entry QR.`,
                   async () => {
-                    await admin.approve(registration.id)
+                    await actions.approve(registration.id)
                     onNotice(
                       `${registrationTitle(registration)} (${registration.code}) approved. Entry QR emails are going to ${registration.participants
                         .map((p) => p.name)
@@ -883,26 +892,26 @@ function AdminRegistration({
             )}
             {pendingProof && (
               <button type="button" className="pill-button pill-button--outline" disabled={busy}
-                onClick={() => needReason() && act("Payment rejected", () => admin.rejectProof(pendingProof.id, reason.trim()))}>
+                onClick={() => needReason() && act("Payment rejected", () => actions.rejectProof(pendingProof.id, reason.trim()))}>
                 Reject payment
               </button>
             )}
-            {ticketed && (
+            {ticketed && actions.resendTickets && (
               <button type="button" className="pill-button pill-button--outline" disabled={busy}
-                onClick={() => act("Entry QR emails queued again for every member", () => admin.resendTickets(registration.id))}>
+                onClick={() => act("Entry QR emails queued again for every member", () => actions.resendTickets!(registration.id))}>
                 Resend tickets
               </button>
             )}
             {registration.status !== "REJECTED" && registration.status !== "TICKET_ISSUED" && !registration.entered && (
               <button type="button" className="pill-button pill-button--outline" disabled={busy}
-                onClick={() => needReason() && act("Registration rejected", () => admin.reject(registration.id, reason.trim()))}>
+                onClick={() => needReason() && act("Registration rejected", () => actions.reject(registration.id, reason.trim()))}>
                 Reject registration
               </button>
             )}
             <button type="button" className="pill-button pill-button--outline" disabled={busy}
               onClick={async () => {
                 try {
-                  setAudit(await admin.audit(registration.id))
+                  setAudit(await actions.audit(registration.id))
                 } catch (err) {
                   setError(err instanceof Error ? err.message : "Couldn't load history")
                 }
@@ -935,6 +944,9 @@ function AdminRegistration({
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(getStoredUser())
   const [filter, setFilter] = useState(0)
+  // Registrations of one event at a time ("" = all events), so each event's approvals stay apart.
+  const [eventFilter, setEventFilter] = useState("")
+  const [allRows, setAllRows] = useState<Registration[] | null>(null)
   const [rows, setRows] = useState<Registration[] | null>(null)
   const [counts, setCounts] = useState<Partial<Record<RegistrationStatus | "ALL", number>>>({})
   const [sync, setSync] = useState<Awaited<ReturnType<typeof admin.syncStatus>> | null>(null)
@@ -954,12 +966,26 @@ export default function AdminPage() {
   const term = search.trim().toLowerCase()
   const visibleRows = (rows ?? []).filter(
     (r) =>
-      !term ||
+      (!eventFilter || r.event.id === eventFilter) &&
+      (!term ||
       r.code.toLowerCase().includes(term) ||
       (r.teamName ?? "").toLowerCase().includes(term) ||
       r.phone.replace(/\s/g, "").includes(term.replace(/\s/g, "")) ||
-      r.participants.some((p) => p.name.toLowerCase().includes(term) || p.email.toLowerCase().includes(term)),
+      r.participants.some((p) => p.name.toLowerCase().includes(term) || p.email.toLowerCase().includes(term))),
   )
+  // Events that have registrations, with how many each has.
+  const eventsWithRows = [...new Map((allRows ?? []).map((r) => [r.event.id, r.event.name])).entries()].map(([id, name]) => ({
+    id,
+    name,
+    count: (allRows ?? []).filter((r) => r.event.id === id).length,
+  }))
+  // Status counts follow the chosen event.
+  const scopedCounts: Partial<Record<RegistrationStatus | "ALL", number>> = eventFilter
+    ? (allRows ?? []).filter((r) => r.event.id === eventFilter).reduce(
+        (tally, r) => ({ ...tally, ALL: (tally.ALL ?? 0) + 1, [r.status]: (tally[r.status] ?? 0) + 1 }),
+        {} as Partial<Record<RegistrationStatus | "ALL", number>>,
+      )
+    : counts
 
   // The server rejected the sign-in (expired or revoked): show the sign-in form once, with a reason.
   const expireSession = useCallback(() => {
@@ -973,6 +999,7 @@ export default function AdminPage() {
     setError("")
     try {
       const all = await admin.registrations()
+      setAllRows(all)
       const tally: Partial<Record<RegistrationStatus | "ALL", number>> = { ALL: all.length }
       for (const r of all) tally[r.status] = (tally[r.status] ?? 0) + 1
       setCounts(tally)
@@ -1037,10 +1064,22 @@ export default function AdminPage() {
               Open a team to see its members, payment screenshot and UTR, then tap Approve payment: each member is emailed
               their own entry QR. Every action is recorded with your name and synced to Google Sheets.
             </p>
+            {eventsWithRows.length > 1 && (
+              <div className="admin-filters admin-event-filters" aria-label="Event">
+                <button type="button" className={`size-tab ${eventFilter === "" ? "size-tab--active" : ""}`} onClick={() => setEventFilter("")}>
+                  <strong>All events ({allRows?.length ?? 0})</strong>
+                </button>
+                {eventsWithRows.map((e) => (
+                  <button key={e.id} type="button" className={`size-tab ${eventFilter === e.id ? "size-tab--active" : ""}`} onClick={() => setEventFilter(e.id)}>
+                    <strong>{e.name} ({e.count})</strong>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="admin-filters">
               {FILTERS.map((f, i) => (
                 <button key={f.label} type="button" className={`size-tab ${filter === i ? "size-tab--active" : ""}`} onClick={() => setFilter(i)}>
-                  <strong>{f.label} ({counts[f.status ?? "ALL"] ?? 0})</strong>
+                  <strong>{f.label} ({scopedCounts[f.status ?? "ALL"] ?? 0})</strong>
                 </button>
               ))}
             </div>

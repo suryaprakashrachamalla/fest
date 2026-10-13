@@ -5556,3 +5556,8 @@ html {
   padding: 6px 14px;
   font-size: 13px;
 }
+
+/* Organizer list: one event at a time. */
+.admin-event-filters {
+  margin-bottom: 8px;
+}

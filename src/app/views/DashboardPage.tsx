@@ -289,7 +289,7 @@ export default function DashboardPage() {
             <p className="account-muted">Your registrations for SHOURYA 2026.</p>
             {analyticsEvents.length > 0 && (
               <Link to="/event-analytics" className="pill-button pill-button--gold" style={{ marginTop: 14 }}>
-                Event analytics: {analyticsEvents.map((e) => e.name).join(", ")}
+                Event admin: {analyticsEvents.map((e) => e.name).join(", ")}
               </Link>
             )}
             {user.role === "ADMIN" && (

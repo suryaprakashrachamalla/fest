@@ -497,6 +497,40 @@ app.delete("/admin/analytics/exclusions/:exclusionId", superAdmin, async (req: e
 // Event analytics viewers (normal accounts granted some events): the same analytics, read-only and
 // limited on the server to their events. No organizer routes, settings or other events.
 const eventViewer: RequestHandler[] = [authenticate, requireEventViewer, adminActionLimiter];
+// Event admins: approvals for their own events, with the same rules as organizers. Every action
+// checks on the server that the registration (or proof) belongs to one of their events; the result
+// is the same shared data the organizers and super admins see.
+app.get("/event-admin/registrations", eventViewer, async (req: express.Request, res: express.Response) =>
+    ok(res, await registrations.listAdminRegistrations(req.query.status, res.locals.eventIds)),
+);
+app.patch("/event-admin/registrations/:registrationId/approve", eventViewer, async (req: express.Request, res: express.Response) => {
+    await registrations.assertRegistrationInEvents(String(req.params.registrationId), res.locals.eventIds);
+    const result = await registrations.approveWithPayment(String(req.params.registrationId), req.user!.id);
+    if (!result.alreadyApproved) {
+        tickets.sendTicketsSoon();
+        luma.syncSoon();
+    }
+    ok(res, result, result.alreadyApproved ? "Registration was already approved" : "Registration approved");
+});
+app.patch("/event-admin/registrations/:registrationId/reject", eventViewer, async (req: express.Request, res: express.Response) => {
+    await registrations.assertRegistrationInEvents(String(req.params.registrationId), res.locals.eventIds);
+    ok(res, await registrations.rejectRegistration(String(req.params.registrationId), req.user!.id, req.body?.reason), "Registration rejected");
+});
+app.get("/event-admin/registrations/:registrationId/audit", eventViewer, async (req: express.Request, res: express.Response) => {
+    await registrations.assertRegistrationInEvents(String(req.params.registrationId), res.locals.eventIds);
+    ok(res, await registrations.getAuditHistory(String(req.params.registrationId)));
+});
+app.patch("/event-admin/payment-proofs/:proofId/reject", eventViewer, async (req: express.Request, res: express.Response) => {
+    await registrations.assertProofInEvents(String(req.params.proofId), res.locals.eventIds);
+    ok(res, await payments.reviewProof(String(req.params.proofId), req.user!.id, "reject", req.body?.reason), "Payment proof rejected");
+});
+app.get("/event-admin/payment-proofs/:proofId/screenshot", eventViewer, async (req: express.Request, res: express.Response) => {
+    await registrations.assertProofInEvents(String(req.params.proofId), res.locals.eventIds);
+    const image = await payments.getScreenshot(String(req.params.proofId), req.user!.id, true);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.type(image.mimeType).send(image.bytes);
+});
 // Which events this account may see (for the dashboard link); 403 for everyone else.
 app.get("/event-analytics/access", eventViewer, async (_req: express.Request, res: express.Response) =>
     ok(res, await prisma.event.findMany({ where: { id: { in: res.locals.eventIds } }, select: { id: true, name: true } })),
