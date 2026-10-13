@@ -177,8 +177,15 @@ model PaymentProof {
   // migrations), so a participant can resubmit the same UTR with a clearer screenshot after a rejection.
   utr                String
   paymentMethod      String             @default("UPI")
-  screenshotBytes    Bytes
+  // The uploaded image. Cleared once it is safely copied to Google Drive (see driveFileId).
+  screenshotBytes    Bytes?
   screenshotMimeType String
+  // Google Drive copy of the screenshot (shourya2026 account, private folder per event).
+  driveFileId        String?
+  driveUploadedAt    DateTime?
+  // Last copy attempt and its error, so a failed copy is retried later.
+  driveAttemptAt     DateTime?
+  driveError         String?
   screenshotFileName String?
   status             PaymentProofStatus @default(PENDING)
   reviewedById       String?

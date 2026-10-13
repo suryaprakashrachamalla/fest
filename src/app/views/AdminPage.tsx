@@ -922,6 +922,7 @@ export default function AdminPage() {
   const [sync, setSync] = useState<Awaited<ReturnType<typeof admin.syncStatus>> | null>(null)
   const [syncNote, setSyncNote] = useState("")
   const [mail, setMail] = useState<Awaited<ReturnType<typeof admin.ticketMailStatus>> | null>(null)
+  const [screenshots, setScreenshots] = useState<Awaited<ReturnType<typeof admin.screenshotStorage>> | null>(null)
   const [notice, setNotice] = useState("")
   // Finds a registration in the current list by ID, team, member name, email or phone.
   const [search, setSearch] = useState("")
@@ -961,6 +962,7 @@ export default function AdminPage() {
       setRows(status ? all.filter((r) => r.status === status) : all)
       setSync(await admin.syncStatus().catch(() => null))
       setMail(await admin.ticketMailStatus().catch(() => null))
+      setScreenshots(await admin.screenshotStorage().catch(() => null))
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) return expireSession()
       setError(err instanceof Error ? err.message : "Couldn't load registrations.")
@@ -1061,6 +1063,16 @@ export default function AdminPage() {
                   {mail.configured
                     ? `on · ${mail.pending} waiting to send${mail.failed ? ` · ${mail.failed} failed (open the team to resend)` : ""}`
                     : "not set up yet. Approved teams get their QR emails as soon as the mail settings are added."}
+                </p>
+              </div>
+            )}
+            {screenshots && (
+              <div className="admin-sync">
+                <p className="account-muted">
+                  Payment screenshots:{" "}
+                  {screenshots.driveConnected
+                    ? `${screenshots.inDrive} in Google Drive · ${screenshots.inDatabase} waiting to be copied${screenshots.failed ? ` · ${screenshots.failed} failed (retried automatically)` : ""}`
+                    : `stored in the database (${screenshots.inDatabase}); Google Drive isn't connected`}
                 </p>
               </div>
             )}

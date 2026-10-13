@@ -491,6 +491,8 @@ export const admin = {
   admitParticipant: (participantId: string) =>
     request<TicketScan>(`/admin/tickets/${participantId}/check-in`, { method: "POST" }),
   ticketMailStatus: () => request<{ configured: boolean; pending: number; failed: number }>("/admin/tickets/mail-status"),
+  screenshotStorage: () =>
+    request<{ driveConnected: boolean; inDrive: number; inDatabase: number; failed: number }>("/admin/screenshot-storage"),
   // Emails the same entry QR again to one member, or to the whole team.
   resendTickets: (registrationId: string, participantId?: string) =>
     request(`/admin/registrations/${registrationId}/resend-tickets`, { json: participantId ? { participantId } : {} }),

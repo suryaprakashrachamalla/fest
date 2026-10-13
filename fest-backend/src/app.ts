@@ -20,6 +20,7 @@ import * as luma from "./LumaSyncService.ts";
 import * as tickets from "./TicketService.ts";
 import * as analytics from "./OverviewService.ts";
 import { requireSuperAdmin } from "./OverviewService.ts";
+import { archiveScreenshotsSoon, screenshotStorageStatus } from "./ScreenshotArchiveService.ts";
 
 const app = express();
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -180,19 +181,17 @@ app.post(
     "/registrations/:registrationId/payment-proofs",
     authenticate,
     upload.single("screenshot"),
-    async (req, res) =>
-        ok(
-            res,
-            await payments.submitProof(
-                String(req.params.registrationId),
-                req.user!.id,
-                req.body?.utr,
-                req.file,
-                req.body?.paymentMethod,
-            ),
-            "Payment proof submitted",
-            201,
-        ),
+    async (req, res) => {
+        const proof = await payments.submitProof(
+            String(req.params.registrationId),
+            req.user!.id,
+            req.body?.utr,
+            req.file,
+            req.body?.paymentMethod,
+        );
+        archiveScreenshotsSoon();
+        ok(res, proof, "Payment proof submitted", 201);
+    },
 );
 app.get("/registrations/:registrationId/payment-proofs", authenticate, async (req, res) =>
     ok(
@@ -434,6 +433,10 @@ app.post(
             await tickets.checkInMembers(String(req.params.registrationId), req.body?.participantIds, req.user!.id, req.body?.requestId),
             "Entry recorded",
         ),
+);
+// Where payment screenshots are: copied to Google Drive, or still waiting in the database.
+app.get("/admin/screenshot-storage", admin, async (_req: express.Request, res: express.Response) =>
+    ok(res, await screenshotStorageStatus()),
 );
 app.get(
     "/admin/tickets/mail-status",

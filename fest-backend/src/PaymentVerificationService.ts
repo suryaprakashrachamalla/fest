@@ -3,6 +3,7 @@ import { addOutbox } from "./lib/outbox.ts";
 import type { Express } from "express";
 import { addAudit, queueRegistrationSync } from "./lib/registrationSync.ts";
 import { uniqueViolation } from "./lib/prismaErrors.ts";
+import { downloadScreenshot } from "./lib/driveStorage.ts";
 
 const PAYMENT_METHODS = ["UPI"];
 
@@ -194,6 +195,7 @@ export async function getScreenshot(proofId: string, userId?: string, isAdmin = 
         select: {
             screenshotBytes: true,
             screenshotMimeType: true,
+            driveFileId: true,
             registration: { select: { userId: true } },
         },
     });
@@ -203,7 +205,18 @@ export async function getScreenshot(proofId: string, userId?: string, isAdmin = 
         throw Object.assign(new Error("You cannot access this payment proof"), {
             status: 403,
         });
-    return { bytes: proof.screenshotBytes, mimeType: proof.screenshotMimeType };
+    // Still in the database until it has been copied to Google Drive; after that, read from Drive.
+    if (proof.screenshotBytes) return { bytes: proof.screenshotBytes, mimeType: proof.screenshotMimeType };
+    if (!proof.driveFileId) throw Object.assign(new Error("This payment proof has no screenshot"), { status: 404 });
+    try {
+        return { bytes: await downloadScreenshot(proof.driveFileId), mimeType: proof.screenshotMimeType };
+    } catch (error) {
+        console.error(`Screenshot ${proofId} couldn't be read from Google Drive:`, error instanceof Error ? error.message : error);
+        throw Object.assign(new Error("Couldn't load the screenshot from Google Drive right now. Try again in a minute."), {
+            status: 503,
+            expose: true,
+        });
+    }
 }
 export async function getAdminProof(proofId: string) {
     const proof = await prisma.paymentProof.findUnique({

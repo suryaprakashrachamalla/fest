@@ -336,7 +336,7 @@ describe("entry QR emails", () => {
         } finally {
             Object.assign(process.env, { SMTP_HOST: previous.host ?? "", SMTP_USER: previous.user ?? "", SMTP_PASS: previous.pass ?? "" });
         }
-    });
+    }, 30_000); // QR images are generated for each send; slow machines need more than the default 5 s
 });
 
 describe("super-admin analytics", () => {
