@@ -45,6 +45,8 @@ export type FestivalEvent = {
   performer?: { name: string; handle: string; instagram: string; bio?: string }
   // Sub-events listed in the About section, with an optional line beneath them.
   activities?: string[]
+  // Sign-up links for single activities (e.g. a Google Form), shown as a Register button next to them.
+  activityLinks?: Record<string, string>
   activitiesNote?: string
   // Performance nights skip the judging criteria section.
   hideCriteria?: boolean
@@ -293,6 +295,7 @@ export const events: FestivalEvent[] = [
     accent: "#ff7a00",
     image: recreationImage,
     activities: ["Sherlock", "Face & Hand Painting", "Hold the Bar", "Giant Jenga"],
+    activityLinks: { Sherlock: "https://forms.gle/ijNV3shV51YYwLHcA" },
     activitiesNote: "More events will be announced soon",
     hideCriteria: true,
     challenges: ["Rapid challenges", "Creative stations", "Team games"],

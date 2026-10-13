@@ -114,6 +114,17 @@ export default function EventPage() {
                     <li key={activity}>
                       <span>0{index + 1}</span>
                       {activity}
+                      {event.activityLinks?.[activity] && (
+                        <a
+                          className="pill-button pill-button--gold event-activity-register"
+                          href={event.activityLinks[activity]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Register for ${activity}`}
+                        >
+                          Register <span>↗</span>
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ol>

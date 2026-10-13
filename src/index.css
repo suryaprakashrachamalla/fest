@@ -5549,3 +5549,10 @@ html {
 .team-code-error {
   color: #b91c1c;
 }
+
+/* Register button next to an activity that has its own sign-up form (e.g. Sherlock). */
+.event-activity-register {
+  margin-left: auto;
+  padding: 6px 14px;
+  font-size: 13px;
+}
