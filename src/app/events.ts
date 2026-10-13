@@ -254,7 +254,7 @@ export const events: FestivalEvent[] = [
     category: "Fun",
     number: "07",
     description:
-      "An afternoon of pure Telugu comedy about engineering life. Mid exams, sem results, endless one-side batting, girlfriend drama, trips that never leave the group chat, and amma's phone calls. Every joke lands in Telugu, so grab your gang and get ready to laugh till your stomach hurts.",
+      "Get ready for a nostalgic, hilarious Telugu comedy ride through school-day memories, roasting Chota Bheem, the struggles of being single, and the never-ending mission of finding a girlfriend! With relatable stories, unexpected punchlines, and a few twists you won’t see coming, this show promises non-stop laughs from start to finish.",
     format: "Standup comedy",
     team: "Individual",
     duration: "1 hr 15 min",
