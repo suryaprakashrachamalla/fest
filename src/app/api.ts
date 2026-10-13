@@ -140,6 +140,9 @@ export interface Registration {
   college: string
   phone: string
   amountPaise: number
+  // Team code used and its discount (amountPaise is already after it).
+  discountCode?: string | null
+  discountPaise?: number
   status: RegistrationStatus
   rejectionReason: string | null
   createdAt: string
@@ -180,6 +183,8 @@ export interface NewRegistration {
   college: string
   phone: string
   participants: { name: string; email: string; rollNumber?: string }[]
+  // A team code (₹50 off) for events that offer them; the server checks it and computes the amount.
+  teamCode?: string
 }
 
 function readStorage(key: string) {
@@ -306,6 +311,11 @@ export function feeFor(event: BackendEvent, teamSize: number) {
   const tier = tierFor(event, teamSize)
   if (tier) return tier.feePaise
   return event.feeMode === "PER_HEAD" ? event.feePaise * teamSize : event.feePaise
+}
+
+// Checks a team code for this event before registering.
+export function checkTeamCode(eventId: string, code: string) {
+  return request<{ code: string; discountPaise: number }>(`/events/${eventId}/team-code`, { json: { code } })
 }
 
 export function createRegistration(eventId: string, data: NewRegistration) {

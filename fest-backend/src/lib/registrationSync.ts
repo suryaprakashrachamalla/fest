@@ -94,6 +94,9 @@ export function registrationSheetRow(reg: RegistrationForSheet) {
         updatedAt: reg.updatedAt.toISOString(),
         // MVSR members enter roll numbers; other colleges leave them blank.
         rollNumbers: reg.participants.map((p) => p.rollNumber ?? "").filter(Boolean).join(", "),
+        // Team code used for a discount, and the discount (the fee column is already after it).
+        teamCode: reg.discountCode ?? "",
+        discount: reg.discountPaise ? (reg.discountPaise / 100).toFixed(2) : "",
     };
 }
 

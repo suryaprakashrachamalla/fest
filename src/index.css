@@ -5513,3 +5513,39 @@ html {
     flex: 1 1 100%;
   }
 }
+
+/* Team code (discount) box in the registration popup. */
+.team-code-field {
+  margin-top: 6px;
+}
+
+.team-code-row {
+  display: flex;
+  gap: 10px;
+}
+
+.team-code-row input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+}
+
+.team-code-row .pill-button {
+  flex-shrink: 0;
+}
+
+.team-code-ok,
+.team-code-error {
+  min-height: 1.2em;
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.team-code-ok {
+  color: #15803d;
+}
+
+.team-code-error {
+  color: #b91c1c;
+}

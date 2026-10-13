@@ -737,7 +737,12 @@ function AdminRegistration({
             <strong>{approval.label}</strong>
           </span>
         </span>
-        {fee.total !== registration.amountPaise && (
+        {registration.discountCode && (
+          <span className="admin-row-note">
+            Team code {registration.discountCode}: {rupees(registration.discountPaise ?? 0)} off (fee {rupees(registration.amountPaise + (registration.discountPaise ?? 0))}).
+          </span>
+        )}
+        {fee.total - (registration.discountPaise ?? 0) !== registration.amountPaise && (
           <span className="admin-row-note">
             Charged {rupees(registration.amountPaise)} at registration; the current fee for {registration.teamSize} would be{" "}
             {rupees(fee.total)}.

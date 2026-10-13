@@ -103,6 +103,15 @@ const ok = (
     status = 200,
 ) => res.status(status).json({ success: true, data, message });
 const admin: RequestHandler[] = [authenticate, requireAdmin];
+// Team-code checks from the registration form, per account: enough for typos, too few to guess codes.
+const teamCodeLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: 20,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    keyGenerator: (req) => req.user?.id ?? ipKeyGenerator(req.ip ?? ""),
+    message: limited("Too many team code attempts. Try again in a few minutes."),
+});
 // Entrance lookups and check-ins, rate limited per organizer.
 const gate: RequestHandler[] = [...admin, adminActionLimiter];
 
@@ -162,6 +171,10 @@ app.post("/events/:eventId/registrations", authenticate, async (req, res) =>
         "Registration created",
         201,
     ),
+);
+// Checks a team code for this event before registering (the registration itself checks it again).
+app.post("/events/:eventId/team-code", authenticate, teamCodeLimiter, async (req, res) =>
+    ok(res, await registrations.checkTeamCode(String(req.params.eventId), req.body?.code), "Team code applied"),
 );
 app.get("/registrations/me", authenticate, async (req, res) =>
     ok(res, await registrations.getMyRegistrations(req.user!.id)),

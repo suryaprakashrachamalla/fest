@@ -87,6 +87,7 @@ model Event {
   feeTiers      Json?
   isPublished   Boolean        @default(false)
   registrations Registration[]
+  discountCodes DiscountCode[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -102,7 +103,11 @@ model Registration {
   teamSize            Int
   college             String
   phone               String
+  // The amount to pay, after any team-code discount (computed by the server).
   amountPaise         Int
+  // Team code used at registration (e.g. HK-7KQ2M9XP) and the discount it gave.
+  discountCode        String?
+  discountPaise       Int            @default(0)
   status              RegistrationStatus @default(PENDING_PAYMENT)
   approvedAt          DateTime?
   approvedById        String?
@@ -267,4 +272,19 @@ model AnalyticsExclusion {
   createdAt   DateTime               @default(now())
 
   @@unique([kind, value])
+}
+
+// Team codes: each takes amountPaise off one registration for its own event, and works once.
+// A code is released again if the registration that used it is rejected.
+model DiscountCode {
+  id                   String    @id @default(uuid())
+  code                 String    @unique
+  eventId              String
+  amountPaise          Int
+  usedByRegistrationId String?   @unique
+  usedAt               DateTime?
+  event                Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt            DateTime  @default(now())
+
+  @@index([eventId])
 }

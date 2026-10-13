@@ -112,10 +112,33 @@ function conflictMessage(fields: string) {
     return "You are already registered for this event";
 }
 
+// Team codes look like HK-7KQ2M9XP: an event prefix and 8 characters without 0/O or 1/I/L.
+const TEAM_CODE_PATTERN = /^[A-Z]{2}-[2-9A-HJ-NP-Z]{8}$/;
+
+const isBlank = (value: unknown) => value === undefined || value === null || (typeof value === "string" && value.trim() === "");
+
+// The unused team code for this event, or a 400/409 saying why it can't be used.
+export async function findTeamCode(eventId: string, raw: unknown) {
+    const code = typeof raw === "string" ? raw.trim().toUpperCase() : "";
+    const notValid = () => badRequest("This team code isn't valid for this event");
+    if (!TEAM_CODE_PATTERN.test(code)) throw notValid();
+    const found = await prisma.discountCode.findUnique({ where: { code } });
+    if (!found || found.eventId !== eventId) throw notValid();
+    if (found.usedByRegistrationId)
+        throw Object.assign(new Error("This team code has already been used"), { status: 409 });
+    return found;
+}
+
+// For the registration form: checks a team code before the team submits.
+export async function checkTeamCode(eventId: string, raw: unknown) {
+    const found = await findTeamCode(eventId, raw);
+    return { code: found.code, discountPaise: found.amountPaise };
+}
+
 export async function createRegistration(
     userId: string,
     eventId: string,
-    body: { teamName?: unknown; college?: unknown; phone?: unknown; participants?: unknown },
+    body: { teamName?: unknown; college?: unknown; phone?: unknown; participants?: unknown; teamCode?: unknown },
 ) {
     const { teamName, college, phone, participants: input } = body;
     if (!Array.isArray(input)) throw badRequest("participants are required");
@@ -131,8 +154,12 @@ export async function createRegistration(
         event.minTeamSize,
         event.maxTeamSize,
     );
-    // The fee is always computed server-side; any client-supplied amount is ignored.
-    const amountPaise = registrationFee(event, participants.length);
+    // The fee is always computed server-side; any client-supplied amount or discount is ignored.
+    const fullFee = registrationFee(event, participants.length);
+    // An optional team code for this event takes its amount off; it is claimed below, atomically.
+    const teamCode = isBlank(body.teamCode) ? null : await findTeamCode(eventId, body.teamCode);
+    const discountPaise = teamCode ? Math.min(teamCode.amountPaise, fullFee) : 0;
+    const amountPaise = fullFee - discountPaise;
     // Individual registrations (one-person events, or the single ticket of an event with ticket
     // options) have no team; any team name sent is ignored.
     const individual = event.maxTeamSize === 1 || (feeTiers(event) !== null && participants.length === 1);
@@ -155,8 +182,19 @@ export async function createRegistration(
                         college: college.trim(),
                         phone: normalizedPhone,
                         amountPaise,
+                        discountCode: teamCode?.code ?? null,
+                        discountPaise,
                     },
                 });
+                if (teamCode) {
+                    // Only one registration can take a code, even when two teams submit it at once.
+                    const claimed = await tx.discountCode.updateMany({
+                        where: { id: teamCode.id, usedByRegistrationId: null },
+                        data: { usedByRegistrationId: registration.id, usedAt: new Date() },
+                    });
+                    if (claimed.count !== 1)
+                        throw Object.assign(new Error("This team code has already been used"), { status: 409 });
+                }
                 const createdParticipants = [];
                 for (const p of participants)
                     createdParticipants.push(
@@ -365,6 +403,11 @@ export async function rejectRegistration(id: string, adminId: string, reason: un
             throw Object.assign(new Error("This registration was changed by someone else; refresh and try again"), {
                 status: 409,
             });
+        // A team code used by a rejected registration can be used again by another team.
+        await tx.discountCode.updateMany({
+            where: { usedByRegistrationId: id },
+            data: { usedByRegistrationId: null, usedAt: null },
+        });
         // Close any proof still waiting for review so it cannot be verified afterwards.
         await tx.paymentProof.updateMany({
             where: { registrationId: id, status: "PENDING" },

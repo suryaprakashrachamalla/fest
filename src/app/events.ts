@@ -17,6 +17,8 @@ export type FestivalEvent = {
   time: string
   venue?: string
   fee?: string
+  // Registration offers a "Team code" box (₹50 off with a code made for this event).
+  teamCodes?: boolean
   // Label for the fee row, e.g. "Entry fee"; defaults to "Fee".
   feeLabel?: string
   // Event coordinators shown on the event page; phone is a 10-digit Indian mobile number.
@@ -79,6 +81,7 @@ const recreationImage =
 export const events: FestivalEvent[] = [
   {
     slug: "hackathon",
+    teamCodes: true,
     coordinators: [{ name: "Sana", phone: "9100903450" }, { name: "Aniketh", phone: "8309012359" }],
     name: "CSE-HACKATHON",
     hotspot: "Prizes worth ₹4L+",
@@ -117,6 +120,7 @@ export const events: FestivalEvent[] = [
   },
   {
     slug: "no-code-vibathon",
+    teamCodes: true,
     coordinators: [{ name: "Surya", phone: "8247859699" }, { name: "Zeeshan", phone: "7981084902" }],
     name: "NOCODE VIBEATHON",
     category: "Technical",

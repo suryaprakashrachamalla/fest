@@ -78,7 +78,7 @@ integrationTest("each event gets its own tab holding only that event's registrat
     expect(rowsOf(names.team)[0]).toEqual([
         "registrationId", "teamName", "teamSize", "participantNames", "emails", "rollNumbers", "phone", "college",
         "registrationFee", "utr", "paymentStatus", "approvalStatus", "ticketStatus", "emailStatus", "checkedIn",
-        "checkedInAt", "registeredAt", "updatedAt",
+        "checkedInAt", "registeredAt", "updatedAt", "teamCode", "discount",
     ]);
     expect(codesIn(names.team)).toEqual([pair.code]);
     expect(codesIn(names.solo)).toEqual([solo.code]);

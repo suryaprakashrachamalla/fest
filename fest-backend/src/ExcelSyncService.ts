@@ -102,6 +102,8 @@ const definitions: SheetDefinition[] = [
             "updatedAt",
             // Added with the per-event tabs; older sheets get it appended automatically.
             "rollNumbers",
+            "teamCode",
+            "discount",
         ],
     },
     {
@@ -169,6 +171,8 @@ const eventTabHeaders = [
     "checkedInAt",
     "registeredAt",
     "updatedAt",
+    "teamCode",
+    "discount",
 ];
 const sharedTitles = definitions.map((definition) => definition.title);
 

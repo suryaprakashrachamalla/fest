@@ -6,6 +6,7 @@ import {
   type Registration,
   PARTICIPANT_STATUS_LABELS,
   registrationTitle,
+  checkTeamCode,
   createRegistration,
   feeFor,
   tierFor,
@@ -64,6 +65,11 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
   const mvsrTeam = collegeType === "mvsr"
   const collegeName = mvsrTeam ? MVSR_COLLEGE : college.trim()
   const [teamSize, setTeamSize] = useState(0)
+  // Team code (₹50 off) for the events that offer them: checked with the server before it counts.
+  const [teamCodeInput, setTeamCodeInput] = useState("")
+  const [appliedCode, setAppliedCode] = useState<{ code: string; discountPaise: number } | null>(null)
+  const [teamCodeNote, setTeamCodeNote] = useState("")
+  const [checkingCode, setCheckingCode] = useState(false)
   const [students, setStudents] = useState(
     Array.from({ length: 5 }, () => ({ name: "", email: "", rollNumber: "" })),
   )
@@ -170,6 +176,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
     if (new Set(emails).size !== emails.length) return "Each student needs a different email address."
     if (!validPhone(phone)) return "Enter a valid 10-digit mobile number."
     if (!/^[A-Za-z0-9-]{6,32}$/.test(utr.trim())) return "Enter the UTR / transaction reference (6–32 letters or numbers)."
+    if (teamCodeInput.trim() && !appliedCode) return "Tap Apply to use your team code, or clear the team code box."
     if (!screenshot) return "Upload a screenshot of your payment."
     if (!["image/png", "image/jpeg"].includes(screenshot.type)) return "The payment screenshot must be a PNG or JPG image."
     if (screenshot.size > MAX_PROOF_BYTES) return "The payment screenshot must be 5 MB or smaller."
@@ -195,8 +202,11 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
           email: s.email.trim(),
           ...(mvsrTeam ? { rollNumber: s.rollNumber.trim() } : {}),
         })),
+        ...(appliedCode ? { teamCode: appliedCode.code } : {}),
       })
     } catch (err) {
+      // e.g. another team used the code a moment ago: drop the discount so the total is right again.
+      if (err instanceof Error && /team code/i.test(err.message)) setAppliedCode(null)
       setError(err instanceof Error ? err.message : "Registration failed. Please try again.")
       setBusy(false)
       return
@@ -217,6 +227,23 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
   }
 
   const fee = backendEvent ? feeFor(backendEvent, teamSize) : 0
+  const discount = appliedCode ? Math.min(appliedCode.discountPaise, fee) : 0
+  // What the team pays: the server computes the same amount and stores it.
+  const total = fee - discount
+
+  async function applyTeamCode() {
+    if (!backendEvent || !teamCodeInput.trim()) return
+    setCheckingCode(true)
+    setTeamCodeNote("")
+    try {
+      setAppliedCode(await checkTeamCode(backendEvent.id, teamCodeInput.trim()))
+    } catch (err) {
+      setAppliedCode(null)
+      setTeamCodeNote(err instanceof Error ? err.message : "Couldn't check the team code.")
+    } finally {
+      setCheckingCode(false)
+    }
+  }
   // One person per registration: no team name or team size to choose.
   // Events with ticket options (Single / Group of 5) offer just those sizes; the single ticket has no team.
   const tiers = backendEvent?.feeTiers?.length ? backendEvent.feeTiers : null
@@ -433,6 +460,33 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                 </div>
               ))}
 
+              {event.teamCodes && (
+                <div className="form-field team-code-field">
+                  <label htmlFor="team-code">Team code (optional)</label>
+                  <div className="team-code-row">
+                    <input
+                      id="team-code"
+                      value={teamCodeInput}
+                      onChange={(e) => {
+                        setTeamCodeInput(e.target.value)
+                        setAppliedCode(null)
+                        setTeamCodeNote("")
+                      }}
+                      maxLength={20}
+                      placeholder="e.g. HK-7KQ2M9XP"
+                      autoCapitalize="characters"
+                      aria-describedby="team-code-note"
+                    />
+                    <button type="button" className="pill-button pill-button--outline" onClick={() => void applyTeamCode()} disabled={checkingCode || !teamCodeInput.trim()}>
+                      {checkingCode ? "Checking…" : "Apply"}
+                    </button>
+                  </div>
+                  <p id="team-code-note" className={appliedCode ? "team-code-ok" : "team-code-error"} role={teamCodeNote ? "alert" : undefined}>
+                    {appliedCode ? `✓ ${appliedCode.code} applied: ${rupees(discount)} off` : teamCodeNote}
+                  </p>
+                </div>
+              )}
+
               <div className="order-summary-box">
                 <div className="order-row">
                   <span>
@@ -445,10 +499,16 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                   </span>
                   <span>{rupees(fee)}</span>
                 </div>
+                {appliedCode && (
+                  <div className="order-row">
+                    <span>Team code {appliedCode.code}</span>
+                    <span>−{rupees(discount)}</span>
+                  </div>
+                )}
                 <div className="receipt-divider" />
                 <div className="order-row order-total">
                   <span>Registration fee:</span>
-                  <strong className="total-highlight">{rupees(fee)}</strong>
+                  <strong className="total-highlight">{rupees(total)}</strong>
                 </div>
               </div>
 
@@ -457,7 +517,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                 {qr ? <img src={qr.url} alt="UPI payment QR code" /> : <div className="payment-qr-placeholder" />}
                 <div>
                   <p>
-                    Scan with any UPI app and pay exactly <strong>{rupees(fee)}</strong>.
+                    Scan with any UPI app and pay exactly <strong>{rupees(total)}</strong>.
                   </p>
                   {qr?.isDemo && <p className="payment-qr-demo">Demo QR: online payments aren&apos;t live yet. Don&apos;t pay with this code.</p>}
                   <p>Then enter the UTR / transaction ID from your payment app and upload the payment screenshot below.</p>
@@ -487,7 +547,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
               )}
               <div className="modal-actions" style={{ marginTop: 20 }}>
                 <button type="submit" className="pill-button pill-button--gold pill-button--full" disabled={busy}>
-                  {busy ? "Submitting…" : `Submit registration · ${rupees(fee)}`}
+                  {busy ? "Submitting…" : `Submit registration · ${rupees(total)}`}
                 </button>
                 <p className="payment-security-note">
                   Organizers verify every payment manually before approving your registration.

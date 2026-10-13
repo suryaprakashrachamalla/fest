@@ -140,3 +140,64 @@ integrationTest("ticket options: single ₹299 without a team name, group of 5 �
         400,
     );
 });
+
+
+integrationTest("team codes take ₹50 off once, only for their own event", async () => {
+    const make = (code: string, eventId: string) => prisma.discountCode.create({ data: { code, eventId, amountPaise: 5_000 } });
+    const tag = runId.toUpperCase().replace(/[^2-9A-HJ-NP-Z]/g, "X").padEnd(4, "X").slice(0, 4);
+    await make(`HK-AAAA${tag}`, ids.perHead);
+    await make(`HK-BBBB${tag}`, ids.perHead);
+    await make(`NC-CCCC${tag}`, ids.flat);
+    const register = async (label: string, eventId: string, teamCode: unknown, size = 2, extra: Record<string, unknown> = {}) =>
+        registrations.createRegistration(await newUser(label), eventId, {
+            teamName: `Team ${label}`, college: "Test College", phone: "9876543210", participants: people(label, size), teamCode, ...extra,
+        } as never);
+
+    // Typed in lower case with spaces still works; a discount or amount sent by the browser is ignored.
+    const discounted = await register("tc1", ids.perHead, `  hk-aaaa${tag.toLowerCase()} `, 2, { discountPaise: 99_999, amountPaise: 1 });
+    expect(discounted.amountPaise).toBe(60_000 - 5_000);
+    expect(discounted.discountCode).toBe(`HK-AAAA${tag}`);
+    expect(discounted.discountPaise).toBe(5_000);
+    expect(discounted.paymentInstructions.amountPaise).toBe(55_000);
+
+    // Used once already.
+    await expectError(register("tc2", ids.perHead, `HK-AAAA${tag}`), 409, /already been used/);
+    // Another event's code, or something that isn't a code.
+    await expectError(register("tc3", ids.perHead, `NC-CCCC${tag}`), 400, /isn't valid for this event/);
+    await expectError(register("tc4", ids.perHead, "FREE50"), 400, /isn't valid/);
+    // No code: full price.
+    expect((await register("tc5", ids.perHead, "")).amountPaise).toBe(60_000);
+    // Checking before submitting.
+    expect(await registrations.checkTeamCode(ids.perHead, `hk-bbbb${tag}`)).toEqual({ code: `HK-BBBB${tag}`, discountPaise: 5_000 });
+    await expectError(registrations.checkTeamCode(ids.flat, `HK-BBBB${tag}`), 400);
+});
+
+integrationTest("two teams using the same code at once: only one gets it", async () => {
+    const tag = runId.toUpperCase().replace(/[^2-9A-HJ-NP-Z]/g, "X").padEnd(4, "X").slice(0, 4);
+    await prisma.discountCode.create({ data: { code: `HK-DDDD${tag}`, eventId: ids.perHead, amountPaise: 5_000 } });
+    const attempt = async (label: string) =>
+        registrations
+            .createRegistration(await newUser(label), ids.perHead, {
+                teamName: `Team ${label}`, college: "Test College", phone: "9876543210", participants: people(label, 1), teamCode: `HK-DDDD${tag}`,
+            })
+            .then((r) => r.amountPaise, (e) => (e as { status?: number }).status);
+    const results = await Promise.all([attempt("race1"), attempt("race2")]);
+    expect(results.sort()).toEqual([25_000, 409]);
+    expect(await prisma.registration.count({ where: { discountCode: `HK-DDDD${tag}` } })).toBe(1);
+});
+
+integrationTest("rejecting a registration frees its team code for another team", async () => {
+    const tag = runId.toUpperCase().replace(/[^2-9A-HJ-NP-Z]/g, "X").padEnd(4, "X").slice(0, 4);
+    await prisma.discountCode.create({ data: { code: `HK-EEEE${tag}`, eventId: ids.perHead, amountPaise: 5_000 } });
+    const organizer = await newUser("organizer");
+    const first = await registrations.createRegistration(await newUser("rej1"), ids.perHead, {
+        teamName: "First", college: "Test College", phone: "9876543210", participants: people("rej1", 1), teamCode: `HK-EEEE${tag}`,
+    });
+    await registrations.rejectRegistration(first.id, organizer, "Duplicate team");
+    const second = await registrations.createRegistration(await newUser("rej2"), ids.perHead, {
+        teamName: "Second", college: "Test College", phone: "9876543210", participants: people("rej2", 1), teamCode: `HK-EEEE${tag}`,
+    });
+    expect(second.amountPaise).toBe(25_000);
+    // The rejected registration still shows the code it had used.
+    expect((await prisma.registration.findUniqueOrThrow({ where: { id: first.id } })).discountCode).toBe(`HK-EEEE${tag}`);
+});
