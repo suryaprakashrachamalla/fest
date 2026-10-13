@@ -11,7 +11,7 @@ const events = [
         feePaise: 39_900,
         feeMode: "PER_HEAD" as const,
         minTeamSize: 2,
-        maxTeamSize: 3,
+        maxTeamSize: 4,
         isPublished: true,
     },
     {
