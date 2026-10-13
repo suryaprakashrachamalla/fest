@@ -5,9 +5,9 @@ import { addOutbox } from "./outbox.ts";
 // Re-running is safe: events are matched by slug and updated in place.
 const events = [
     {
-        name: "CSE-HACKATHON",
+        name: "VYOM HACKATHON (CSE)",
         slug: "hackathon",
-        description: "CSE-HACKATHON: a 24-hour team event. Domains: Cybersecurity, Defence, AI / ML, Autonomous Systems & Robotics.",
+        description: "VYOM HACKATHON (CSE): a 24-hour team event. Domains: Cybersecurity, Defence, AI / ML, Autonomous Systems & Robotics.",
         feePaise: 39_900,
         feeMode: "PER_HEAD" as const,
         minTeamSize: 2,
@@ -26,7 +26,7 @@ const events = [
         isPublished: true,
     },
     {
-        name: "GitHub + System Design Workshop",
+        name: "System Design and GitHub Workshop",
         slug: "github-workshop",
         description: "Hands-on workshop on repositories, branches, pull requests, open-source collaboration and system design fundamentals.",
         feePaise: 9_900,
@@ -36,7 +36,7 @@ const events = [
         isPublished: true,
     },
     {
-        name: "Build Lab — Product Design Challenge",
+        name: "PRODUCT-A-THON",
         slug: "build-lab",
         description: "Product design challenge for teams of 2–3.",
         feePaise: 15_000,

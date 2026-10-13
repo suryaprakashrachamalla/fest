@@ -85,7 +85,7 @@ export const events: FestivalEvent[] = [
     slug: "hackathon",
     teamCodes: true,
     coordinators: [{ name: "Sana", phone: "9100903450" }, { name: "Aniketh", phone: "8309012359" }],
-    name: "CSE-HACKATHON",
+    name: "VYOM HACKATHON (CSE)",
     hotspot: "Prizes worth ₹4L+",
     category: "Technical",
     number: "01",
@@ -103,7 +103,7 @@ export const events: FestivalEvent[] = [
     heroPrize: "₹4L+",
     accent: "#e8ddc4",
     image: techImage,
-    criteria: { label: "CSE-HACKATHON domains", title: ["Pick your domain.", "We'll bring the arena."] },
+    criteria: { label: "VYOM HACKATHON domains", title: ["Pick your domain.", "We'll bring the arena."] },
     challenges: [
       "Cybersecurity",
       "Defence",
@@ -150,7 +150,7 @@ export const events: FestivalEvent[] = [
   {
     slug: "github-workshop",
     coordinators: [{ name: "Archita", phone: "9849112021" }],
-    name: "GITHUB + SYSTEM DESIGN WORKSHOP",
+    name: "SYSTEM DESIGN AND GITHUB WORKSHOP",
     category: "Technical",
     number: "03",
     tagline: "From first commit to confident collaboration.",
@@ -177,7 +177,7 @@ export const events: FestivalEvent[] = [
   {
     slug: "build-lab",
     coordinators: [{ name: "Lalasa", phone: "7386858392" }],
-    name: "BUILD LAB — PRODUCT DESIGN CHALLENGE",
+    name: "PRODUCT-A-THON",
     category: "Semi-Technical",
     number: "04",
     tagline: "Turn a messy problem into a product people want.",

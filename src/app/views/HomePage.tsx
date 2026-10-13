@@ -178,7 +178,7 @@ export default function HomePage() {
               Register now <span>→</span>
             </a>
             <p className="hero-prize">
-              <span>CSE-HACKATHON prize pool worth</span>
+              <span>VYOM HACKATHON (CSE) prize pool worth</span>
               <strong>₹4L+</strong>
             </p>
           </div>
@@ -192,7 +192,7 @@ export default function HomePage() {
             </p>
             <div style={{ display: "flex", gap: "12px", alignItems: "center", marginTop: "14px", flexWrap: "wrap" }}>
               <Link to="/events/hackathon" className="pill-button pill-button--gold" style={{ padding: "10px 22px", fontSize: "14px" }}>
-                Register for CSE-HACKATHON ↗
+                Register for VYOM HACKATHON (CSE) ↗
               </Link>
               <Link to="/events/no-code-vibathon" className="pill-button pill-button--outline" style={{ padding: "10px 22px", fontSize: "14px" }}>
                 NOCODE VIBEATHON ↗
