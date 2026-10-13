@@ -51,7 +51,7 @@ jobs:
       - name: Add page copies for real routes
         run: |
           mkdir -p dist/events
-          for page in login signup dashboard; do cp dist/index.html "dist/$page.html"; done
+          for page in login signup dashboard event-analytics; do cp dist/index.html "dist/$page.html"; done
           for slug in $(grep -oE 'slug: "[a-z0-9-]+"' src/app/events.ts | cut -d'"' -f2); do
             cp dist/index.html "dist/events/$slug.html"
           done
