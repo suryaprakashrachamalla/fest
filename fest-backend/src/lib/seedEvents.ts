@@ -52,7 +52,12 @@ const events = [
         feePaise: 29_900,
         feeMode: "FLAT" as const,
         minTeamSize: 1,
-        maxTeamSize: 1,
+        maxTeamSize: 5,
+        // Single ticket ₹299, or a group of 5 for ₹999.
+        feeTiers: [
+            { size: 1, feePaise: 29_900, label: "Single" },
+            { size: 5, feePaise: 99_900, label: "Group of 5" },
+        ],
         isPublished: true,
     },
 ];

@@ -54,7 +54,8 @@ function validateParticipants(
     min: number,
     max: number,
 ) {
-    if (participants.length < min || participants.length > max || participants.length > 4)
+    // Teams are at most 4, unless the event allows more (e.g. a group-of-5 ticket); never more than 10.
+    if (participants.length < min || participants.length > max || participants.length > Math.min(10, Math.max(4, max)))
         throw badRequest(`Team must have between ${min} and ${max} participants`);
     const seenEmails = new Set<string>();
     return participants.map((participant, index) => {
@@ -83,7 +84,25 @@ function validateParticipants(
     });
 }
 
-export function registrationFee(event: { feePaise: number; feeMode: string }, teamSize: number) {
+export type FeeTier = { size: number; feePaise: number; label: string };
+
+// An event's fixed ticket options (e.g. Single / Group of 5), or null when it uses feePaise/feeMode.
+export function feeTiers(event: { feeTiers?: unknown }): FeeTier[] | null {
+    if (!Array.isArray(event.feeTiers) || event.feeTiers.length === 0) return null;
+    const tiers = event.feeTiers.filter(
+        (t): t is FeeTier =>
+            Number.isInteger(t?.size) && t.size >= 1 && Number.isInteger(t?.feePaise) && t.feePaise >= 0 && typeof t?.label === "string",
+    );
+    return tiers.length ? tiers : null;
+}
+
+export function registrationFee(event: { feePaise: number; feeMode: string; feeTiers?: unknown }, teamSize: number) {
+    const tiers = feeTiers(event);
+    if (tiers) {
+        const tier = tiers.find((t) => t.size === teamSize);
+        if (!tier) throw badRequest(`Choose one of: ${tiers.map((t) => `${t.label} (${t.size === 1 ? "1 person" : `${t.size} people`})`).join(" or ")}`);
+        return tier.feePaise;
+    }
     return event.feeMode === "PER_HEAD" ? event.feePaise * teamSize : event.feePaise;
 }
 
@@ -106,13 +125,6 @@ export async function createRegistration(
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event || !event.isPublished)
         throw Object.assign(new Error("Event not found"), { status: 404 });
-    // Individual events (one person per registration) have no team; any team name sent is ignored.
-    const individual = event.maxTeamSize === 1;
-    if (
-        !individual &&
-        (typeof teamName !== "string" || teamName.trim().length < 2 || teamName.trim().length > 100)
-    )
-        throw badRequest("A team name between 2 and 100 characters is required");
     const participants = validateParticipants(
         input as ParticipantInput[],
         college.trim(),
@@ -121,6 +133,14 @@ export async function createRegistration(
     );
     // The fee is always computed server-side; any client-supplied amount is ignored.
     const amountPaise = registrationFee(event, participants.length);
+    // Individual registrations (one-person events, or the single ticket of an event with ticket
+    // options) have no team; any team name sent is ignored.
+    const individual = event.maxTeamSize === 1 || (feeTiers(event) !== null && participants.length === 1);
+    if (
+        !individual &&
+        (typeof teamName !== "string" || teamName.trim().length < 2 || teamName.trim().length > 100)
+    )
+        throw badRequest("A team name between 2 and 100 characters is required");
 
     for (let attempt = 0; attempt < 3; attempt++) {
         try {

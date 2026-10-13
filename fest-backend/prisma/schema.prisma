@@ -82,6 +82,9 @@ model Event {
   feeMode       FeeMode        @default(FLAT)
   minTeamSize   Int            @default(1)
   maxTeamSize   Int            @default(4)
+  // Fixed ticket options, e.g. [{"size":1,"feePaise":29900,"label":"Single"},{"size":5,"feePaise":99900,"label":"Group of 5"}].
+  // When set, a registration must have one of these sizes and pays that option's price.
+  feeTiers      Json?
   isPublished   Boolean        @default(false)
   registrations Registration[]
   createdAt     DateTime       @default(now())

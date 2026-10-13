@@ -721,7 +721,7 @@ function AdminRegistration({
             <strong>{registration.teamSize}</strong>
           </span>
           <span>
-            <small>{fee.perParticipant ? "Fee per participant" : "Flat fee"}</small>
+            <small>{fee.heading}</small>
             <strong>{rupees(fee.unit)}</strong>
           </span>
           <span>

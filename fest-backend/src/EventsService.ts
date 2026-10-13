@@ -75,6 +75,7 @@ function row(event: {
     feeMode: string;
     minTeamSize: number;
     maxTeamSize: number;
+    feeTiers?: unknown;
     isPublished: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -88,6 +89,7 @@ function row(event: {
         feeMode: event.feeMode,
         minTeamSize: event.minTeamSize,
         maxTeamSize: event.maxTeamSize,
+        feeTiers: event.feeTiers ?? null,
         isPublished: event.isPublished,
         createdAt: event.createdAt.toISOString(),
         updatedAt: event.updatedAt.toISOString(),

@@ -7,7 +7,7 @@ import { ticketEmail } from "./TicketService.ts";
 // Fee models and individual (team-less) registration, on throwaway events shaped like the real ones.
 const integrationTest = process.env.RUN_DB_INTEGRATION_TESTS === "true" ? test : test.skip;
 const runId = crypto.randomUUID().slice(0, 8);
-const ids = { perHead: "", flat: "", solo: "", users: [] as string[] };
+const ids = { perHead: "", flat: "", solo: "", tiered: "", users: [] as string[] };
 
 async function newUser(label: string) {
     const user = await prisma.user.create({ data: { name: label, email: `${label}-${runId}@example.com`, passwordHash: "x" } });
@@ -36,12 +36,14 @@ beforeAll(async () => {
     // A flat team fee, regardless of team size.
     ids.flat = (await prisma.event.create({ data: { ...base, name: `Flat ${runId}`, slug: `flat-${runId}`, feePaise: 50_000, feeMode: "FLAT", minTeamSize: 1, maxTeamSize: 3 } })).id;
     // Like GitHub Workshop / Standup Comedy: one person per registration.
+    // Like Standup Comedy: a single ticket (₹299) or a group of 5 (₹999), nothing in between.
+    ids.tiered = (await prisma.event.create({ data: { ...base, name: `Tiered ${runId}`, slug: `tiered-${runId}`, feePaise: 29_900, feeMode: "FLAT", minTeamSize: 1, maxTeamSize: 5, feeTiers: [{ size: 1, feePaise: 29_900, label: "Single" }, { size: 5, feePaise: 99_900, label: "Group of 5" }] } })).id;
     ids.solo = (await prisma.event.create({ data: { ...base, name: `Solo ${runId}`, slug: `solo-${runId}`, feePaise: 15_000, feeMode: "PER_HEAD", minTeamSize: 1, maxTeamSize: 1 } })).id;
 });
 
 afterAll(async () => {
     if (process.env.RUN_DB_INTEGRATION_TESTS !== "true") return;
-    const eventIds = [ids.perHead, ids.flat, ids.solo];
+    const eventIds = [ids.perHead, ids.flat, ids.solo, ids.tiered];
     const regs = await prisma.registration.findMany({ where: { eventId: { in: eventIds } }, select: { id: true, code: true } });
     const regIds = regs.map((r) => r.id);
     const memberIds = (await prisma.participant.findMany({ where: { registrationId: { in: regIds } }, select: { id: true } })).map((p) => p.id);
@@ -108,4 +110,33 @@ test("ticket emails for individual registrations don't mention a team", () => {
     expect(solo.html).not.toContain("your team");
     const team = ticketEmail({ name: "Ravi", teamName: "Byte Squad", code: "SG26-ABCDEFGH", eventName: "Hackathon", eventSlug: "hackathon", teamSize: 3, ticketCode: "0".repeat(32) }, png);
     expect(team.text).toContain('Your team "Byte Squad" is approved for Hackathon');
+});
+
+integrationTest("ticket options: single ₹299 without a team name, group of 5 ₹999 with one, other sizes refused", async () => {
+    const single = await registrations.createRegistration(await newUser("t1"), ids.tiered, {
+        teamName: "ignored", college: "Test College", phone: "9876543210", participants: people("t1", 1), amountPaise: 1,
+    } as never);
+    expect(single.amountPaise).toBe(29_900);
+    expect(single.teamName).toBeNull();
+    const group = await registrations.createRegistration(await newUser("t5"), ids.tiered, {
+        teamName: "Front Row", college: "Test College", phone: "9876543210", participants: people("t5", 5),
+    });
+    expect(group.amountPaise).toBe(99_900);
+    expect(group.teamName).toBe("Front Row");
+    expect(group.participants).toHaveLength(5);
+    await expectError(
+        registrations.createRegistration(await newUser("t3"), ids.tiered, { teamName: "Three", college: "Test College", phone: "9876543210", participants: people("t3", 3) }),
+        400,
+        /Single \(1 person\) or Group of 5 \(5 people\)/,
+    );
+    await expectError(
+        registrations.createRegistration(await newUser("t5n"), ids.tiered, { college: "Test College", phone: "9876543210", participants: people("t5n", 5) }),
+        400,
+        /team name/,
+    );
+    // Other events keep their limit of 4.
+    await expectError(
+        registrations.createRegistration(await newUser("ph5"), ids.perHead, { teamName: "Five", college: "Test College", phone: "9876543210", participants: people("ph5", 5) }),
+        400,
+    );
 });

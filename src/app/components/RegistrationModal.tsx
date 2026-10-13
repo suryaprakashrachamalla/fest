@@ -8,6 +8,7 @@ import {
   registrationTitle,
   createRegistration,
   feeFor,
+  tierFor,
   findEventBySlug,
   getStoredUser,
   myRegistrations,
@@ -64,7 +65,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
   const collegeName = mvsrTeam ? MVSR_COLLEGE : college.trim()
   const [teamSize, setTeamSize] = useState(0)
   const [students, setStudents] = useState(
-    Array.from({ length: 4 }, () => ({ name: "", email: "", rollNumber: "" })),
+    Array.from({ length: 5 }, () => ({ name: "", email: "", rollNumber: "" })),
   )
   const [phone, setPhone] = useState("")
 
@@ -217,8 +218,12 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
 
   const fee = backendEvent ? feeFor(backendEvent, teamSize) : 0
   // One person per registration: no team name or team size to choose.
-  const individual = backendEvent?.maxTeamSize === 1
-  const sizes = backendEvent
+  // Events with ticket options (Single / Group of 5) offer just those sizes; the single ticket has no team.
+  const tiers = backendEvent?.feeTiers?.length ? backendEvent.feeTiers : null
+  const individual = backendEvent?.maxTeamSize === 1 || (tiers !== null && teamSize === 1)
+  const sizes = tiers
+    ? tiers.map((tier) => tier.size)
+    : backendEvent
     ? Array.from({ length: backendEvent.maxTeamSize - backendEvent.minTeamSize + 1 }, (_, i) => backendEvent.minTeamSize + i)
     : []
   const user = getStoredUser()
@@ -384,7 +389,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
 
               {sizes.length > 1 && (
                 <>
-                  <p className="form-section-title">Team size</p>
+                  <p className="form-section-title">{tiers ? "Ticket" : "Team size"}</p>
                   <div className="team-size-selector" style={{ gridTemplateColumns: `repeat(${sizes.length}, 1fr)` }}>
                     {sizes.map((n) => (
                       <button
@@ -393,7 +398,7 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                         className={`size-tab ${teamSize === n ? "size-tab--active" : ""}`}
                         onClick={() => setTeamSize(n)}
                       >
-                        <strong>{n} Members</strong>
+                        <strong>{tiers ? tierFor(backendEvent, n)?.label : `${n} Members`}</strong>
                         <span>{rupees(feeFor(backendEvent, n))}</span>
                       </button>
                     ))}
@@ -432,7 +437,11 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                 <div className="order-row">
                   <span>
                     {backendEvent.name}
-                    {backendEvent.feeMode === "PER_HEAD" ? ` (${teamSize} × ${rupees(backendEvent.feePaise)})` : ""}
+                    {tierFor(backendEvent, teamSize)
+                      ? ` (${tierFor(backendEvent, teamSize)!.label}${teamSize > 1 ? `, ${teamSize} people` : ""})`
+                      : backendEvent.feeMode === "PER_HEAD"
+                        ? ` (${teamSize} × ${rupees(backendEvent.feePaise)})`
+                        : ""}
                   </span>
                   <span>{rupees(fee)}</span>
                 </div>

@@ -37,6 +37,19 @@ export interface BackendEvent {
   feeMode: "FLAT" | "PER_HEAD"
   minTeamSize: number
   maxTeamSize: number
+  // Fixed ticket options (e.g. Single / Group of 5); when set, only these sizes can register.
+  feeTiers?: FeeTier[] | null
+}
+
+export interface FeeTier {
+  size: number
+  feePaise: number
+  label: string
+}
+
+// The ticket option for this many people, when the event has fixed options.
+export function tierFor(event: Pick<BackendEvent, "feeTiers">, teamSize: number) {
+  return event.feeTiers?.find((tier) => tier.size === teamSize) ?? null
 }
 
 // A team found by its registration ID at the entrance (when a QR can't be scanned).
@@ -290,6 +303,8 @@ export async function findEventBySlug(slug: string) {
 }
 
 export function feeFor(event: BackendEvent, teamSize: number) {
+  const tier = tierFor(event, teamSize)
+  if (tier) return tier.feePaise
   return event.feeMode === "PER_HEAD" ? event.feePaise * teamSize : event.feePaise
 }
 
@@ -536,10 +551,14 @@ export function registrationTitle(registration: { teamName: string | null; parti
 }
 
 // Fee per participant (PER_HEAD) or flat fee, with the amount that applies to `teamSize`.
-export function feeBreakdown(event: Pick<BackendEvent, "feePaise" | "feeMode">, teamSize: number) {
+export function feeBreakdown(event: Pick<BackendEvent, "feePaise" | "feeMode" | "feeTiers">, teamSize: number) {
+  const tier = tierFor(event, teamSize)
+  if (tier)
+    return { perParticipant: false, heading: `${tier.label} ticket`, unit: tier.feePaise, total: tier.feePaise, label: `${tier.label} ticket` }
   const total = event.feeMode === "PER_HEAD" ? event.feePaise * teamSize : event.feePaise
   return {
     perParticipant: event.feeMode === "PER_HEAD",
+    heading: event.feeMode === "PER_HEAD" ? "Fee per participant" : "Flat fee",
     unit: event.feePaise,
     total,
     label:
