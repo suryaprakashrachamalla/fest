@@ -131,7 +131,7 @@ export const events: FestivalEvent[] = [
     description:
       "NoCode Vibeathon is a three-track rapid prototype challenge for creators who want to build with AI and no-code tools. In each track you get a visual or digital reference, like a photo, a website or an interface, and you build your own version of it with AI-powered and no-code platforms. It's all about creativity, execution and turning inspiration into a working digital experience. You'll get access to Canva Pro and other AI Pro tools to design, automate and launch your ideas. Every track crowns its own winner, and each track winner takes home ₹1,500. The total prize pool is worth ₹30,000+!",
     format: "Prototype sprint",
-    team: "1–2 members",
+    team: "1–3 members",
     duration: "6 hours",
     date: "16 · Day 1",
     time: "10 AM – 4 PM",
