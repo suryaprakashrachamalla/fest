@@ -178,7 +178,7 @@ export default function HomePage() {
               Register now <span>→</span>
             </a>
             <p className="hero-prize">
-              <span>Total prize pool worth</span>
+              <span>CSE-HACKATHON prize pool worth</span>
               <strong>₹4L+</strong>
             </p>
           </div>
