@@ -16,6 +16,7 @@ import {
   ticketQrUrl,
 } from "../api"
 import SignInPanel from "../components/SignInPanel"
+import { eventAnalytics } from "../api"
 import { ADMIN_PATH } from "../adminPath"
 
 const STEPS = ["Registered", "Waiting for approval", "Approved"] as const
@@ -225,6 +226,8 @@ function RegistrationCard({ registration, onChanged }: { registration: Registrat
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(getStoredUser())
+  // Events whose analytics this account may see (shown as a link); empty for everyone else.
+  const [analyticsEvents, setAnalyticsEvents] = useState<{ id: string; name: string }[]>([])
   const [registrations, setRegistrations] = useState<Registration[] | null>(null)
   const [error, setError] = useState("")
 
@@ -241,6 +244,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) void load()
   }, [user, load])
+
+  useEffect(() => {
+    if (!user) return setAnalyticsEvents([])
+    eventAnalytics.access().then(setAnalyticsEvents, () => setAnalyticsEvents([]))
+  }, [user])
 
   return (
     <main className="account-page">
@@ -279,6 +287,11 @@ export default function DashboardPage() {
           <>
             <h1 className="account-title">Hi, {user.name.split(" ")[0]}</h1>
             <p className="account-muted">Your registrations for SHOURYA 2026.</p>
+            {analyticsEvents.length > 0 && (
+              <Link to="/event-analytics" className="pill-button pill-button--gold" style={{ marginTop: 14 }}>
+                Event analytics: {analyticsEvents.map((e) => e.name).join(", ")}
+              </Link>
+            )}
             {user.role === "ADMIN" && (
               <Link to={ADMIN_PATH} className="pill-button pill-button--gold" style={{ marginTop: 14 }}>
                 Open organizer dashboard

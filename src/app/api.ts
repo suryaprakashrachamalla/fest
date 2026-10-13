@@ -459,6 +459,28 @@ function queryString(query: RecordQuery) {
   return text ? `?${text}` : ""
 }
 
+// Read-only analytics for the events this (normal) account was given. The server refuses others.
+export const eventAnalytics = {
+  access: () => request<{ id: string; name: string }[]>("/event-analytics/access"),
+  overview: (refresh = false) => request<EventOverview>(`/event-analytics/overview${refresh ? "?refresh=true" : ""}`),
+  records: (query: RecordQuery) =>
+    request<{ readAt: string; stale: boolean; total: number; page: number; pageSize: number; records: AnalyticsRecord[] }>(
+      `/event-analytics/records${queryString(query)}`,
+    ),
+  downloadCsv: (query: RecordQuery) => downloadCsv(`/event-analytics/records.csv${queryString(query)}`),
+}
+
+async function downloadCsv(path: string) {
+  const url = await authorizedImageUrl(path, "Couldn't export the records")
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `shourya26-registrations-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
 export const admin = {
   // Only super admins may read this; other organizers get a 403.
   overview: (refresh = false) => request<EventOverview>(`/admin/overview${refresh ? "?refresh=true" : ""}`),

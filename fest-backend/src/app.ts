@@ -19,7 +19,7 @@ import { reconcileSpreadsheet, getSyncStatus } from "./ExcelSyncService.ts";
 import * as luma from "./LumaSyncService.ts";
 import * as tickets from "./TicketService.ts";
 import * as analytics from "./OverviewService.ts";
-import { requireSuperAdmin } from "./OverviewService.ts";
+import { requireEventViewer, requireSuperAdmin } from "./OverviewService.ts";
 import { archiveScreenshotsSoon, screenshotStorageStatus } from "./ScreenshotArchiveService.ts";
 
 const app = express();
@@ -494,6 +494,25 @@ app.post("/admin/analytics/exclusions", superAdmin, async (req: express.Request,
 app.delete("/admin/analytics/exclusions/:exclusionId", superAdmin, async (req: express.Request, res: express.Response) =>
     ok(res, await analytics.removeExclusion(String(req.params.exclusionId)), "Exclusion removed"),
 );
+// Event analytics viewers (normal accounts granted some events): the same analytics, read-only and
+// limited on the server to their events. No organizer routes, settings or other events.
+const eventViewer: RequestHandler[] = [authenticate, requireEventViewer, adminActionLimiter];
+// Which events this account may see (for the dashboard link); 403 for everyone else.
+app.get("/event-analytics/access", eventViewer, async (_req: express.Request, res: express.Response) =>
+    ok(res, await prisma.event.findMany({ where: { id: { in: res.locals.eventIds } }, select: { id: true, name: true } })),
+);
+app.get("/event-analytics/overview", eventViewer, async (req: express.Request, res: express.Response) =>
+    ok(res, await analytics.eventOverview({ refresh: req.query.refresh === "true", eventIds: res.locals.eventIds })),
+);
+app.get("/event-analytics/records", eventViewer, async (req: express.Request, res: express.Response) =>
+    ok(res, await analytics.analyticsRecords(req.query as Record<string, unknown>, res.locals.eventIds)),
+);
+app.get("/event-analytics/records.csv", eventViewer, async (req: express.Request, res: express.Response) => {
+    const csv = await analytics.analyticsCsv(req.query as Record<string, unknown>, res.locals.eventIds);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Content-Disposition", 'attachment; filename="shourya26-event-registrations.csv"');
+    res.type("text/csv").send(csv);
+});
 app.get("/admin/analytics/suggestions", superAdmin, async (_req: express.Request, res: express.Response) =>
     ok(res, await analytics.exclusionSuggestions()),
 );

@@ -26,6 +26,18 @@ export function superAdminEmails(env: NodeJS.ProcessEnv = process.env) {
     );
 }
 
+// Event analytics viewers: normal accounts given read-only analytics for some events. Runs after
+// authenticate; puts the viewer's event IDs on res.locals, or refuses anyone without any.
+export async function requireEventViewer(req: Request, res: Response, next: NextFunction) {
+    const grants = req.user ? await prisma.eventAnalyticsAccess.findMany({ where: { userId: req.user.id }, select: { eventId: true } }) : [];
+    if (grants.length === 0) {
+        res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "You don't have access to event analytics" } });
+        return;
+    }
+    res.locals.eventIds = grants.map((grant) => grant.eventId);
+    next();
+}
+
 // Runs after authenticate + requireAdmin: lets only super admins through.
 export function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
     if (!req.user || !superAdminEmails().has(req.user.email.toLowerCase())) {
@@ -143,8 +155,12 @@ async function classifiedRecords(refresh: boolean) {
 // Per event: production numbers (test data left out) and the excluded test data on its own, plus
 // what was skipped while reading the tab. The database's approved count (with the same exclusions)
 // is shown alongside as a cross-check.
-export async function eventOverview(options: { refresh?: boolean } = {}) {
-    const { snap, stale, staleReason, excluded, tabs } = await classifiedRecords(options.refresh === true);
+// With `eventIds` (an event analytics viewer), only those events are included: their rows,
+// their totals and their sheet checks; nothing about other events or the exclusion rules.
+export async function eventOverview(options: { refresh?: boolean; eventIds?: string[] } = {}) {
+    const data = await classifiedRecords(options.refresh === true);
+    const { snap, stale, staleReason, excluded } = data;
+    const tabs = options.eventIds ? data.tabs.filter(({ tab }) => options.eventIds!.includes(tab.eventId)) : data.tabs;
     const approvedInDatabase = await prisma.registration.findMany({
         where: { status: { in: ["APPROVED", "TICKET_ISSUED"] } },
         select: { code: true, eventId: true },
@@ -190,7 +206,7 @@ export async function eventOverview(options: { refresh?: boolean } = {}) {
             excluded: excludedTotals,
         },
         allMatchDatabase: events.every((row) => row.matchesDatabase),
-        exclusionRules: await prisma.analyticsExclusion.count(),
+        exclusionRules: options.eventIds ? 0 : await prisma.analyticsExclusion.count(),
         dataQuality: {
             rowsWithoutId: quality("rowsWithoutId"),
             rowsWithProblems: quality("rowsWithProblems"),
@@ -231,16 +247,24 @@ export function parseRecordQuery(query: Record<string, unknown>) {
     return { filter, page, pageSize, refresh: query.refresh === "true" };
 }
 
-async function filteredRecords(query: Record<string, unknown>) {
+// With `eventIds` (an event analytics viewer), only those events' production records are searched;
+// asking for another event is refused rather than silently answered.
+async function filteredRecords(query: Record<string, unknown>, eventIds?: string[]) {
     const parsed = parseRecordQuery(query);
+    if (eventIds) {
+        if (parsed.filter.eventId && !eventIds.includes(parsed.filter.eventId)) throw httpError(403, "You can only see your own events");
+        parsed.filter.scope = "production";
+    }
     const data = await classifiedRecords(parsed.refresh);
-    const all: Classified[] = data.tabs.flatMap((tab) => tab.records);
+    const all: Classified[] = data.tabs
+        .filter(({ tab }) => !eventIds || eventIds.includes(tab.eventId))
+        .flatMap((tab) => tab.records);
     const matching = filterRecords(all, parsed.filter).sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
     return { ...parsed, ...data, matching };
 }
 
-export async function analyticsRecords(query: Record<string, unknown>) {
-    const { snap, stale, staleReason, matching, page, pageSize, filter } = await filteredRecords(query);
+export async function analyticsRecords(query: Record<string, unknown>, eventIds?: string[]) {
+    const { snap, stale, staleReason, matching, page, pageSize, filter } = await filteredRecords(query, eventIds);
     return {
         readAt: snap.readAt.toISOString(),
         stale,
@@ -253,8 +277,8 @@ export async function analyticsRecords(query: Record<string, unknown>) {
     };
 }
 
-export async function analyticsCsv(query: Record<string, unknown>) {
-    const { matching } = await filteredRecords(query);
+export async function analyticsCsv(query: Record<string, unknown>, eventIds?: string[]) {
+    const { matching } = await filteredRecords(query, eventIds);
     return toCsv(matching.slice(0, 20_000));
 }
 

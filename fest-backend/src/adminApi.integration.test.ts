@@ -537,3 +537,66 @@ describe("sign-in rate limits", () => {
         for (let i = 0; i < 12; i++) expect((await signin(`student${i}-${runId}@mvsr.test`)).status).toBe(401);
     });
 });
+
+describe("event analytics viewer (normal account, chosen events only)", () => {
+    integrationTest("sees analytics for granted events only, read-only, enforced by the server", async () => {
+        await user("viewer");
+        await prisma.eventAnalyticsAccess.createMany({
+            data: [ids.soloEvent, ids.emptyEvent].map((eventId) => ({ userId: ids.users.viewer, eventId })),
+        });
+        await refreshSheet();
+
+        const overview = await call("GET", "/event-analytics/overview", "viewer");
+        expect(overview.status).toBe(200);
+        const shown = overview.body.data.events.map((e: any) => e.eventId).sort();
+        expect(shown).toEqual([ids.soloEvent, ids.emptyEvent].sort());
+        // Totals are only those events' numbers.
+        const solo = overview.body.data.events.find((e: any) => e.eventId === ids.soloEvent);
+        expect(overview.body.data.totals.production.registrations).toBe(solo.production.registrations);
+        expect(overview.body.data.exclusionRules).toBe(0);
+
+        const records = (await call("GET", "/event-analytics/records?pageSize=200", "viewer")).body.data;
+        expect(records.records.length).toBeGreaterThan(0);
+        expect(records.records.every((r: any) => r.eventId === ids.soloEvent)).toBe(true);
+        // Asking for another event by changing the URL is refused, not answered.
+        expect((await call("GET", `/event-analytics/records?event=${ids.teamEvent}`, "viewer")).status).toBe(403);
+        const csv = await call("GET", "/event-analytics/records.csv", "viewer");
+        expect(csv.status).toBe(200);
+        expect(csv.body).not.toContain(ids.regs.trio.code);
+        expect(csv.body).toContain(ids.regs.solo.code);
+        // Test-data views are not available to viewers.
+        const scoped = (await call("GET", "/event-analytics/records?scope=all", "viewer")).body.data;
+        expect(scoped.filter.scope).toBe("production");
+    });
+
+    integrationTest("gets nothing from organizer or super admin endpoints", async () => {
+        for (const [method, path, body] of [
+            ["GET", "/admin/overview"],
+            ["GET", "/admin/analytics/records"],
+            ["GET", "/admin/analytics/records.csv"],
+            ["GET", "/admin/analytics/exclusions"],
+            ["POST", "/admin/analytics/exclusions", { kind: "REGISTRATION", value: ids.regs.solo.code, reason: "nope" }],
+            ["GET", "/admin/registrations"],
+            ["POST", "/admin/tickets/team", { code: ids.regs.solo.code }],
+            ["PATCH", `/admin/registrations/${ids.regs.review.id}/approve`],
+            ["GET", "/admin/sync-status"],
+        ] as [string, string, unknown?][])
+            expect((await call(method, path, "viewer", body)).status).toBe(403);
+        // Someone else's registration stays private too.
+        expect((await call("GET", `/registrations/${ids.regs.solo.id}`, "viewer")).status).toBe(403);
+    });
+
+    integrationTest("accounts without a grant (users and volunteers) and anonymous visitors are refused", async () => {
+        for (const path of ["/event-analytics/overview", "/event-analytics/records", "/event-analytics/records.csv"]) {
+            expect((await call("GET", path, null)).status).toBe(401);
+            expect((await call("GET", path, "alice")).status).toBe(403);
+            expect((await call("GET", path, "volunteer")).status).toBe(403);
+        }
+    });
+
+    integrationTest("the super admin view is unchanged: every event, global totals and rules", async () => {
+        const data = (await call("GET", "/admin/overview", "super")).body.data;
+        expect(data.events.some((e: any) => e.eventId === ids.teamEvent)).toBe(true);
+        expect(data.events.some((e: any) => e.eventId === ids.soloEvent)).toBe(true);
+    });
+});

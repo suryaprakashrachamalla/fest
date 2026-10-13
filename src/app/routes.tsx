@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router"
 import RootLayout from "./components/RootLayout"
 import AdminPage from "./views/AdminPage"
+import EventAnalyticsPage from "./views/EventAnalyticsPage"
 import DashboardPage from "./views/DashboardPage"
 import EventPage from "./views/EventPage"
 import HomePage from "./views/HomePage"
@@ -17,6 +18,7 @@ export const router = createBrowserRouter([
       { path: "login", Component: PortalPage },
       { path: "signup", Component: PortalPage },
       { path: "dashboard", Component: DashboardPage },
+      { path: "event-analytics", Component: EventAnalyticsPage },
       { path: ADMIN_PATH.slice(1), Component: AdminPage },
       { path: "*", Component: HomePage },
     ],

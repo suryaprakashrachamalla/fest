@@ -63,7 +63,7 @@ const APPROVAL_OPTIONS = [
   ["REJECTED", "Rejected"],
 ]
 
-function TotalsCards({ totals }: { totals: AnalyticsTotals }) {
+export function TotalsCards({ totals }: { totals: AnalyticsTotals }) {
   const cards: [string, string | number][] = [
     ["Registrations", totals.registrations],
     ["Accepted teams", totals.approvedTeams],
@@ -85,7 +85,7 @@ function TotalsCards({ totals }: { totals: AnalyticsTotals }) {
   )
 }
 
-function qualityNotes(data: EventOverview) {
+export function qualityNotes(data: EventOverview) {
   const notes: string[] = []
   const q = data.dataQuality
   if (q.rowsWithoutId) notes.push(`${q.rowsWithoutId} row(s) without a registration ID were skipped`)
@@ -254,7 +254,18 @@ function ExclusionManager({ onChanged }: { onChanged: () => void }) {
 }
 
 // The registrations behind the numbers, with the same rules: search, filters, pages and a CSV export.
-function RecordsExplorer({ events, version }: { events: EventOverviewRow[]; version: number }) {
+// `source` swaps in the event-scoped API for event analytics viewers, who also don't see test data.
+export function RecordsExplorer({
+  events,
+  version,
+  source = { records: admin.analyticsRecords, downloadCsv: admin.downloadRecordsCsv },
+  showTestData = true,
+}: {
+  events: EventOverviewRow[]
+  version: number
+  source?: { records: typeof admin.analyticsRecords; downloadCsv: typeof admin.downloadRecordsCsv }
+  showTestData?: boolean
+}) {
   const [query, setQuery] = useState<RecordQuery>({ scope: "production", page: 1, pageSize: 25 })
   const [search, setSearch] = useState("")
   const [result, setResult] = useState<Awaited<ReturnType<typeof admin.analyticsRecords>> | null>(null)
@@ -266,8 +277,8 @@ function RecordsExplorer({ events, version }: { events: EventOverviewRow[]; vers
     let current = true
     setLoading(true)
     setError("")
-    admin
-      .analyticsRecords(query)
+    source
+      .records(query)
       .then((data) => current && setResult(data))
       .catch((err) => current && setError(err instanceof Error ? err.message : "Couldn't load the records"))
       .finally(() => current && setLoading(false))
@@ -302,11 +313,13 @@ function RecordsExplorer({ events, version }: { events: EventOverviewRow[]; vers
         <select aria-label="Approval" value={query.approval ?? ""} onChange={(e) => update({ approval: e.target.value || undefined })}>
           {APPROVAL_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
+        {showTestData && (
         <select aria-label="Data" value={query.scope} onChange={(e) => update({ scope: e.target.value as RecordQuery["scope"] })}>
           <option value="production">Production data</option>
           <option value="excluded">Test data only</option>
           <option value="all">Everything</option>
         </select>
+        )}
         <label className="admin-date">From <input type="date" value={query.from ?? ""} onChange={(e) => update({ from: e.target.value || undefined })} /></label>
         <label className="admin-date">To <input type="date" value={query.to ?? ""} onChange={(e) => update({ to: e.target.value || undefined })} /></label>
         <button type="submit" className="pill-button pill-button--gold">Search</button>
@@ -318,7 +331,7 @@ function RecordsExplorer({ events, version }: { events: EventOverviewRow[]; vers
             setExporting(true)
             setError("")
             try {
-              await admin.downloadRecordsCsv({ ...query, page: undefined, pageSize: undefined })
+              await source.downloadCsv({ ...query, page: undefined, pageSize: undefined })
             } catch (err) {
               setError(err instanceof Error ? err.message : "Export failed")
             } finally {

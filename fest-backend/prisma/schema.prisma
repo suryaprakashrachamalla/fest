@@ -68,6 +68,7 @@ model User {
   checkedInParticipants   Participant[]  @relation("ParticipantCheckIn")
   auditEntries            AuditLog[]
   analyticsExclusions     AnalyticsExclusion[] @relation("AnalyticsExclusionCreator")
+  eventAnalytics          EventAnalyticsAccess[]
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
 }
@@ -88,6 +89,7 @@ model Event {
   isPublished   Boolean        @default(false)
   registrations Registration[]
   discountCodes DiscountCode[]
+  analyticsViewers EventAnalyticsAccess[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -287,4 +289,17 @@ model DiscountCode {
   createdAt            DateTime  @default(now())
 
   @@index([eventId])
+}
+
+// Read-only analytics for chosen events, given to a normal (non-organizer) account. Grants
+// nothing else: no organizer pages, no other events, no global totals.
+model EventAnalyticsAccess {
+  id        String   @id @default(uuid())
+  userId    String
+  eventId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
 }
