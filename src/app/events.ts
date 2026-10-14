@@ -268,7 +268,7 @@ export const events: FestivalEvent[] = [
     date: "17 · Day 2",
     time: "12:45 PM – 2 PM",
     venue: "CSE Seminar Hall",
-    fee: "₹299 single · ₹999 group of 5",
+    fee: "₹199 single · ₹749 group of 5",
     accent: "#ffd43b",
     image: comedyImage,
     imagePosition: "68% 0%",

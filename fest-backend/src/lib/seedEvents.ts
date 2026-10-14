@@ -49,14 +49,14 @@ const events = [
         name: "Standup Comedy",
         slug: "standup-comedy",
         description: "Telugu stand-up comedy night with Venkat Blaze.",
-        feePaise: 29_900,
+        feePaise: 19_900,
         feeMode: "FLAT" as const,
         minTeamSize: 1,
         maxTeamSize: 5,
-        // Single ticket ₹299, or a group of 5 for ₹999.
+        // Single ticket ₹199, or a group of 5 for ₹749.
         feeTiers: [
-            { size: 1, feePaise: 29_900, label: "Single" },
-            { size: 5, feePaise: 99_900, label: "Group of 5" },
+            { size: 1, feePaise: 19_900, label: "Single" },
+            { size: 5, feePaise: 74_900, label: "Group of 5" },
         ],
         isPublished: true,
     },
