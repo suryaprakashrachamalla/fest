@@ -64,6 +64,8 @@ export type FestivalEvent = {
   passSteps?: { title: string; steps: string[]; closing?: string }
   // Label for the team row, for events where "Team" doesn't fit (e.g. eligibility).
   teamLabel?: string
+  // Shows the About section as label/value rows instead of the description paragraph.
+  aboutTable?: [string, string][]
 }
 
 const techImage =
@@ -118,6 +120,15 @@ export const events: FestivalEvent[] = [
     teamCodes: true,
     coordinators: [{ name: "Surya", phone: "8247859699" }, { name: "Zeeshan", phone: "7981084902" }],
     name: "NOCODE VIBEATHON",
+    aboutTable: [
+      ["What", "A three-track rapid prototype challenge for creators who want to build with AI and no-code tools"],
+      ["Each track", "You get a visual or digital reference, like a photo, a website or an interface"],
+      ["Your task", "Build your own version of it with AI-powered and no-code platforms"],
+      ["Judged on", "Creativity, execution and turning inspiration into a working digital experience"],
+      ["Tools", "Canva Pro and other AI Pro tools to design, automate and launch your ideas"],
+      ["Winners", "Every track crowns its own winner"],
+      ["Prize pool", "Worth ₹30,000+"],
+    ],
     category: "Technical",
     number: "02",
     tagline: "Ship a real idea without writing a line of code.",

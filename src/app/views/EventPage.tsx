@@ -80,7 +80,18 @@ export default function EventPage() {
         <section className="event-details">
           <div className="event-description">
             <p className="eyebrow">About this event</p>
-            <h2>{event.description}</h2>
+            {event.aboutTable ? (
+              <dl className="event-about-table">
+                {event.aboutTable.map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <h2>{event.description}</h2>
+            )}
             {event.performer && (
               <p className="eyebrow event-performer-label">Featuring</p>
             )}
