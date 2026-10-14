@@ -97,6 +97,7 @@ export const events: FestivalEvent[] = [
     coordinators: [{ name: "Sana", phone: "9100903450" }, { name: "Aniketh", phone: "8309012359" }],
     coordinatorsNote: "If you need any monetary support, please contact the event coordinators.",
     name: "VYOM HACKATHON (CSE)",
+    registerOnTop: true,
     hotspot: "Prizes worth ₹4L+",
     category: "Technical",
     number: "01",
