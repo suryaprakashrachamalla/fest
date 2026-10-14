@@ -61,9 +61,16 @@ async function seed() {
         });
     }
     // Only the configured accounts may be admins; a replaced admin email keeps its
-    // account and history but loses organizer access.
+    // account and history but loses organizer access. Extra super admins listed as
+    // ADMIN_SUPER<n>_EMAIL (beyond the seeded ones) keep the access they were given.
+    const kept = [
+        ...emails,
+        ...Object.entries(process.env)
+            .filter(([key, value]) => /^ADMIN_SUPER\d*_EMAIL$/.test(key) && value?.trim())
+            .map(([, value]) => value!.trim().toLowerCase()),
+    ];
     const demoted = await prisma.user.updateMany({
-        where: { role: "ADMIN", email: { notIn: emails } },
+        where: { role: "ADMIN", email: { notIn: kept } },
         data: { role: "USER" },
     });
     console.log(`Seeded the ${admins.length} configured administrator accounts.`);
