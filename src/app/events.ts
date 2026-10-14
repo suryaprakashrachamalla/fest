@@ -23,6 +23,8 @@ export type FestivalEvent = {
   feeLabel?: string
   // Event coordinators shown on the event page; phone is a 10-digit Indian mobile number.
   coordinators?: { name: string; phone: string }[]
+  // Line shown under the coordinators, e.g. who to contact for financial support.
+  coordinatorsNote?: string
   // Also show the fee in the event page hero (for events without a prize pool).
   heroFee?: boolean
   // Shown as a Food row in the event facts.
@@ -66,6 +68,10 @@ export type FestivalEvent = {
   teamLabel?: string
   // Shows the About section as label/value rows instead of the description paragraph.
   aboutTable?: [string, string][]
+  // Shows the Register button in the hero, above the About section.
+  registerOnTop?: boolean
+  // Perks listed under the About section as "What we offer".
+  offers?: string[]
   // Track schedule shown under About as a Track / Challenge / Time table, with the total time.
   tracks?: [string, string, string][]
 }
@@ -89,6 +95,7 @@ export const events: FestivalEvent[] = [
     slug: "hackathon",
     teamCodes: true,
     coordinators: [{ name: "Sana", phone: "9100903450" }, { name: "Aniketh", phone: "8309012359" }],
+    coordinatorsNote: "If you need any monetary support, please contact the event coordinators.",
     name: "VYOM HACKATHON (CSE)",
     hotspot: "Prizes worth ₹4L+",
     category: "Technical",
@@ -105,6 +112,18 @@ export const events: FestivalEvent[] = [
     food: "Provided · No extra charge",
     fee: "₹299 / head",
     heroPrize: "₹4L+",
+    offers: [
+      "🏆 ₹4 lakh+ prize pool",
+      "💼 25+ internship opportunities",
+      "🎓 ISRO scientist and industry expert interactions",
+      "🤖 Exclusive AI tools and learning opportunities",
+      "🍕 Food and refreshments throughout the hackathon",
+      "🥤 Drinks, snacks, dinner and breakfast",
+      "🎶 Electrifying musical night",
+      "🎁 Exciting goodies, certificates and recognition",
+      "🤝 Mentorship, networking and real-world problem solving",
+      "🎟️ Invite 2 or 3 teams and we'll give you a coupon code",
+    ],
     accent: "#e8ddc4",
     image: techImage,
     criteria: { label: "VYOM HACKATHON domains", title: ["Pick your domain.", "We'll bring the arena."] },
@@ -121,7 +140,9 @@ export const events: FestivalEvent[] = [
     slug: "no-code-vibathon",
     teamCodes: true,
     coordinators: [{ name: "Surya", phone: "8247859699" }, { name: "Zeeshan", phone: "7981084902" }],
+    coordinatorsNote: "If you need any monetary support, please contact the event coordinators.",
     name: "NOCODE VIBEATHON",
+    registerOnTop: true,
     aboutTable: [
       ["What", "A three-track rapid prototype challenge for creators who want to build with AI and no-code tools"],
       ["Each track", "You get a visual or digital reference, like a photo, a website or an interface"],

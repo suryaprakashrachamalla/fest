@@ -36,6 +36,17 @@ export default function EventPage() {
   const hasOnlineRegistration = !isWalkIn && !event.registerAt
   // Only events that need 2+ members register as a team.
   const isTeamEvent = /^[2-9]/.test(event.team ?? "")
+  const registerButton = (
+    <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
+      <button
+        type="button"
+        className="pill-button pill-button--gold"
+        onClick={() => setIsRegisterOpen(true)}
+      >
+        {isTeamEvent ? "Register Team Now" : "Register Now"} <span>↗</span>
+      </button>
+    </div>
+  )
   const criteria = event.criteria ?? { label: "What matters", title: ["Bring the idea.", "We'll bring the arena."] }
 
   return (
@@ -73,6 +84,7 @@ export default function EventPage() {
                 <strong>{event.fee}</strong>
               </div>
             )}
+            {hasOnlineRegistration && event.registerOnTop && registerButton}
           </div>
           <span className="event-hero-number">{event.number}</span>
         </section>
@@ -91,6 +103,19 @@ export default function EventPage() {
               </dl>
             ) : (
               <h2>{event.description}</h2>
+            )}
+            {event.offers && (
+              <>
+                <p className="eyebrow event-performer-label">What we offer</p>
+                <ol className="event-activities">
+                  {event.offers.map((offer, index) => (
+                    <li key={offer}>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      {offer}
+                    </li>
+                  ))}
+                </ol>
+              </>
             )}
             {event.tracks && (
               <>
@@ -172,17 +197,7 @@ export default function EventPage() {
                 {event.activitiesNote && <p className="event-performer-bio">{event.activitiesNote}</p>}
               </>
             )}
-            {hasOnlineRegistration && (
-            <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
-              <button
-                type="button"
-                className="pill-button pill-button--gold"
-                onClick={() => setIsRegisterOpen(true)}
-              >
-                {isTeamEvent ? "Register Team Now" : "Register Now"} <span>↗</span>
-              </button>
-            </div>
-            )}
+            {hasOnlineRegistration && !event.registerOnTop && registerButton}
             {event.registerUrl && (
               <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
                 <a className="pill-button pill-button--gold" href={event.registerUrl} target="_blank" rel="noopener noreferrer">
@@ -215,6 +230,7 @@ export default function EventPage() {
                     </li>
                   ))}
                 </ul>
+                {event.coordinatorsNote && <p className="event-performer-bio">{event.coordinatorsNote}</p>}
               </div>
             )}
           </div>
