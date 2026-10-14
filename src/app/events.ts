@@ -223,7 +223,7 @@ export const events: FestivalEvent[] = [
     description:
       "A product design challenge combining research, strategy, interface thinking, and storytelling. No polished portfolio required—just curiosity and clear decisions.",
     format: "Design challenge",
-    team: "1–3 members",
+    team: "1–4 members",
     duration: "7 hours",
     date: "16 · Day 1",
     time: "10 AM – 5 PM",
