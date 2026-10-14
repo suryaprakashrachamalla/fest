@@ -79,6 +79,7 @@ integrationTest("each event gets its own tab holding only that event's registrat
         "registrationId", "teamName", "teamSize", "participantNames", "emails", "rollNumbers", "phone", "college",
         "registrationFee", "utr", "paymentStatus", "approvalStatus", "ticketStatus", "emailStatus", "checkedIn",
         "checkedInAt", "registeredAt", "updatedAt", "teamCode", "discount",
+        "couponApplied", "amountPaid",
     ]);
     expect(codesIn(names.team)).toEqual([pair.code]);
     expect(codesIn(names.solo)).toEqual([solo.code]);

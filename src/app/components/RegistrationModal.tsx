@@ -473,7 +473,6 @@ export default function RegistrationModal({ event, isOpen, onClose }: Props) {
                         setTeamCodeNote("")
                       }}
                       maxLength={20}
-                      placeholder="e.g. HK-7KQ2M9XP"
                       autoCapitalize="characters"
                       aria-describedby="team-code-note"
                     />

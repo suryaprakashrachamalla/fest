@@ -97,6 +97,8 @@ export function registrationSheetRow(reg: RegistrationForSheet) {
         // Team code used for a discount, and the discount (the fee column is already after it).
         teamCode: reg.discountCode ?? "",
         discount: reg.discountPaise ? (reg.discountPaise / 100).toFixed(2) : "",
+        couponApplied: reg.discountCode ? "YES" : "NO",
+        amountPaid: (reg.amountPaise / 100).toFixed(2),
     };
 }
 

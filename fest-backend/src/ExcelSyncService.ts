@@ -173,6 +173,9 @@ const eventTabHeaders = [
     "updatedAt",
     "teamCode",
     "discount",
+    // Whether a team code was used, and what the team actually pays after it.
+    "couponApplied",
+    "amountPaid",
 ];
 const sharedTitles = definitions.map((definition) => definition.title);
 
