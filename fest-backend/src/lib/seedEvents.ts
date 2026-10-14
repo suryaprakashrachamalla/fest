@@ -38,10 +38,10 @@ const events = [
     {
         name: "PRODUCT-A-THON",
         slug: "build-lab",
-        description: "Product design challenge for teams of 2–3.",
-        feePaise: 15_000,
+        description: "Product design challenge for 1–3 people.",
+        feePaise: 14_900,
         feeMode: "PER_HEAD" as const,
-        minTeamSize: 2,
+        minTeamSize: 1,
         maxTeamSize: 3,
         isPublished: true,
     },
