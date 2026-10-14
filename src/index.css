@@ -2079,6 +2079,56 @@ input {
   letter-spacing: -0.01em;
 }
 
+.event-tracks-table {
+  width: 100%;
+  margin: 12px 0 0;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.event-tracks-table th,
+.event-tracks-table td {
+  padding: 12px 12px 12px 0;
+  border-bottom: 1px solid rgb(0 0 0 / 18%);
+  vertical-align: top;
+}
+
+.event-tracks-table thead th {
+  border-top: 1px solid rgb(0 0 0 / 18%);
+  font-family: "DM Mono", monospace;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.event-tracks-table tbody td {
+  font-size: clamp(1rem, 1.3vw, 1.2rem);
+  line-height: 1.35;
+}
+
+.event-tracks-table td:first-child {
+  white-space: nowrap;
+  font-family: "DM Mono", monospace;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.event-tracks-table td:last-child,
+.event-tracks-table th:last-child {
+  padding-right: 0;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.event-tracks-table tfoot th,
+.event-tracks-table tfoot td {
+  font-size: clamp(1rem, 1.3vw, 1.2rem);
+  font-weight: 600;
+  opacity: 1;
+}
+
 .event-description .event-performer-label {
   margin: 34px 0 0;
 }

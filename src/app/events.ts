@@ -66,6 +66,8 @@ export type FestivalEvent = {
   teamLabel?: string
   // Shows the About section as label/value rows instead of the description paragraph.
   aboutTable?: [string, string][]
+  // Track schedule shown under About as a Track / Challenge / Time table, with the total time.
+  tracks?: [string, string, string][]
 }
 
 const techImage =
@@ -128,6 +130,18 @@ export const events: FestivalEvent[] = [
       ["Tools", "Canva Pro and other AI Pro tools to design, automate and launch your ideas"],
       ["Winners", "Every track crowns its own winner"],
       ["Prize pool", "Worth ₹30,000+"],
+    ],
+    tracks: [
+      ["Track 1", "Website Building Challenge", "60 min"],
+      ["Track 2", "AI Photo Recreation", "30 min"],
+      ["Track 3", "UI/UX Design Challenge", "40 min"],
+      ["Track 4", "AI Prompt Engineering", "20 min"],
+      ["Track 5", "Debug the Code", "30 min"],
+      ["Track 6", "Website Clone Challenge", "45 min"],
+      ["Track 7", "AI Video/Advertisement Creation", "35 min"],
+      ["Track 8", "AI Automation Challenge", "30 min"],
+      ["Track 9", "Logo & Brand Identity Recreation", "25 min"],
+      ["Track 10", "Build a Mini AI Application", "30 min"],
     ],
     category: "Technical",
     number: "02",

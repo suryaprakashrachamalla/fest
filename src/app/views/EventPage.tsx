@@ -92,6 +92,36 @@ export default function EventPage() {
             ) : (
               <h2>{event.description}</h2>
             )}
+            {event.tracks && (
+              <>
+                <p className="eyebrow event-performer-label">Tracks &amp; timings</p>
+                <table className="event-tracks-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Track</th>
+                      <th scope="col">Challenge</th>
+                      <th scope="col">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {event.tracks.map(([track, challenge, time]) => (
+                      <tr key={track}>
+                        <td>{track}</td>
+                        <td>{challenge}</td>
+                        <td>{time}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td />
+                      <th scope="row">Total challenge time</th>
+                      <td>{event.tracks.reduce((sum, [, , time]) => sum + parseInt(time, 10), 0)} min</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </>
+            )}
             {event.performer && (
               <p className="eyebrow event-performer-label">Featuring</p>
             )}
