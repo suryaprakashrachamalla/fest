@@ -7,10 +7,10 @@ const events = [
     {
         name: "VYOM HACKATHON (CSE)",
         slug: "hackathon",
-        description: "VYOM HACKATHON (CSE): a 24-hour team event. Domains: AI & Machine Learning, Cybersecurity, Data Analytics & Decision Support, Computer Vision, Simulation & Digital Systems, Edge Computing & Intelligent Systems.",
+        description: "VYOM HACKATHON (CSE): a 24-hour event for 1–4 people. Domains: AI & Machine Learning, Cybersecurity, Data Analytics & Decision Support, Computer Vision, Simulation & Digital Systems, Edge Computing & Intelligent Systems.",
         feePaise: 29_900,
         feeMode: "PER_HEAD" as const,
-        minTeamSize: 2,
+        minTeamSize: 1,
         maxTeamSize: 4,
         isPublished: true,
     },

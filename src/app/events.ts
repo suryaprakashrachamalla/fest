@@ -108,7 +108,7 @@ export const events: FestivalEvent[] = [
     description:
       "An intense product sprint where teams turn bold ideas into working prototypes. Problem statements will be provided on the spot, with mentor checkpoints along the way and a final jury pitch.",
     format: "Build + pitch",
-    team: "2–4 members",
+    team: "1–4 members",
     duration: "24 hours",
     date: "16 & 17 · Day 1 & 2",
     time: "10 AM – 10 AM next day",
