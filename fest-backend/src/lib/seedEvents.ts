@@ -43,7 +43,8 @@ const events = [
         feeMode: "PER_HEAD" as const,
         minTeamSize: 1,
         maxTeamSize: 4,
-        isPublished: true,
+        // Registration closed: unpublished events take no new registrations.
+        isPublished: false,
     },
     {
         name: "Standup Comedy",

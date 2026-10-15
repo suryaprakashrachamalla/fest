@@ -38,13 +38,19 @@ export default function EventPage() {
   const isTeamEvent = /^[2-9]/.test(event.team ?? "")
   const registerButton = (
     <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
-      <button
-        type="button"
-        className="pill-button pill-button--gold"
-        onClick={() => setIsRegisterOpen(true)}
-      >
-        {isTeamEvent ? "Register Team Now" : "Register Now"} <span>↗</span>
-      </button>
+      {event.registrationClosed ? (
+        <button type="button" className="pill-button pill-button--gold" disabled>
+          Registration closed
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="pill-button pill-button--gold"
+          onClick={() => setIsRegisterOpen(true)}
+        >
+          {isTeamEvent ? "Register Team Now" : "Register Now"} <span>↗</span>
+        </button>
+      )}
       {event.lobbyUrl && (
         <a className="pill-button pill-button--gold" href={event.lobbyUrl} target="_blank" rel="noopener noreferrer">
           Enter the Lobby <span>↗</span>
@@ -287,7 +293,7 @@ export default function EventPage() {
 
       </main>
 
-      {hasOnlineRegistration && (
+      {hasOnlineRegistration && !event.registrationClosed && (
         <RegistrationModal
           event={event}
           isOpen={isRegisterOpen}

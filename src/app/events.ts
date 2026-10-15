@@ -72,6 +72,8 @@ export type FestivalEvent = {
   registerUnderFacts?: boolean
   // External event site shown as an "Enter the Lobby" button next to Register.
   lobbyUrl?: string
+  // Online registration has ended: the Register button becomes a "Registration closed" label.
+  registrationClosed?: boolean
   // Perks listed under the About section as "What we offer".
   offers?: string[]
   // Track schedule shown under About as a Track / Challenge / Time table, with the total time.
@@ -221,6 +223,7 @@ export const events: FestivalEvent[] = [
     slug: "build-lab",
     coordinators: [{ name: "Lalasa", phone: "7386858392" }],
     name: "PRODUCT-A-THON",
+    registrationClosed: true,
     category: "Semi-Technical",
     number: "04",
     tagline: "Turn a messy problem into a product people want.",
