@@ -179,7 +179,7 @@ export const events: FestivalEvent[] = [
     date: "16 · Day 1",
     time: "10 AM – 4 PM",
     venue: "CS-11, 12 (2 classrooms)",
-    fee: "₹149 / head",
+    fee: "₹99 / head",
     prize: "Worth ₹30,000+",
     accent: "#ff5c35",
     image: codeImage,
