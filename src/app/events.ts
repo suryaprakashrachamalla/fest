@@ -68,8 +68,10 @@ export type FestivalEvent = {
   teamLabel?: string
   // Shows the About section as label/value rows instead of the description paragraph.
   aboutTable?: [string, string][]
-  // Shows the Register button in the hero, above the About section.
-  registerOnTop?: boolean
+  // Shows the Register button under the facts list (Fee, Prize pool, ...) instead of under About.
+  registerUnderFacts?: boolean
+  // External event site shown as an "Enter the Lobby" button next to Register.
+  lobbyUrl?: string
   // Perks listed under the About section as "What we offer".
   offers?: string[]
   // Track schedule shown under About as a Track / Challenge / Time table, with the total time.
@@ -97,7 +99,8 @@ export const events: FestivalEvent[] = [
     coordinators: [{ name: "Sana", phone: "9100903450" }, { name: "Aniketh", phone: "8309012359" }],
     coordinatorsNote: "If you need any monetary support, please contact the event coordinators.",
     name: "VYOM HACKATHON (CSE)",
-    registerOnTop: true,
+    lobbyUrl: "https://www.shouryacse.site/",
+    registerUnderFacts: true,
     hotspot: "Prizes worth ₹4L+",
     category: "Technical",
     number: "01",
@@ -143,7 +146,7 @@ export const events: FestivalEvent[] = [
     coordinators: [{ name: "Surya", phone: "8247859699" }, { name: "Zeeshan", phone: "7981084902" }],
     coordinatorsNote: "If you need any monetary support, please contact the event coordinators.",
     name: "NOCODE VIBEATHON",
-    registerOnTop: true,
+    registerUnderFacts: true,
     aboutTable: [
       ["What", "A three-track rapid prototype challenge for creators who want to build with AI and no-code tools"],
       ["Each track", "You get a visual or digital reference, like a photo, a website or an interface"],

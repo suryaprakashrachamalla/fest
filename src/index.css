@@ -3909,7 +3909,8 @@ html {
     gap: 4px;
   }
 
-  .event-description > div {
+  .event-description > div,
+  .event-side > div:not(.event-facts) {
     justify-content: center;
   }
 

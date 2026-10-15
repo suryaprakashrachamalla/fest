@@ -45,6 +45,11 @@ export default function EventPage() {
       >
         {isTeamEvent ? "Register Team Now" : "Register Now"} <span>↗</span>
       </button>
+      {event.lobbyUrl && (
+        <a className="pill-button pill-button--gold" href={event.lobbyUrl} target="_blank" rel="noopener noreferrer">
+          Enter the Lobby <span>↗</span>
+        </a>
+      )}
     </div>
   )
   const criteria = event.criteria ?? { label: "What matters", title: ["Bring the idea.", "We'll bring the arena."] }
@@ -84,7 +89,6 @@ export default function EventPage() {
                 <strong>{event.fee}</strong>
               </div>
             )}
-            {hasOnlineRegistration && event.registerOnTop && registerButton}
           </div>
           <span className="event-hero-number">{event.number}</span>
         </section>
@@ -197,7 +201,7 @@ export default function EventPage() {
                 {event.activitiesNote && <p className="event-performer-bio">{event.activitiesNote}</p>}
               </>
             )}
-            {hasOnlineRegistration && !event.registerOnTop && registerButton}
+            {hasOnlineRegistration && !event.registerUnderFacts && registerButton}
             {event.registerUrl && (
               <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
                 <a className="pill-button pill-button--gold" href={event.registerUrl} target="_blank" rel="noopener noreferrer">
@@ -234,6 +238,7 @@ export default function EventPage() {
               </div>
             )}
           </div>
+          <div className="event-side">
           <div className="event-facts">
             {[
               ...(event.registerAt ? [["Registration", event.registerAt]] : []),
@@ -254,6 +259,8 @@ export default function EventPage() {
                 <strong>{value}</strong>
               </div>
             ))}
+          </div>
+          {hasOnlineRegistration && event.registerUnderFacts && registerButton}
           </div>
         </section>
 
