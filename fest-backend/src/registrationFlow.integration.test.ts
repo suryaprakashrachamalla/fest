@@ -219,6 +219,7 @@ integrationTest("the Registrations sheet row has the expected columns", async ()
         "approvalStatus", "status", "rejectionReason", "paymentVerifiedBy", "paymentVerifiedAt",
         "approvedBy", "approvedAt", "rejectedBy", "registeredAt", "lumaGuestId", "ticketStatus",
         "emailStatus", "checkedIn", "checkedInAt", "updatedAt", "rollNumbers", "teamCode", "discount",
+        "couponApplied", "amountPaid",
     ]);
     expect(row.registrationFee).toBe("798.00");
     expect(row.paymentStatus).toBe("NOT_SUBMITTED");
