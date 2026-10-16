@@ -3,6 +3,7 @@ import { prisma } from "./lib/prisma.ts";
 import { addAudit, queueParticipantSync, queueRegistrationSync } from "./lib/registrationSync.ts";
 import { EVENT_INFO, formatPhone } from "./lib/eventInfo.ts";
 import { mailConfigured, sendMail as smtpSendMail, type MailMessage, type SendMail } from "./lib/mailer.ts";
+import { sendPortalLoginsSoon } from "./PortalService.ts";
 import type { Prisma, RegistrationStatus } from "./generated/prisma/client.ts";
 
 // Every team member gets their own entrance ticket once an organizer approves the registration.
@@ -425,6 +426,8 @@ export async function admitParticipant(participantId: string, adminId: string, s
         await queueParticipantSync(tx, participantId);
         await queueRegistrationSync(tx, reg.id);
     });
+    // A hackathon team's first entry gets it a portal login; hand it out now rather than on the next tick.
+    sendPortalLoginsSoon();
     const member = await prisma.participant.findUniqueOrThrow({ where: { id: participantId }, include: ticketInclude });
     return ticketView(member);
 }

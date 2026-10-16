@@ -5,6 +5,7 @@ import { jwtSecret } from "./UserService.ts";
 import * as luma from "./LumaSyncService.ts";
 import * as tickets from "./TicketService.ts";
 import { startScreenshotArchiver } from "./ScreenshotArchiveService.ts";
+import { startPortalLoginWorker } from "./PortalService.ts";
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -23,6 +24,7 @@ let stopWorker: (() => void) | undefined;
 const stopLuma = luma.startLumaWorker();
 const stopTickets = tickets.startTicketMailer();
 const stopScreenshots = startScreenshotArchiver();
+const stopPortal = startPortalLoginWorker();
 const server = app.listen(port, host, () => {
     console.info(`Fest registration backend listening on ${host}:${port}`);
     void startOutboxWorker().then((stop) => {
@@ -34,6 +36,7 @@ async function shutdown() {
     stopLuma();
     stopTickets();
     stopScreenshots();
+    stopPortal();
     server.close(async () => {
         await prisma.$disconnect();
         process.exit(0);

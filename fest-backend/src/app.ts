@@ -18,6 +18,7 @@ import * as checkIn from "./CheckInService.ts";
 import { reconcileSpreadsheet, getSyncStatus } from "./ExcelSyncService.ts";
 import * as luma from "./LumaSyncService.ts";
 import * as tickets from "./TicketService.ts";
+import * as portal from "./PortalService.ts";
 import * as analytics from "./OverviewService.ts";
 import { requireEventViewer, requireSuperAdmin } from "./OverviewService.ts";
 import { archiveScreenshotsSoon, screenshotStorageStatus } from "./ScreenshotArchiveService.ts";
@@ -455,6 +456,12 @@ app.get(
     "/admin/tickets/mail-status",
     admin,
     async (_req: express.Request, res: express.Response) => ok(res, await tickets.ticketMailStatus()),
+);
+// Hackathon portal logins emailed at the gate: whether it's set up and how many teams have one.
+app.get(
+    "/admin/portal-logins/status",
+    admin,
+    async (_req: express.Request, res: express.Response) => ok(res, await portal.portalLoginStatus()),
 );
 app.post(
     "/admin/registrations/:registrationId/resend-tickets",

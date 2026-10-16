@@ -127,6 +127,14 @@ model Registration {
   entered             Boolean        @default(false)
   enteredAt           DateTime?
   enteredById         String?
+  // Hackathon portal (shouryacse.site) team login, made when the team's first member enters.
+  // The password is kept encrypted only so members who missed the email can be sent it again.
+  portalLogin         String?
+  portalTeamId        Int?
+  portalPassword      String?
+  portalSyncedAt      DateTime?
+  portalAttemptAt     DateTime?
+  portalError         String?
   user                User           @relation(fields: [userId], references: [id], onDelete: Restrict)
   event               Event          @relation(fields: [eventId], references: [id], onDelete: Restrict)
   verifiedBy          User?          @relation("RegistrationVerifier", fields: [verifiedById], references: [id], onDelete: Restrict)
@@ -171,6 +179,8 @@ model Participant {
   // ID the scanner sent with the scan that checked this member in, so a retried request (lost
   // response) gets the same "entry authorized" answer instead of "already scanned".
   checkInScanId        String?
+  // Set once this member was emailed the team's hackathon portal login.
+  portalEmailedAt      DateTime?
   checkedInBy          User?        @relation("ParticipantCheckIn", fields: [checkedInById], references: [id], onDelete: Restrict)
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
