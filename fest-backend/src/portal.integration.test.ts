@@ -6,12 +6,14 @@ import type { MailMessage } from "./lib/mailer.ts";
 import * as registrations from "./RegistrationsService.ts";
 import * as payments from "./PaymentVerificationService.ts";
 import * as tickets from "./TicketService.ts";
-import { openPassword, sealPassword, sendPendingPortalLogins, type PortalClient, type PortalMember } from "./PortalService.ts";
+import { openPassword, portalSites, sealPassword, sendPendingPortalLogins, type PortalClient, type PortalMember } from "./PortalService.ts";
 
 const integrationTest = process.env.RUN_DB_INTEGRATION_TESTS === "true" ? test : test.skip;
 const runId = crypto.randomUUID().slice(0, 8);
 const ids = { event: "", otherEvent: "", users: [] as string[], admin: "" };
 const BASE = "https://portal.example.test";
+// The test event's portal; `otherEvent` has none unless a test adds it.
+const sites = () => [{ slug: `portal-test-${runId}`, url: BASE, adminPassword: "x" }];
 
 function png(): Express.Multer.File {
     const buffer = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13]);
@@ -85,8 +87,7 @@ beforeAll(async () => {
         });
     ids.event = (await make(`portal-test-${runId}`)).id;
     ids.otherEvent = (await make(`portal-other-${runId}`)).id;
-    // Only this run's event gets portal logins, so other data in the database is never touched.
-    process.env.PORTAL_EVENT_SLUG = `portal-test-${runId}`;
+    // Only this run's events have portals (passed as `sites`), so other data in the database is never touched.
     const admin = await prisma.user.create({ data: { name: "Gate Admin", email: `portal-admin-${runId}@example.com`, passwordHash: "x", role: "ADMIN" } });
     ids.admin = admin.id;
     ids.users.push(admin.id);
@@ -94,7 +95,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
     if (process.env.RUN_DB_INTEGRATION_TESTS !== "true") return;
-    delete process.env.PORTAL_EVENT_SLUG;
     const regs = await prisma.registration.findMany({ where: { eventId: { in: [ids.event, ids.otherEvent] } }, select: { id: true, code: true } });
     const regIds = regs.map((r) => r.id);
     const memberIds = (await prisma.participant.findMany({ where: { registrationId: { in: regIds } }, select: { id: true } })).map((p) => p.id);
@@ -121,11 +121,11 @@ integrationTest("the first gate scan of a team creates one portal login and emai
     const mail = fakeMailer();
 
     // Nobody has entered yet: no login is made.
-    expect(await sendPendingPortalLogins({ portal, send: mail.send, baseUrl: BASE })).toEqual({ teams: 0, emailed: 0, failed: [] });
+    expect(await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: mail.send })).toEqual({ teams: 0, emailed: 0, failed: [] });
 
     const [first, second] = await members(reg.id);
     await tickets.admitParticipant(first.id, ids.admin);
-    const result = await sendPendingPortalLogins({ portal, send: mail.send, baseUrl: BASE });
+    const result = await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: mail.send });
     expect(result).toEqual({ teams: 1, emailed: 3, failed: [] });
 
     // One portal team, with the members copied over and checked in there.
@@ -149,7 +149,7 @@ integrationTest("the first gate scan of a team creates one portal login and emai
 
     // The next member entering, or the next run, sends nothing again and makes no second login.
     await tickets.admitParticipant(second.id, ids.admin);
-    expect(await sendPendingPortalLogins({ portal, send: mail.send, baseUrl: BASE })).toEqual({ teams: 0, emailed: 0, failed: [] });
+    expect(await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: mail.send })).toEqual({ teams: 0, emailed: 0, failed: [] });
     expect(state.created).toHaveLength(1);
     expect(mail.sent).toHaveLength(3);
 });
@@ -161,17 +161,17 @@ integrationTest("a failed email is retried later for that member only, with the 
     const failing = fakeMailer(second.email);
 
     await tickets.admitParticipant(first.id, ids.admin);
-    const result = await sendPendingPortalLogins({ portal, send: failing.send, baseUrl: BASE });
+    const result = await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: failing.send });
     expect(result.emailed).toBe(1);
     expect(result.failed).toHaveLength(1);
     expect((await prisma.registration.findUniqueOrThrow({ where: { id: reg.id } })).portalError).toContain("550 mailbox unavailable");
 
     // Within the retry window the team is left alone.
     const working = fakeMailer();
-    expect((await sendPendingPortalLogins({ portal, send: working.send, baseUrl: BASE })).teams).toBe(0);
+    expect((await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: working.send })).teams).toBe(0);
 
     await expireClaim(reg.id);
-    expect(await sendPendingPortalLogins({ portal, send: working.send, baseUrl: BASE })).toEqual({ teams: 1, emailed: 1, failed: [] });
+    expect(await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: working.send })).toEqual({ teams: 1, emailed: 1, failed: [] });
     expect(working.sent.map((m) => m.to)).toEqual([second.email]);
     expect(working.sent[0].text).toContain(failing.sent[0].text.match(/Password: .*/)![0]);
     expect(state.created).toHaveLength(1);
@@ -187,7 +187,7 @@ integrationTest("when the portal is down nothing is emailed, and the login is ma
     state.down = true;
 
     await tickets.admitParticipant(only.id, ids.admin);
-    const result = await sendPendingPortalLogins({ portal, send: mail.send, baseUrl: BASE });
+    const result = await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: mail.send });
     expect(result.emailed).toBe(0);
     expect(result.failed[0].error).toContain("ECONNREFUSED");
     expect(mail.sent).toHaveLength(0);
@@ -195,7 +195,7 @@ integrationTest("when the portal is down nothing is emailed, and the login is ma
 
     state.down = false;
     await expireClaim(reg.id);
-    expect(await sendPendingPortalLogins({ portal, send: mail.send, baseUrl: BASE })).toEqual({ teams: 1, emailed: 1, failed: [] });
+    expect(await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: mail.send })).toEqual({ teams: 1, emailed: 1, failed: [] });
     expect(mail.sent[0].to).toBe(only.email);
     // A solo entrant's email doesn't talk about teammates.
     expect(mail.sent[0].text).toContain("This login is for you.");
@@ -206,14 +206,14 @@ integrationTest("an unreadable stored password is reset on the portal and sent t
     const [first] = await members(reg.id);
     const { state, portal } = fakePortal();
     await tickets.admitParticipant(first.id, ids.admin);
-    await sendPendingPortalLogins({ portal, send: fakeMailer().send, baseUrl: BASE });
+    await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: fakeMailer().send });
     const saved = await prisma.registration.findUniqueOrThrow({ where: { id: reg.id } });
 
     // e.g. JWT_SECRET changed: the stored password can't be decrypted any more.
     await prisma.participant.update({ where: { id: first.id }, data: { portalEmailedAt: null } });
     await prisma.registration.update({ where: { id: reg.id }, data: { portalPassword: "damaged" } });
     const mail = fakeMailer();
-    expect(await sendPendingPortalLogins({ portal, send: mail.send, baseUrl: BASE })).toEqual({ teams: 1, emailed: 2, failed: [] });
+    expect(await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: mail.send })).toEqual({ teams: 1, emailed: 2, failed: [] });
     expect(state.resets).toEqual([saved.portalTeamId!]);
     expect(mail.sent.every((m) => m.text.includes(`Password: reset-${saved.portalTeamId}-${runId}`))).toBe(true);
 });
@@ -223,7 +223,45 @@ integrationTest("teams of other events get no portal login", async () => {
     const [only] = await members(reg.id);
     await tickets.admitParticipant(only.id, ids.admin);
     const { state, portal } = fakePortal();
-    await sendPendingPortalLogins({ portal, send: fakeMailer().send, baseUrl: BASE });
+    await sendPendingPortalLogins({ sites: sites(), clientFor: () => portal, send: fakeMailer().send });
     expect(state.created).toHaveLength(0);
     expect((await prisma.registration.findUniqueOrThrow({ where: { id: reg.id } })).portalLogin).toBeNull();
+});
+
+test("portals are read from PORTAL_* and PORTAL<n>_* settings, and incomplete ones are left out", () => {
+    expect(
+        portalSites({
+            PORTAL_URL: "https://www.shouryacse.site/",
+            PORTAL_ADMIN_PASSWORD: "a",
+            PORTAL2_URL: "https://www.shouryacse.site/vibeathon",
+            PORTAL2_ADMIN_PASSWORD: "b",
+            PORTAL2_EVENT_SLUG: "no-code-vibathon",
+            // No event named, so no third portal.
+            PORTAL3_URL: "https://example.test",
+            PORTAL3_ADMIN_PASSWORD: "c",
+        }),
+    ).toEqual([
+        { slug: "hackathon", url: "https://www.shouryacse.site", adminPassword: "a" },
+        { slug: "no-code-vibathon", url: "https://www.shouryacse.site/vibeathon", adminPassword: "b" },
+    ]);
+    expect(portalSites({ PORTAL_URL: "https://www.shouryacse.site" })).toEqual([]);
+});
+
+integrationTest("each event's teams get their login from that event's own portal", async () => {
+    const hack = await approvedTeam("hack2", 1);
+    const vibe = await approvedTeam("vibe2", 2, ids.otherEvent);
+    const portals = { hack: fakePortal(), vibe: fakePortal() };
+    const both = [...sites(), { slug: `portal-other-${runId}`, url: `${BASE}/vibeathon`, adminPassword: "y" }];
+    for (const reg of [hack, vibe]) await tickets.admitParticipant((await members(reg.id))[0].id, ids.admin);
+    const mail = fakeMailer();
+    await sendPendingPortalLogins({ sites: both, clientFor: (site) => (site.url === BASE ? portals.hack : portals.vibe).portal, send: mail.send });
+
+    // (The vibeathon portal also catches up on the other event's team checked in by an earlier test.)
+    expect(portals.hack.state.created.map((t) => t.name)).toEqual(["Team hack2"]);
+    expect(portals.vibe.state.created.map((t) => t.name)).toContain("Team vibe2");
+    expect(portals.vibe.state.created.map((t) => t.name)).not.toContain("Team hack2");
+    // The vibeathon members are pointed at the vibeathon portal.
+    const vibeMails = mail.sent.filter((m) => (m.to as string).startsWith("vibe2-"));
+    expect(vibeMails).toHaveLength(2);
+    expect(vibeMails.every((m) => m.text.includes(`Portal: ${BASE}/vibeathon`))).toBe(true);
 });

@@ -4,33 +4,43 @@ import { addAudit } from "./lib/registrationSync.ts";
 import { mailConfigured, sendMail as smtpSendMail, type MailMessage, type SendMail } from "./lib/mailer.ts";
 import { jwtSecret } from "./UserService.ts";
 
-// Hackathon portal logins handed out at the gate. The VYOM hackathon portal (the separate app behind
-// PORTAL_URL, e.g. https://www.shouryacse.site) signs teams in with a team ID like VYOM-012 and a
-// password. When the first member of a hackathon team is checked in at the entrance (QR scan or
-// registration-ID lookup), this worker:
-//   1. creates the team's login on the portal through its admin API (POST /api/admin/teams/generate),
+// Event portal logins handed out at the gate. Each portal (the separate VYOM portal app, e.g. the
+// hackathon at https://www.shouryacse.site and the NoCode Vibeathon at .../vibeathon) signs teams in
+// with a team ID like VYOM-012 or VIBE-004 and a password. When the first member of a team of a
+// portal's event is checked in at the entrance (QR scan or registration-ID lookup), this worker:
+//   1. creates the team's login on that event's portal through its admin API (POST /api/admin/teams/generate),
 //   2. copies the team name, college and members there and marks the team checked in, and
 //   3. emails that same team ID and password to every member of the team.
-// The portal app itself is untouched: this only calls the admin API it already has.
+// Teams of events without a portal get nothing.
 //
-//   PORTAL_URL             the portal's address, e.g. https://www.shouryacse.site
-//   PORTAL_ADMIN_PASSWORD  the portal's admin password (its ADMIN_PASSWORD)
-//   PORTAL_EVENT_SLUG      the event whose teams get logins (default "hackathon")
+//   PORTAL_URL, PORTAL_ADMIN_PASSWORD, PORTAL_EVENT_SLUG (default "hackathon")    the first portal
+//   PORTAL2_URL, PORTAL2_ADMIN_PASSWORD, PORTAL2_EVENT_SLUG (e.g. no-code-vibathon)  a second one, and so on
 
 // A team whose attempt hasn't finished within this window is retried.
 const CLAIM_TIMEOUT_MS = 2 * 60_000;
 const REQUEST_TIMEOUT_MS = 20_000;
 
-function portalUrl() {
-    return (process.env.PORTAL_URL?.trim() ?? "").replace(/\/$/, "");
-}
+export type PortalSite = { slug: string; url: string; adminPassword: string };
 
-export function portalEventSlug() {
-    return process.env.PORTAL_EVENT_SLUG?.trim() || "hackathon";
+// The configured portals, one per event; a portal needs its URL, admin password and event.
+export function portalSites(env: NodeJS.ProcessEnv = process.env): PortalSite[] {
+    const sites: PortalSite[] = [];
+    const numbers = Object.keys(env)
+        .map((key) => /^PORTAL(\d*)_URL$/.exec(key)?.[1])
+        .filter((n): n is string => n !== undefined)
+        .sort((a, b) => Number(a || 0) - Number(b || 0));
+    for (const n of numbers) {
+        const key = `PORTAL${n}_URL`;
+        const url = (env[key]?.trim() ?? "").replace(/\/$/, "");
+        const adminPassword = env[`PORTAL${n}_ADMIN_PASSWORD`]?.trim() ?? "";
+        const slug = env[`PORTAL${n}_EVENT_SLUG`]?.trim() || (n === "" ? "hackathon" : "");
+        if (url && adminPassword && slug && !sites.some((s) => s.slug === slug)) sites.push({ slug, url, adminPassword });
+    }
+    return sites;
 }
 
 export function portalConfigured() {
-    return Boolean(portalUrl() && process.env.PORTAL_ADMIN_PASSWORD?.trim());
+    return portalSites().length > 0;
 }
 
 export type PortalMember = { name: string; email: string };
@@ -42,7 +52,7 @@ export type PortalClient = {
     updateTeam(teamId: number, data: { name: string; college: string; members: PortalMember[]; checked_in: boolean }): Promise<void>;
 };
 
-export function httpPortalClient(baseUrl = portalUrl(), adminPassword = process.env.PORTAL_ADMIN_PASSWORD?.trim() ?? ""): PortalClient {
+export function httpPortalClient(baseUrl: string, adminPassword: string): PortalClient {
     let cookie: string | null = null;
 
     async function signIn() {
@@ -53,12 +63,13 @@ export function httpPortalClient(baseUrl = portalUrl(), adminPassword = process.
             signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });
         if (!response.ok) throw new Error(`Portal admin sign-in failed (HTTP ${response.status})`);
-        const sid = response.headers
+        // admin_sid, or e.g. vibe_admin_sid on a second portal sharing the domain.
+        const session = response.headers
             .getSetCookie()
-            .map((value) => /^admin_sid=([^;]+)/.exec(value)?.[1])
+            .map((value) => /^(\w*admin_sid=[^;]+)/.exec(value)?.[1])
             .find(Boolean);
-        if (!sid) throw new Error("Portal admin sign-in returned no session");
-        cookie = `admin_sid=${sid}`;
+        if (!session) throw new Error("Portal admin sign-in returned no session");
+        cookie = session;
     }
 
     // Signs in on first use and again once if the session has expired.
@@ -160,7 +171,7 @@ export function portalLoginEmail(input: PortalEmailInput): Omit<MailMessage, "to
         text: [
             `Hi ${input.name},`,
             "",
-            `Welcome to ${input.eventName}! You're checked in. Here is the hackathon portal login${team}:`,
+            `Welcome to ${input.eventName}! You're checked in. Here is your ${input.eventName} portal login${team}:`,
             "",
             `Portal: ${input.portalUrl}`,
             `Team ID: ${input.login}`,
@@ -177,18 +188,18 @@ export function portalLoginEmail(input: PortalEmailInput): Omit<MailMessage, "to
 <tr><td style="background:#0b0a08;padding:22px 24px;text-align:center">
 <div style="color:#f3d27a;font-size:13px;font-weight:bold;letter-spacing:4px">SHOURYA'26</div>
 <div style="color:#f3d27a;font-size:24px;font-weight:bold;letter-spacing:2px;margin-top:6px">${escapeHtml(input.eventName)}</div>
-<div style="color:#bfb39a;font-size:11px;margin-top:6px">Hackathon portal login</div>
+<div style="color:#bfb39a;font-size:11px;margin-top:6px">Event portal login</div>
 </td></tr>
 <tr><td style="padding:24px">
 <p style="margin:0 0 12px;font-size:16px">Hi <strong>${escapeHtml(input.name)}</strong>,</p>
-<p style="margin:0 0 18px;font-size:15px;line-height:1.5">Welcome! You're checked in. Here is the hackathon portal login${input.teamName ? ` for your team <strong>${escapeHtml(input.teamName)}</strong>` : ""}.</p>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.5">Welcome! You're checked in. Here is your ${escapeHtml(input.eventName)} portal login${input.teamName ? ` for your team <strong>${escapeHtml(input.teamName)}</strong>` : ""}.</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;padding:12px 16px;border:1px dashed #d9a93f;border-radius:10px;background:#fbf6ea">
 ${credentialRow("TEAM ID", input.login)}
 ${credentialRow("PASSWORD", input.password)}
 </table>
 <p style="margin:0 0 10px;font-size:14px;line-height:1.5">${escapeHtml(shared)}</p>
 <p style="margin:0 0 18px;font-size:14px;line-height:1.5">Sign in to see the timetable and announcements, choose your problem statement, claim your team perk and submit your project. Please don't share this login outside your team.</p>
-<p style="margin:0 0 18px;text-align:center"><a href="${escapeHtml(input.portalUrl)}" style="display:inline-block;background:#d9a93f;color:#0b0a08;text-decoration:none;font-weight:bold;padding:10px 20px;border-radius:999px">Open the hackathon portal</a></p>
+<p style="margin:0 0 18px;text-align:center"><a href="${escapeHtml(input.portalUrl)}" style="display:inline-block;background:#d9a93f;color:#0b0a08;text-decoration:none;font-weight:bold;padding:10px 20px;border-radius:999px">Open the ${escapeHtml(input.eventName)} portal</a></p>
 <p style="margin:0;text-align:center;font-size:12px;color:#8a8170">Registration ID: ${escapeHtml(input.code)}</p>
 </td></tr></table></body></html>`,
     };
@@ -196,19 +207,28 @@ ${credentialRow("PASSWORD", input.password)}
 
 type PortalResult = { teams: number; emailed: number; failed: { code: string; error: string }[] };
 
-// Gives every entered hackathon team its portal login and emails it to members who don't have it yet.
-// `portal` and `send` are injectable so tests never reach a real portal or mail server.
+// One admin session per portal, reused across runs.
+const clients = new Map<string, PortalClient>();
+function cachedClient(site: PortalSite) {
+    const key = `${site.url} ${site.adminPassword}`;
+    if (!clients.has(key)) clients.set(key, httpPortalClient(site.url, site.adminPassword));
+    return clients.get(key)!;
+}
+
+// Gives every entered team of an event with a portal its login there, and emails it to members who
+// don't have it yet. `clientFor` and `send` are injectable so tests never reach a real portal or mail server.
 export async function sendPendingPortalLogins({
-    portal = httpPortalClient(),
+    sites = portalSites(),
+    clientFor = cachedClient,
     send = smtpSendMail,
-    baseUrl = portalUrl(),
     limit = 50,
-}: { portal?: PortalClient; send?: SendMail; baseUrl?: string; limit?: number } = {}) {
+}: { sites?: PortalSite[]; clientFor?: (site: PortalSite) => PortalClient; send?: SendMail; limit?: number } = {}) {
     const result: PortalResult = { teams: 0, emailed: 0, failed: [] };
+    if (!sites.length) return result;
     const stale = () => new Date(Date.now() - CLAIM_TIMEOUT_MS);
     const waiting = {
         entered: true,
-        event: { slug: portalEventSlug() },
+        event: { slug: { in: sites.map((s) => s.slug) } },
         OR: [{ portalSyncedAt: null }, { participants: { some: { portalEmailedAt: null } } }],
     };
     const pending = await prisma.registration.findMany({
@@ -230,6 +250,8 @@ export async function sendPendingPortalLogins({
         });
         result.teams++;
         const errors: string[] = [];
+        const site = sites.find((s) => s.slug === reg.event.slug)!;
+        const portal = clientFor(site);
         try {
             let login = reg.portalLogin;
             let teamId = reg.portalTeamId;
@@ -265,7 +287,7 @@ export async function sendPendingPortalLogins({
                     await addAudit(tx, {
                         registrationId: id,
                         action: "PORTAL_LOGIN_CREATED",
-                        detail: `Hackathon portal login ${login} created and the team checked in there`,
+                        detail: `${reg.event.name} portal login ${login} created and the team checked in there`,
                     });
                 });
             }
@@ -279,7 +301,7 @@ export async function sendPendingPortalLogins({
                         login,
                         password,
                         teamSize: reg.participants.length,
-                        portalUrl: baseUrl,
+                        portalUrl: site.url,
                     });
                     await send({ to: member.email, ...message });
                     await prisma.participant.update({ where: { id: member.id }, data: { portalEmailedAt: new Date() } });
@@ -303,34 +325,39 @@ export async function sendPendingPortalLogins({
 }
 
 export async function portalLoginStatus() {
-    const event = { entered: true, event: { slug: portalEventSlug() } };
-    const [teams, withLogin, pending, failed] = await Promise.all([
-        prisma.registration.count({ where: event }),
-        prisma.registration.count({ where: { ...event, portalLogin: { not: null } } }),
-        prisma.participant.count({ where: { portalEmailedAt: null, registration: event } }),
-        prisma.registration.count({ where: { ...event, portalError: { not: null } } }),
-    ]);
-    return { configured: portalConfigured(), eventSlug: portalEventSlug(), enteredTeams: teams, teamsWithLogin: withLogin, membersNotEmailed: pending, teamsFailing: failed };
+    const portals = await Promise.all(
+        portalSites().map(async (site) => {
+            const event = { entered: true, event: { slug: site.slug } };
+            const [teams, withLogin, pending, failed] = await Promise.all([
+                prisma.registration.count({ where: event }),
+                prisma.registration.count({ where: { ...event, portalLogin: { not: null } } }),
+                prisma.participant.count({ where: { portalEmailedAt: null, registration: event } }),
+                prisma.registration.count({ where: { ...event, portalError: { not: null } } }),
+            ]);
+            return { eventSlug: site.slug, url: site.url, enteredTeams: teams, teamsWithLogin: withLogin, membersNotEmailed: pending, teamsFailing: failed };
+        }),
+    );
+    return { configured: portals.length > 0, portals };
 }
 
 let runNow: (() => Promise<void>) | undefined;
 
 // Hands out portal logins on an interval once the portal and email are configured. Returns a stop function.
 export function startPortalLoginWorker() {
-    if (!portalConfigured()) {
-        console.warn("Hackathon portal isn't configured (PORTAL_URL, PORTAL_ADMIN_PASSWORD): portal logins are off.");
+    const sites = portalSites();
+    if (!sites.length) {
+        console.warn("No event portal is configured (PORTAL_URL, PORTAL_ADMIN_PASSWORD): portal logins are off.");
         return () => {};
     }
     if (!mailConfigured()) console.warn("Email isn't configured: portal logins are created but can't be emailed yet.");
     const interval = Math.max(10_000, Number(process.env.PORTAL_LOGIN_INTERVAL_MS) || 20_000);
-    const portal = httpPortalClient();
     let running = false;
     const tick = async () => {
         if (running) return;
         running = true;
         try {
-            const result = await sendPendingPortalLogins({ portal });
-            if (result.emailed) console.info(`Portal: emailed ${result.emailed} hackathon portal login(s)`);
+            const result = await sendPendingPortalLogins({ sites });
+            if (result.emailed) console.info(`Portal: emailed ${result.emailed} event portal login(s)`);
             for (const failure of result.failed) console.error(`Portal: ${failure.code} failed: ${failure.error}`);
         } catch (error) {
             console.error("Portal logins failed:", error instanceof Error ? error.message : error);
@@ -341,7 +368,7 @@ export function startPortalLoginWorker() {
     runNow = tick;
     const timer = setInterval(() => void tick(), interval);
     void tick();
-    console.info(`Hackathon portal logins on (every ${Math.round(interval / 1000)}s) for ${portalUrl()}`);
+    console.info(`Event portal logins on (every ${Math.round(interval / 1000)}s): ${sites.map((s) => `${s.slug} → ${s.url}`).join(", ")}`);
     return () => {
         clearInterval(timer);
         runNow = undefined;
