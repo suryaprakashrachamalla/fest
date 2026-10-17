@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Link, useParams } from "react-router"
 import Header from "../components/Header"
 import RegistrationModal from "../components/RegistrationModal"
-import { events } from "../events"
+import { events, registrationsClosed } from "../events"
 
 // A leading "Worth" is shown smaller than the amount after it, e.g. "Worth ₹50,000+".
 function withSmallWorth(value: string) {
@@ -36,12 +36,16 @@ export default function EventPage() {
   const hasOnlineRegistration = !isWalkIn && !event.registerAt
   // Only events that need 2+ members register as a team.
   const isTeamEvent = /^[2-9]/.test(event.team ?? "")
+  const isClosed = registrationsClosed || event.registrationClosed === true
+  const closedLabel = (
+    <button type="button" className="pill-button pill-button--gold" disabled>
+      Registration closed
+    </button>
+  )
   const registerButton = (
     <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
-      {event.registrationClosed ? (
-        <button type="button" className="pill-button pill-button--gold" disabled>
-          Registration closed
-        </button>
+      {isClosed ? (
+        closedLabel
       ) : (
         <button
           type="button"
@@ -210,9 +214,13 @@ export default function EventPage() {
             {hasOnlineRegistration && !event.registerUnderFacts && registerButton}
             {event.registerUrl && (
               <div style={{ marginTop: "24px", display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center" }}>
-                <a className="pill-button pill-button--gold" href={event.registerUrl} target="_blank" rel="noopener noreferrer">
-                  Register Now <span>↗</span>
-                </a>
+                {isClosed ? (
+                  closedLabel
+                ) : (
+                  <a className="pill-button pill-button--gold" href={event.registerUrl} target="_blank" rel="noopener noreferrer">
+                    Register Now <span>↗</span>
+                  </a>
+                )}
               </div>
             )}
             {event.passSteps && (
@@ -293,7 +301,7 @@ export default function EventPage() {
 
       </main>
 
-      {hasOnlineRegistration && !event.registrationClosed && (
+      {hasOnlineRegistration && !isClosed && (
         <RegistrationModal
           event={event}
           isOpen={isRegisterOpen}

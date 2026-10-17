@@ -80,6 +80,10 @@ export type FestivalEvent = {
   tracks?: [string, string, string][]
 }
 
+// Closes registration for every event at once: all Register buttons, including external form
+// links, become a disabled "Registration closed" label.
+export const registrationsClosed = true
+
 const techImage =
   "https://images.unsplash.com/photo-1517983079452-bbaa6a081a6b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=85&w=1600"
 const codeImage =
